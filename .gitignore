@@ -1,0 +1,27 @@
+# 빌드 산출물 — 로컬 절대 경로(사용자명)가 들어간다
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+publish/
+*.pdb
+
+# IDE
+.vs/
+.idea/
+.vscode/
+*.user
+*.suo
+*.DotSettings.user
+
+# 테스트·패키지
+TestResults/
+*.nupkg
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# 로컬 Claude 설정
+.claude/settings.local.json

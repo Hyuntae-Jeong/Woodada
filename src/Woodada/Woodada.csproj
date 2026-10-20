@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>Woodada</AssemblyName>
+    <RootNamespace>Woodada</RootNamespace>
+    <Product>Woodada</Product>
+    <!-- 레이어드 창 좌표를 Win32에서 물리 픽셀로 받아 쓰므로 프로세스가 DPI를 직접 인지해야 한다. -->
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- RunCat365 (Apache-2.0) 고양이 프레임. 출처는 Assets/RunCat/LICENSE, README 참고. -->
+    <EmbeddedResource Include="Assets\RunCat\cat_running_*.png" LogicalName="RunCat.%(Filename)%(Extension)" />
+    <None Include="Assets\RunCat\LICENSE" CopyToOutputDirectory="PreserveNewest" Link="ThirdParty\RunCat365-LICENSE.txt" />
+  </ItemGroup>
+
+</Project>
