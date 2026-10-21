@@ -11,6 +11,7 @@
 ![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?logo=windows&logoColor=white)
 ![.NET](https://img.shields.io/badge/.NET-9.0-512BD4?logo=dotnet&logoColor=white)
 ![WinForms](https://img.shields.io/badge/UI-WinForms-68217A)
+![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 <img src="docs/demo.gif" alt="작업표시줄 위를 달리는 Woodada 고양이" width="100%">
 
@@ -97,3 +98,8 @@ dotnet publish src/Woodada -c Release -r win-x64 --self-contained false -p:Publi
 고양이 이미지(`src/Woodada/Assets/RunCat/cat_running_*.png`)는
 [RunCat365](https://github.com/runcat-dev/RunCat365) (runcat-dev, Apache License 2.0)에서 가져왔습니다.
 라이선스 전문: `src/Woodada/Assets/RunCat/LICENSE` (빌드 시 `ThirdParty/RunCat365-LICENSE.txt`로 복사)
+
+## 📄 라이선스
+
+Woodada의 소스 코드는 [MIT License](LICENSE)로 배포합니다.
+단, 위 고양이 이미지는 원본 라이선스(Apache License 2.0)를 따릅니다.
