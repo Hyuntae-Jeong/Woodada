@@ -8,12 +8,13 @@
 
 컴퓨터가 바빠질수록 고양이도 더 빨리 달립니다.
 
-![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?logo=windows&logoColor=white)
-![.NET](https://img.shields.io/badge/.NET-9.0-512BD4?logo=dotnet&logoColor=white)
-![WinForms](https://img.shields.io/badge/UI-WinForms-68217A)
-![License](https://img.shields.io/badge/License-MIT-yellow.svg)
+![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?logo=windows&logoColor=white) ![.NET](https://img.shields.io/badge/.NET-9.0-512BD4?logo=dotnet&logoColor=white) ![WinForms](https://img.shields.io/badge/UI-WinForms-68217A) ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 <img src="docs/demo.gif" alt="작업표시줄 위를 달리는 Woodada 고양이" width="100%">
+
+<br><br>
+
+<a href="https://github.com/Hyuntae-Jeong/Woodada/releases/latest/download/Woodada.exe"><img src="docs/download-light.svg#gh-light-mode-only" alt="Woodada 다운로드" height="64"></a><a href="https://github.com/Hyuntae-Jeong/Woodada/releases/latest/download/Woodada.exe"><img src="docs/download-dark.svg#gh-dark-mode-only" alt="Woodada 다운로드" height="64"></a>
 
 </div>
 
@@ -32,7 +33,7 @@
 
 ### 내려받기
 
-[Releases](https://github.com/Hyuntae-Jeong/Woodada/releases/latest)에서 `Woodada.exe`를 받아 원하는 폴더에 두고 실행합니다.
+[최신 `Woodada.exe`](https://github.com/Hyuntae-Jeong/Woodada/releases/latest/download/Woodada.exe)를 받아 원하는 폴더에 두고 실행합니다. 지난 버전은 [Releases](https://github.com/Hyuntae-Jeong/Woodada/releases)에 있습니다.
 .NET 런타임까지 exe 하나에 들어 있어서 따로 설치할 것은 없습니다.
 
 그다음부터는 켜질 때마다 새 버전이 있는지 확인해 묻지 않고 업데이트합니다.
