@@ -17,7 +17,8 @@ internal sealed class TrayAppContext : ApplicationContext
     private readonly SettingsStore _store = new();
     private readonly OverlayController _overlay;
     private readonly NotifyIcon _tray;
-    private readonly Icon _icon;
+    private readonly Icon _trayIcon;
+    private readonly Icon _windowIcon;
     private readonly System.Windows.Forms.Timer _tooltipTimer = new() { Interval = 1000 };
     private readonly ToolStripMenuItem _pauseItem;
     private readonly ToolStripMenuItem _startupItem;
@@ -27,7 +28,8 @@ internal sealed class TrayAppContext : ApplicationContext
     {
         MigrateLegacyStartup();
         _overlay = new OverlayController(_store);
-        _icon = CreateTrayIcon();
+        _trayIcon = LoadAppIcon(SystemInformation.SmallIconSize);
+        _windowIcon = LoadAppIcon(SystemInformation.IconSize);
 
         _pauseItem = new ToolStripMenuItem("일시정지", null, (_, _) => TogglePause());
         _startupItem = new ToolStripMenuItem("Windows 시작 시 실행", null, (_, _) => ToggleStartup())
@@ -61,7 +63,7 @@ internal sealed class TrayAppContext : ApplicationContext
 
         _tray = new NotifyIcon
         {
-            Icon = _icon,
+            Icon = _trayIcon,
             Text = "Woodada",
             ContextMenuStrip = menu,
             Visible = true,
@@ -85,7 +87,7 @@ internal sealed class TrayAppContext : ApplicationContext
             _settingsForm.Activate();
             return;
         }
-        _settingsForm = new SettingsForm(_store, _overlay.Sampler) { Icon = _icon };
+        _settingsForm = new SettingsForm(_store, _overlay.Sampler) { Icon = _windowIcon };
         _settingsForm.FormClosed += (_, _) => _settingsForm = null;
         _settingsForm.Show();
         _settingsForm.Activate();
@@ -140,28 +142,15 @@ internal sealed class TrayAppContext : ApplicationContext
         _startupItem.Checked = IsStartupEnabled();
     }
 
-    /// <summary>트레이 아이콘도 에셋 없이 고양이 스프라이트로 그린다.</summary>
-    private static Icon CreateTrayIcon()
+    /// <summary>
+    /// 앱 아이콘(Woodada.ico)에서 원하는 크기의 프레임을 꺼낸다.
+    /// 트레이는 DPI에 맞는 작은 아이콘 크기(100%: 16px, 125%: 20px …)를 요청해야 흐리지 않다.
+    /// </summary>
+    private static Icon LoadAppIcon(Size size)
     {
-        const int px = 32;
-        using var bmp = new Bitmap(px, px);
-        using (var g = Graphics.FromImage(bmp))
-        {
-            g.SmoothingMode = SmoothingMode.AntiAlias;
-            g.Clear(Color.Transparent);
-            var sprite = SpriteRegistry.Get("cat");
-            // 가로로 긴 스프라이트라 32px 칸에 가로 기준으로 맞춘다.
-            int fit = 26;
-            while (fit > 8 && sprite.Measure(fit).Width > px - 1) fit--;
-            var size = sprite.Measure(fit);
-            sprite.Draw(g, new RectangleF((px - size.Width) / 2, (px - size.Height) / 2, size.Width, size.Height),
-                new RunnerPose(1, 0.2, 0.5), ColorUtil.Parse("#F4A261", Color.Orange));
-        }
-        IntPtr h = bmp.GetHicon();
-        using var tmp = Icon.FromHandle(h);
-        var icon = (Icon)tmp.Clone();
-        NativeMethods.DestroyIcon(h);
-        return icon;
+        using var stream = typeof(TrayAppContext).Assembly.GetManifestResourceStream("Woodada.ico")
+                           ?? throw new InvalidOperationException("리소스 없음: Woodada.ico");
+        return new Icon(stream, size);
     }
 
     protected override void ExitThreadCore()
@@ -171,7 +160,8 @@ internal sealed class TrayAppContext : ApplicationContext
         _tray.Visible = false;
         _tray.Dispose();
         _overlay.Dispose();
-        _icon.Dispose();
+        _trayIcon.Dispose();
+        _windowIcon.Dispose();
         base.ExitThreadCore();
     }
 }

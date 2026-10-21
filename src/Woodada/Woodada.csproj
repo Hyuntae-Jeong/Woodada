@@ -14,11 +14,15 @@
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <!-- 탐색기·작업표시줄·Alt+Tab에 보이는 exe 아이콘 -->
+    <ApplicationIcon>Assets\Icon\Woodada.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
     <!-- RunCat365 (Apache-2.0) 고양이 프레임. 출처는 Assets/RunCat/LICENSE, README 참고. -->
     <EmbeddedResource Include="Assets\RunCat\cat_running_*.png" LogicalName="RunCat.%(Filename)%(Extension)" />
+    <!-- 트레이·설정 창이 크기별 프레임을 골라 쓰도록 같은 ico를 리소스로도 넣는다 -->
+    <EmbeddedResource Include="Assets\Icon\Woodada.ico" LogicalName="Woodada.ico" />
     <None Include="Assets\RunCat\LICENSE" CopyToOutputDirectory="PreserveNewest" Link="ThirdParty\RunCat365-LICENSE.txt" />
   </ItemGroup>
 
