@@ -14,7 +14,8 @@
 
 <br><br>
 
-<a href="https://github.com/Hyuntae-Jeong/Woodada/releases/latest/download/Woodada.exe"><img src="docs/download-light.svg#gh-light-mode-only" alt="Woodada 다운로드" height="64"></a><a href="https://github.com/Hyuntae-Jeong/Woodada/releases/latest/download/Woodada.exe"><img src="docs/download-dark.svg#gh-dark-mode-only" alt="Woodada 다운로드" height="64"></a>
+<!-- GitHub는 href가 #gh-light-mode-only / #gh-dark-mode-only로 끝나는 링크를 테마에 맞춰 숨긴다. # 뒤는 다운로드에 영향이 없다. -->
+<a href="https://github.com/Hyuntae-Jeong/Woodada/releases/latest/download/Woodada.exe#gh-light-mode-only"><img src="docs/download-light.svg" alt="Woodada 다운로드" height="64"></a><a href="https://github.com/Hyuntae-Jeong/Woodada/releases/latest/download/Woodada.exe#gh-dark-mode-only"><img src="docs/download-dark.svg" alt="Woodada 다운로드" height="64"></a>
 
 </div>
 
