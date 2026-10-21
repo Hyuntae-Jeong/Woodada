@@ -19,13 +19,18 @@ public sealed class SettingsStore
     /// <summary>설정이 바뀌면 오버레이가 다음 프레임부터 반영한다.</summary>
     public event EventHandler? Changed;
 
-    /// <summary>이름을 바꾸기 전 버전들이 쓰던 설정 폴더. 새 폴더에 설정이 없을 때만 한 번 가져온다.</summary>
-    private static readonly string[] LegacyFolders = { "Udada", "TaskbarRunner" };
+    /// <summary>
+    /// 새 폴더에 설정이 없을 때 한 번 가져올 폴더. 이름을 바꾸기 전 버전들이 쓰던 곳이고,
+    /// 개발용 빌드는 처음 띄울 때 설치된 앱의 설정을 가져와 같은 모습으로 시작한다.
+    /// </summary>
+    private static readonly string[] LegacyFolders = AppInfo.IsDev
+        ? new[] { "Woodada", "Udada", "TaskbarRunner" }
+        : new[] { "Udada", "TaskbarRunner" };
 
     public SettingsStore()
     {
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        FilePath = Path.Combine(appData, "Woodada", "settings.json");
+        FilePath = Path.Combine(AppInfo.DataFolder, "settings.json");
         MigrateLegacy(appData);
         Current = Load();
     }

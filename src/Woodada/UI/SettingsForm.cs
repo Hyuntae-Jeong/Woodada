@@ -2,12 +2,14 @@ using Woodada.Core;
 using Woodada.Interop;
 using Woodada.Settings;
 using Woodada.Sprites;
+using Woodada.Stats;
 
 namespace Woodada.UI;
 
 /// <summary>
-/// 위: 표시할 고양이 · 모니터 · 공통 옵션 / 아래: 고양이별 색·크기 + 미리보기.
+/// 설정 탭 — 위: 표시할 고양이 · 모니터 · 공통 옵션 / 아래: 고양이별 색·크기 + 미리보기.
 /// 바꾸는 즉시 오버레이에 반영하고 저장한다.
+/// 프로필 탭 — 오늘·지금까지 달린 거리를 고양이별로 보여준다.
 /// </summary>
 internal sealed class SettingsForm : Form
 {
@@ -18,9 +20,17 @@ internal sealed class SettingsForm : Form
         ("레몬", "#E6C55A"), ("체리", "#D9626B"),
     };
 
+    public enum Page { Settings, Profile }
+
     private readonly SettingsStore _store;
+    private readonly StatsStore _stats;
     private readonly MetricSampler _sampler;
     private AppSettings _working;
+
+    private readonly TabControl _tabs = new();
+    private readonly TabPage _settingsPage = new("설정");
+    private readonly TabPage _profilePage = new("프로필");
+    private readonly Button _reset = new();
 
     private readonly FlowLayoutPanel _visibility = new();
     private readonly ComboBox _monitor = new();
@@ -33,13 +43,23 @@ internal sealed class SettingsForm : Form
     private readonly RunnerPreview _preview = new();
     private bool _loading;
 
-    public SettingsForm(SettingsStore store, MetricSampler sampler)
+    private readonly Label _todayHeadline = new();
+    private readonly Label _todayCompare = new();
+    private readonly TableLayoutPanel _runnerStats = new();
+    private readonly Dictionary<string, (Label Today, Label Total)> _runnerStatLabels = new();
+    private readonly Label _totalLine = new();
+    private readonly Label _totalCompare = new();
+    private readonly Label _pitchNote = new();
+    private readonly System.Windows.Forms.Timer _profileTimer = new() { Interval = 1000 };
+
+    public SettingsForm(SettingsStore store, StatsStore stats, MetricSampler sampler)
     {
         _store = store;
+        _stats = stats;
         _sampler = sampler;
         _working = store.Current.Clone();
 
-        Text = "Woodada 설정";
+        Text = AppInfo.IsDev ? "Woodada 설정 (개발용)" : "Woodada 설정";
         AutoScaleMode = AutoScaleMode.Dpi;
         AutoScaleDimensions = new SizeF(96f, 96f);
         Font = new Font("Segoe UI", 9f);
@@ -47,14 +67,27 @@ internal sealed class SettingsForm : Form
         MaximizeBox = false;
         MinimizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
-        ClientSize = new Size(640, 560);
+        ClientSize = new Size(640, 600);
 
         BuildLayout();
         LoadAll();
 
         // 트레이 메뉴에서 표시 여부를 바꿔도 열려 있는 설정 창이 따라가게 한다.
         _store.Changed += OnStoreChanged;
-        FormClosed += (_, _) => _store.Changed -= OnStoreChanged;
+        // 프로필 탭을 보고 있는 동안엔 고양이가 달리는 만큼 숫자가 올라가게 한다.
+        _profileTimer.Tick += (_, _) => RefreshProfile();
+        FormClosed += (_, _) =>
+        {
+            _store.Changed -= OnStoreChanged;
+            _profileTimer.Dispose();
+        };
+    }
+
+    public void ShowPage(Page page)
+    {
+        _tabs.SelectedTab = page == Page.Profile ? _profilePage : _settingsPage;
+        // 창이 뜨기 전에 탭을 바꾸면 SelectedIndexChanged가 오지 않으므로 직접 맞춘다.
+        OnPageChanged();
     }
 
     private RunnerConfig? Selected => _list.SelectedItem as RunnerConfig;
@@ -64,13 +97,26 @@ internal sealed class SettingsForm : Form
     private void BuildLayout()
     {
         var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, Padding = new Padding(12) };
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         Controls.Add(root);
 
-        root.Controls.Add(BuildGeneralGroup(), 0, 0);
-        root.Controls.Add(BuildAppearanceGroup(), 0, 1);
+        var settings = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, Padding = new Padding(6) };
+        settings.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        settings.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        settings.Controls.Add(BuildGeneralGroup(), 0, 0);
+        settings.Controls.Add(BuildAppearanceGroup(), 0, 1);
+        _settingsPage.UseVisualStyleBackColor = true;
+        _settingsPage.Controls.Add(settings);
+
+        _profilePage.UseVisualStyleBackColor = true;
+        _profilePage.Controls.Add(BuildProfile());
+
+        _tabs.Dock = DockStyle.Fill;
+        _tabs.TabPages.Add(_settingsPage);
+        _tabs.TabPages.Add(_profilePage);
+        _tabs.SelectedIndexChanged += (_, _) => OnPageChanged();
+        root.Controls.Add(_tabs, 0, 0);
 
         var buttons = new FlowLayoutPanel
         {
@@ -80,12 +126,29 @@ internal sealed class SettingsForm : Form
         var close = new Button { Text = "닫기", AutoSize = true };
         close.Click += (_, _) => Close();
         buttons.Controls.Add(close);
-        var reset = new Button { Text = "선택한 고양이 기본값으로", AutoSize = true };
-        reset.Click += (_, _) => ResetSelected();
-        buttons.Controls.Add(reset);
+        _reset.Text = "선택한 고양이 기본값으로";
+        _reset.AutoSize = true;
+        _reset.Click += (_, _) => ResetSelected();
+        buttons.Controls.Add(_reset);
         AcceptButton = close;
         CancelButton = close;
-        root.Controls.Add(buttons, 0, 2);
+        root.Controls.Add(buttons, 0, 1);
+    }
+
+    private void OnPageChanged()
+    {
+        bool profile = _tabs.SelectedTab == _profilePage;
+        _reset.Visible = !profile;
+        if (profile)
+        {
+            BuildRunnerStatRows();
+            RefreshProfile();
+            _profileTimer.Start();
+        }
+        else
+        {
+            _profileTimer.Stop();
+        }
     }
 
     private GroupBox BuildGeneralGroup()
@@ -215,6 +278,120 @@ internal sealed class SettingsForm : Form
         return b;
     }
 
+    // ───────────────────────── 프로필 ─────────────────────────
+
+    private Control BuildProfile()
+    {
+        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, Padding = new Padding(20, 18, 20, 12) };
+        for (int i = 0; i < 5; i++) layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+        _todayHeadline.AutoSize = true;
+        _todayHeadline.Font = new Font("Segoe UI", 20f, FontStyle.Bold);
+        _todayHeadline.Margin = new Padding(0, 0, 0, 2);
+        layout.Controls.Add(_todayHeadline);
+
+        _todayCompare.AutoSize = true;
+        _todayCompare.Font = new Font("Segoe UI", 10f);
+        _todayCompare.ForeColor = SystemColors.GrayText;
+        _todayCompare.Margin = new Padding(2, 0, 0, 18);
+        layout.Controls.Add(_todayCompare);
+
+        var group = new GroupBox { Text = "고양이별 기록", Dock = DockStyle.Fill, AutoSize = true, Padding = new Padding(10, 6, 10, 8) };
+        _runnerStats.Dock = DockStyle.Fill;
+        _runnerStats.AutoSize = true;
+        _runnerStats.ColumnCount = 4;
+        _runnerStats.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 52));
+        _runnerStats.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        _runnerStats.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110));
+        _runnerStats.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110));
+        group.Controls.Add(_runnerStats);
+        layout.Controls.Add(group);
+
+        _totalLine.AutoSize = true;
+        _totalLine.Font = new Font("Segoe UI", 12f, FontStyle.Bold);
+        _totalLine.Margin = new Padding(2, 18, 0, 2);
+        layout.Controls.Add(_totalLine);
+
+        _totalCompare.AutoSize = true;
+        _totalCompare.Font = new Font("Segoe UI", 10f);
+        _totalCompare.ForeColor = SystemColors.GrayText;
+        _totalCompare.Margin = new Padding(2, 0, 0, 0);
+        layout.Controls.Add(_totalCompare);
+
+        layout.Controls.Add(new Panel { Dock = DockStyle.Fill });
+
+        _pitchNote.AutoSize = true;
+        _pitchNote.Font = new Font("Segoe UI", 8.5f);
+        _pitchNote.ForeColor = SystemColors.GrayText;
+        _pitchNote.Margin = new Padding(2, 8, 0, 0);
+        layout.Controls.Add(_pitchNote);
+        return layout;
+    }
+
+    /// <summary>러너 구성(색·표시 여부)이 바뀌었을 수 있으니 탭을 열 때마다 표를 새로 만든다. 숫자는 RefreshProfile이 채운다.</summary>
+    private void BuildRunnerStatRows()
+    {
+        _runnerStats.SuspendLayout();
+        foreach (Control c in _runnerStats.Controls.Cast<Control>().ToList()) c.Dispose();
+        _runnerStats.Controls.Clear();
+        _runnerStats.RowStyles.Clear();
+        _runnerStatLabels.Clear();
+
+        _runnerStats.RowCount = _working.Runners.Count + 1;
+        _runnerStats.Controls.Add(StatHeader("오늘"), 2, 0);
+        _runnerStats.Controls.Add(StatHeader("지금까지"), 3, 0);
+
+        int row = 1;
+        foreach (var r in _working.Runners)
+        {
+            _runnerStats.Controls.Add(new RunnerIcon(r) { Size = new Size(48, 34), Margin = new Padding(0, 2, 4, 2) }, 0, row);
+            _runnerStats.Controls.Add(StatCell(RunnerName(r) + (r.Enabled ? "" : " (숨김)"), ContentAlignment.MiddleLeft), 1, row);
+            var today = StatCell("", ContentAlignment.MiddleRight);
+            var total = StatCell("", ContentAlignment.MiddleRight);
+            _runnerStats.Controls.Add(today, 2, row);
+            _runnerStats.Controls.Add(total, 3, row);
+            _runnerStatLabels[r.Id] = (today, total);
+            row++;
+        }
+        _runnerStats.ResumeLayout();
+    }
+
+    private static Label StatHeader(string text) => new()
+    {
+        Text = text, TextAlign = ContentAlignment.MiddleRight, Dock = DockStyle.Fill, AutoSize = false, Height = 22,
+        ForeColor = SystemColors.GrayText, Margin = new Padding(0),
+    };
+
+    private static Label StatCell(string text, ContentAlignment align) => new()
+    {
+        Text = text, TextAlign = align, Dock = DockStyle.Fill, AutoSize = false, Height = 38,
+        Font = new Font("Segoe UI", 10.5f), Margin = new Padding(0),
+    };
+
+    private void RefreshProfile()
+    {
+        double today = _stats.TodayMillimeters();
+        _todayHeadline.Text = today > 0 ? $"오늘 {DistanceText.Format(today)} 달렸어요" : "오늘은 아직 쉬는 중이에요";
+        _todayCompare.Text = today > 0 ? DistanceText.Compare(today) : "고양이가 달리기 시작하면 여기 쌓여요";
+
+        foreach (var (id, labels) in _runnerStatLabels)
+        {
+            labels.Today.Text = DistanceText.Format(_stats.TodayMillimeters(id));
+            labels.Total.Text = DistanceText.Format(_stats.Total(id).Millimeters);
+        }
+
+        double total = _stats.TotalMillimeters();
+        _totalLine.Text = $"지금까지 총 {DistanceText.Format(total)}";
+        _totalCompare.Text = DistanceText.Compare(total);
+
+        var pitch = MonitorPitch.For(MonitorCatalog.Resolve(_working.MonitorDeviceName));
+        _pitchNote.Text = pitch.Measured
+            ? $"{pitch.MonitorName ?? "모니터"} 실제 크기({pitch.WidthMm} × {pitch.HeightMm} mm)로 계산했어요 · 1px = {pitch.MillimetersPerPixel:0.000} mm"
+            : $"모니터 크기를 알 수 없어 화면 배율로 추정했어요 · 1px ≈ {pitch.MillimetersPerPixel:0.000} mm";
+    }
+
     // ───────────────────────── 데이터 ↔ 화면 ─────────────────────────
 
     private void LoadAll()
@@ -240,6 +417,8 @@ internal sealed class SettingsForm : Form
 
             _hideFullScreen.Checked = _working.HideInFullScreen;
             LoadMonitors();
+            // 프로필을 보는 중에 트레이 메뉴로 표시 여부를 바꾸면 표의 "(숨김)"도 따라가게 한다.
+            if (_tabs.SelectedTab == _profilePage) BuildRunnerStatRows();
         }
         finally
         {

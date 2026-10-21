@@ -3,6 +3,7 @@ using Woodada.Core;
 using Woodada.Interop;
 using Woodada.Settings;
 using Woodada.Sprites;
+using Woodada.Stats;
 
 namespace Woodada.Rendering;
 
@@ -15,6 +16,7 @@ internal sealed class OverlayController : IDisposable
     private const double MaxFrameDelta = 0.25; // 절전·디버거 정지 후 돌아왔을 때 순간이동 방지
 
     private readonly SettingsStore _store;
+    private readonly StatsStore _stats;
     private readonly OverlayWindow _window = new();
     private readonly LayeredSurface _surface = new();
     private readonly System.Windows.Forms.Timer _timer = new();
@@ -24,11 +26,13 @@ internal sealed class OverlayController : IDisposable
     private double _last;
     private double _sampleAcc, _geometryAcc, _topmostAcc;
     private Runway _runway;
+    private PixelPitch _pitch;
     private bool _fullScreenApp;
 
-    public OverlayController(SettingsStore store)
+    public OverlayController(SettingsStore store, StatsStore stats)
     {
         _store = store;
+        _stats = stats;
         Sampler = new MetricSampler();
         _store.Changed += (_, _) => ApplySettings();
 
@@ -37,12 +41,20 @@ internal sealed class OverlayController : IDisposable
         _timer.Tick += (_, _) => Tick();
         _timer.Start();
         Microsoft.Win32.SystemEvents.DisplaySettingsChanged += OnDisplayChanged;
+        // 로그오프·종료 때는 앱이 정상 종료 경로를 못 탈 수 있으니 기록부터 저장한다.
+        Microsoft.Win32.SystemEvents.SessionEnding += OnSessionEnding;
     }
 
     public MetricSampler Sampler { get; }
     public bool Paused { get; set; }
 
-    private void OnDisplayChanged(object? sender, EventArgs e) => RefreshEnvironment();
+    private void OnDisplayChanged(object? sender, EventArgs e)
+    {
+        MonitorPitch.Invalidate();
+        RefreshEnvironment();
+    }
+
+    private void OnSessionEnding(object? sender, Microsoft.Win32.SessionEndingEventArgs e) => _stats.Save();
 
     /// <summary>설정이 바뀌면 러너 목록을 다시 만들되, 같은 Id 러너는 위치·방향을 유지한다.</summary>
     private void ApplySettings()
@@ -72,6 +84,7 @@ internal sealed class OverlayController : IDisposable
     private void RefreshEnvironment()
     {
         _runway = Runway.FromTaskbar(TaskbarGeometry.Query(_store.Current.MonitorDeviceName));
+        _pitch = MonitorPitch.For(MonitorCatalog.Resolve(_store.Current.MonitorDeviceName));
 
         _fullScreenApp = false;
         if (_store.Current.HideInFullScreen && NativeMethods.SHQueryUserNotificationState(out int state) == 0)
@@ -107,7 +120,14 @@ internal sealed class OverlayController : IDisposable
             return;
         }
 
-        foreach (var r in _runners) r.Update(dt, Sampler.Read(r.Config.Metric), _runway);
+        foreach (var r in _runners)
+        {
+            double moved = r.Update(dt, Sampler.Read(r.Config.Metric), _runway);
+            // 지금 달리는 모니터 기준으로 바로 환산해 둔다. 나중에 픽셀 합계를 한꺼번에 바꾸면
+            // 모니터를 옮겨 다닌 기록이 한 모니터 기준으로 뭉개진다.
+            _stats.Add(r.Config.Id, moved, moved / Math.Max(1, r.BodySize.Width), moved * _pitch.MillimetersPerPixel);
+        }
+        _stats.SaveIfDue();
         Render();
 
         _topmostAcc += dt;
@@ -151,6 +171,8 @@ internal sealed class OverlayController : IDisposable
     public void Dispose()
     {
         Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= OnDisplayChanged;
+        Microsoft.Win32.SystemEvents.SessionEnding -= OnSessionEnding;
+        _stats.Save();
         _timer.Dispose();
         _window.Dispose();
         _surface.Dispose();

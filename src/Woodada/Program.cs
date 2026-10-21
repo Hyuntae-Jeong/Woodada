@@ -11,10 +11,11 @@ internal static class Program
         if (Updater.TryRunInstaller(args)) return;
 
         // 두 번 실행하면 고양이가 겹쳐 두 배로 뛰므로 단일 인스턴스로 막는다.
-        using var mutex = new Mutex(initiallyOwned: true, @"Local\Woodada.SingleInstance", out bool isFirst);
+        using var mutex = new Mutex(initiallyOwned: true, AppInfo.MutexName, out bool isFirst);
         if (!isFirst) return;
 
-        Updater.CleanUpStaged();
+        // 개발용 앱이 설치된 앱의 업데이트 임시 파일을 지우면 안 된다.
+        if (!AppInfo.IsDev) Updater.CleanUpStaged();
 
         ApplicationConfiguration.Initialize();
         Application.Run(new TrayAppContext(

@@ -29,6 +29,7 @@
 - 🎮 **전체 화면에서는 숨기** — 게임이나 발표 중에는 알아서 사라집니다.
 - 🪶 **가볍게 상주** — 트레이 아이콘으로만 떠 있고, 클릭은 고양이를 통과해 아래 창으로 그대로 전달됩니다.
 - 🔄 **자동 업데이트** — 켜질 때마다 새 릴리즈를 확인해, 있으면 알아서 바꿔 끼우고 다시 실행합니다.
+- 📏 **달린 거리 기록** — 모니터 실제 크기로 환산해 "오늘 1.2 km 달렸어요"처럼 고양이별·전체 거리를 보여줍니다.
 
 ## 🚀 시작하기
 
@@ -46,7 +47,25 @@ exe는 쓰기 권한이 있는 폴더(예: 바탕 화면, `%LOCALAPPDATA%`)에 �
 필요한 것:
 
 - Windows 10 / 11
-- [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)
+- [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0) (없으면 `dev.cmd`가 `%LOCALAPPDATA%\Woodada-dev\dotnet`에 받아 쓸지 물어봅니다)
+
+#### 개발용으로 실행 (`dev.cmd`)
+
+저장소 루트의 `dev.cmd`를 더블클릭하면 지금 소스를 Debug로 빌드해 **개발용 Woodada**를 설정 창과 함께 띄웁니다.
+이미 떠 있는 개발용 앱은 닫고 새로 띄우므로, 고친 뒤 다시 누르기만 하면 됩니다.
+
+```bash
+.\dev.cmd
+```
+
+개발용 앱(Debug 빌드)은 설치해서 쓰는 Woodada와 동시에 띄울 수 있도록 따로 동작합니다.
+
+| | 설치된 앱 (Release) | 개발용 앱 (Debug) |
+|---|---|---|
+| 설정·달린 기록 | `%APPDATA%\Woodada` | `%APPDATA%\Woodada-dev` (처음 한 번 설치된 앱의 설정을 복사) |
+| Windows 시작 시 실행 | `Woodada` | `Woodada-dev` (서로 덮어쓰지 않음) |
+| 자동 업데이트 | 함 | 안 함 |
+| 표시 | — | 트레이 툴팁 `[DEV]`, 창 제목 "(개발용)" |
 
 #### 바로 실행
 
@@ -73,14 +92,19 @@ dotnet publish src/Woodada -c Release -r win-x64 --self-contained true -p:Publis
 | 동작 | 결과 |
 |---|---|
 | 트레이 아이콘 **왼쪽 클릭** | 설정 창 열기 |
-| 트레이 아이콘 **오른쪽 클릭** | 설정 · 고양이별 표시 · 일시정지 · Windows 시작 시 실행 · 종료 |
+| 트레이 아이콘 **오른쪽 클릭** | 설정 · 프로필 · 고양이별 표시 · 일시정지 · Windows 시작 시 실행 · 종료 |
 
 **설정 창**
 
 - **일반** — 표시할 고양이(CPU / 메모리), 달릴 모니터, 전체 화면 앱 실행 중 숨기기
 - **고양이별 모양** — 색, 크기, 실시간 미리보기
 
-설정은 바꾸는 즉시 반영되고 `%APPDATA%\Woodada\settings.json`에 저장됩니다.
+**프로필 탭**
+
+- 오늘 달린 거리와 지금까지 달린 거리를 고양이별·전체로 보여줍니다.
+- 거리는 모니터가 알려주는 실제 패널 크기(EDID)를 지금 해상도로 나눠 1px의 길이를 구해 계산합니다. 크기를 알 수 없는 화면(TV·프로젝터·원격 데스크톱 등)은 화면 배율로 추정합니다.
+
+설정은 바꾸는 즉시 반영되고 `%APPDATA%\Woodada\settings.json`에 저장됩니다. 달린 기록은 `%APPDATA%\Woodada\stats.json`에 30초마다, 그리고 종료할 때 저장됩니다.
 
 ## 🧩 구조
 
@@ -89,11 +113,13 @@ dotnet publish src/Woodada -c Release -r win-x64 --self-contained true -p:Publis
 | `Core/MetricSampler` | `GetSystemTimes`·`GlobalMemoryStatusEx`로 CPU/메모리 % 수집 (0.5초 주기) |
 | `Core/RunnerState.Advance` | 사용률 → 속도 환산, 왕복(벽 반사), 이동 거리 기반 보행 위상 |
 | `Core/Track` | 작업표시줄 위치(아래/위/좌/우)별 달리기 띠, 속도 프로파일 |
+| `Interop/MonitorPitch` | EDID의 패널 크기(mm) ÷ 현재 해상도로 1px 길이 계산, 없으면 화면 배율로 추정 |
 | `Interop/TaskbarGeometry` | 모니터별 작업표시줄(`Shell_TrayWnd` / `Shell_SecondaryTrayWnd`) 위치·가장자리 조회, `MonitorCatalog` |
 | `Rendering/OverlayController` | 30fps 프레임 루프, 전체 화면 앱 감지 시 숨김 |
 | `Rendering/OverlayWindow`, `LayeredSurface` | 클릭 통과 레이어드 창 + premultiplied DIB |
 | `Sprites/RunCatSprite` | RunCat 고양이 5프레임을 알파 마스크로 써서 원하는 색으로 칠함, 눈 구멍은 흰색으로 채움 |
-| `UI/SettingsForm` | 러너별 표시 여부·색·크기, 실시간 미리보기 |
+| `Stats/StatsStore` | 러너별 달린 양(px·몸 길이·mm)과 날짜별 거리 누적·저장 |
+| `UI/SettingsForm` | 설정 탭(러너별 표시 여부·색·크기, 실시간 미리보기) · 프로필 탭(오늘·누적 거리) |
 | `Update/Updater` | 시작 시 최신 릴리즈 확인 → 새 `Woodada.exe`를 임시 폴더에 받아 검증(크기·SHA-256·버전) → 그 exe를 설치 모드로 띄우고 종료 → 설치 모드가 설치 위치의 exe를 교체하고 재실행 |
 
 ### 새 러너 추가하기

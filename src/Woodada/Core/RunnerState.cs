@@ -18,11 +18,13 @@ public sealed class RunnerState
     /// <summary>0~1. 스프라이트가 보폭·몸 기울기를 키우는 데 쓴다.</summary>
     public double Intensity { get; private set; }
 
-    public void Advance(double dt, double usagePercent, TrackBounds track, SpeedProfile profile)
+    /// <returns>이번에 실제로 달린 거리(px). 벽에서 돌아선 구간도 포함하고, 제자리 달리기는 0이다.</returns>
+    public double Advance(double dt, double usagePercent, TrackBounds track, SpeedProfile profile)
     {
         Intensity = Math.Clamp(usagePercent / 100.0, 0, 1);
         Speed = profile.Min + (profile.Max - profile.Min) * Math.Pow(Intensity, profile.Gamma);
 
+        double moved = 0;
         if (track.Width <= 0)
         {
             // 작업표시줄이 러너보다 좁으면 제자리 달리기.
@@ -39,10 +41,12 @@ public sealed class RunnerState
                 else { x = 2 * track.MinX - x; Direction = 1; }
             }
             X = Math.Clamp(x, track.MinX, track.MaxX);
+            moved = Speed * dt;
         }
 
         // 시간이 아니라 이동 거리에 비례시켜야 발이 바닥에서 미끄러지지 않는다.
         double cycles = Speed * dt / Math.Max(1, profile.BodyWidth) * profile.StridesPerBody;
         GaitPhase = (GaitPhase + cycles) % 1.0;
+        return moved;
     }
 }

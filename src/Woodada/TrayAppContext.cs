@@ -4,6 +4,7 @@ using Woodada.Interop;
 using Woodada.Rendering;
 using Woodada.Settings;
 using Woodada.Sprites;
+using Woodada.Stats;
 using Woodada.UI;
 using Woodada.Update;
 
@@ -13,9 +14,10 @@ namespace Woodada;
 internal sealed class TrayAppContext : ApplicationContext
 {
     private const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
-    private const string RunValueName = "Woodada";
+    private const string RunValueName = AppInfo.StartupValueName;
 
     private readonly SettingsStore _store = new();
+    private readonly StatsStore _stats = new();
     private readonly OverlayController _overlay;
     private readonly NotifyIcon _tray;
     private readonly Icon _trayIcon;
@@ -29,7 +31,7 @@ internal sealed class TrayAppContext : ApplicationContext
     public TrayAppContext(bool openSettings = false, bool updated = false, bool checkForUpdate = true)
     {
         MigrateLegacyStartup();
-        _overlay = new OverlayController(_store);
+        _overlay = new OverlayController(_store, _stats);
         _trayIcon = LoadAppIcon(SystemInformation.SmallIconSize);
         _windowIcon = LoadAppIcon(SystemInformation.IconSize);
 
@@ -41,6 +43,7 @@ internal sealed class TrayAppContext : ApplicationContext
 
         var menu = new ContextMenuStrip();
         menu.Items.Add(new ToolStripMenuItem("설정…", null, (_, _) => ShowSettings()) { Font = new Font(menu.Font, FontStyle.Bold) });
+        menu.Items.Add(new ToolStripMenuItem("프로필…", null, (_, _) => ShowSettings(SettingsForm.Page.Profile)));
         menu.Items.Add(new ToolStripSeparator());
         int runnerSlot = menu.Items.Count; // 고양이 표시 토글은 메뉴를 열 때마다 현재 설정으로 다시 만든다
         menu.Items.Add(new ToolStripSeparator());
@@ -66,7 +69,7 @@ internal sealed class TrayAppContext : ApplicationContext
         _tray = new NotifyIcon
         {
             Icon = _trayIcon,
-            Text = "Woodada",
+            Text = AppInfo.Tag + "Woodada",
             ContextMenuStrip = menu,
             Visible = true,
         };
@@ -76,7 +79,7 @@ internal sealed class TrayAppContext : ApplicationContext
         };
 
         _tooltipTimer.Tick += (_, _) =>
-            _tray.Text = $"CPU {_overlay.Sampler.Cpu:0}% · Memory {_overlay.Sampler.Memory:0}%";
+            _tray.Text = $"{AppInfo.Tag}CPU {_overlay.Sampler.Cpu:0}% · Memory {_overlay.Sampler.Memory:0}%";
         _tooltipTimer.Start();
 
         if (openSettings) ShowSettings();
@@ -106,14 +109,16 @@ internal sealed class TrayAppContext : ApplicationContext
         }
     }
 
-    private void ShowSettings()
+    private void ShowSettings(SettingsForm.Page page = SettingsForm.Page.Settings)
     {
         if (_settingsForm is { IsDisposed: false })
         {
+            _settingsForm.ShowPage(page);
             _settingsForm.Activate();
             return;
         }
-        _settingsForm = new SettingsForm(_store, _overlay.Sampler) { Icon = _windowIcon };
+        _settingsForm = new SettingsForm(_store, _stats, _overlay.Sampler) { Icon = _windowIcon };
+        _settingsForm.ShowPage(page);
         _settingsForm.FormClosed += (_, _) => _settingsForm = null;
         _settingsForm.Show();
         _settingsForm.Activate();
@@ -140,6 +145,7 @@ internal sealed class TrayAppContext : ApplicationContext
     /// </summary>
     private static void MigrateLegacyStartup()
     {
+        if (AppInfo.IsDev) return; // 진짜 앱의 시작 프로그램 등록은 진짜 앱만 정리한다
         string[] legacyNames = { "Udada", "TaskbarRunner" };
         using var key = Registry.CurrentUser.OpenSubKey(RunKeyPath, writable: true);
         if (key is null) return;

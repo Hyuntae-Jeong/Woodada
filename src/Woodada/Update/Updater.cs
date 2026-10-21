@@ -51,8 +51,7 @@ internal static class Updater
 
     private static readonly string WorkDir = Path.Combine(Path.GetTempPath(), "Woodada-update");
 
-    private static readonly string LogPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Woodada", "update.log");
+    private static readonly string LogPath = Path.Combine(AppInfo.DataFolder, "update.log");
 
     /// <summary>로컬 빌드(0.0.0)나 dotnet run은 릴리즈로 덮어쓰면 안 되므로 업데이트하지 않는다.</summary>
     private static bool IsReleaseBuild => Current > new Version(0, 0, 0);
