@@ -76,7 +76,7 @@ internal sealed class TrayAppContext : ApplicationContext
         };
 
         _tooltipTimer.Tick += (_, _) =>
-            _tray.Text = $"Woodada — CPU {_overlay.Sampler.Cpu:0}% · 메모리 {_overlay.Sampler.Memory:0}%";
+            _tray.Text = $"CPU {_overlay.Sampler.Cpu:0}% · Memory {_overlay.Sampler.Memory:0}%";
         _tooltipTimer.Start();
 
         if (openSettings) ShowSettings();
