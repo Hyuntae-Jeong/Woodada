@@ -76,7 +76,9 @@ internal sealed class SettingsForm : Form
         {
             Dock = DockStyle.Fill, AutoSize = true, FlowDirection = FlowDirection.RightToLeft, Margin = new Padding(0, 8, 0, 0),
         };
-        var close = new Button { Text = "닫기", AutoSize = true, DialogResult = DialogResult.OK };
+        // 모달이 아닌 창(Show)이라 DialogResult만으로는 닫히지 않는다. 직접 Close 한다.
+        var close = new Button { Text = "닫기", AutoSize = true };
+        close.Click += (_, _) => Close();
         buttons.Controls.Add(close);
         var reset = new Button { Text = "선택한 고양이 기본값으로", AutoSize = true };
         reset.Click += (_, _) => ResetSelected();
