@@ -26,15 +26,27 @@
 - 🖥️ **멀티 모니터** — 달릴 모니터를 고를 수 있고, 작업표시줄이 아래·위·왼쪽·오른쪽 어디에 있어도 그 가장자리를 따라 달립니다.
 - 🎮 **전체 화면에서는 숨기** — 게임이나 발표 중에는 알아서 사라집니다.
 - 🪶 **가볍게 상주** — 트레이 아이콘으로만 떠 있고, 클릭은 고양이를 통과해 아래 창으로 그대로 전달됩니다.
+- 🔄 **자동 업데이트** — 켜질 때마다 새 릴리즈를 확인해, 있으면 알아서 바꿔 끼우고 다시 실행합니다.
 
 ## 🚀 시작하기
 
-### 필요한 것
+### 내려받기
+
+[Releases](https://github.com/Hyuntae-Jeong/Woodada/releases/latest)에서 `Woodada.exe`를 받아 원하는 폴더에 두고 실행합니다.
+.NET 런타임까지 exe 하나에 들어 있어서 따로 설치할 것은 없습니다.
+
+그다음부터는 켜질 때마다 새 버전이 있는지 확인해 묻지 않고 업데이트합니다.
+exe는 쓰기 권한이 있는 폴더(예: 바탕 화면, `%LOCALAPPDATA%`)에 두세요. `Program Files`처럼 권한이 없는 곳에서는 업데이트를 건너뜁니다.
+확인·업데이트 기록은 `%APPDATA%\Woodada\update.log`에 남습니다.
+
+### 직접 빌드하기
+
+필요한 것:
 
 - Windows 10 / 11
-- [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0) (실행만 할 때는 .NET 9 Desktop Runtime)
+- [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)
 
-### 바로 실행
+#### 바로 실행
 
 ```bash
 dotnet run --project src/Woodada
@@ -46,13 +58,13 @@ dotnet run --project src/Woodada
 dotnet run --project src/Woodada -- --settings
 ```
 
-### exe 하나로 만들기
+#### exe 하나로 만들기
 
 ```bash
-dotnet publish src/Woodada -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true
+dotnet publish src/Woodada -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true
 ```
 
-`src/Woodada/bin/Release/net9.0-windows/win-x64/publish/Woodada.exe`가 만들어집니다.
+`src/Woodada/bin/Release/net9.0-windows/win-x64/publish/Woodada.exe`가 만들어집니다. 릴리즈와 같은 방식으로, .NET 런타임이 들어 있어 어느 PC에서나 exe 하나로 실행됩니다(약 46MB).
 
 ## 🕹️ 사용법
 
@@ -80,12 +92,29 @@ dotnet publish src/Woodada -c Release -r win-x64 --self-contained false -p:Publi
 | `Rendering/OverlayWindow`, `LayeredSurface` | 클릭 통과 레이어드 창 + premultiplied DIB |
 | `Sprites/RunCatSprite` | RunCat 고양이 5프레임을 알파 마스크로 써서 원하는 색으로 칠함, 눈 구멍은 흰색으로 채움 |
 | `UI/SettingsForm` | 러너별 표시 여부·색·크기, 실시간 미리보기 |
+| `Update/Updater` | 시작 시 최신 릴리즈 확인 → 새 `Woodada.exe`를 임시 폴더에 받아 검증(크기·SHA-256·버전) → 그 exe를 설치 모드로 띄우고 종료 → 설치 모드가 설치 위치의 exe를 교체하고 재실행 |
 
 ### 새 러너 추가하기
 
 1. `Sprites/IRunnerSprite`를 구현합니다 (`Measure`, `Draw`).
 2. `Sprites/SpriteRegistry`에 등록합니다.
 3. `Settings/AppSettings.CreateDefault`에 `RunnerConfig`를 추가합니다 (`SpriteId`로 연결).
+
+## 📦 릴리즈
+
+`vX.Y.Z` 형식의 태그를 푸시하면 GitHub Actions(`.github/workflows/release.yml`)가 `Woodada.exe`를 빌드해 릴리즈에 올립니다.
+
+```bash
+git tag v1.0.0
+```
+
+```bash
+git push origin v1.0.0
+```
+
+- 태그 버전이 exe 버전이 됩니다. 저장소의 기본 버전은 `0.0.0`이고, 이 버전인 로컬 빌드는 자동 업데이트를 하지 않습니다.
+- 릴리즈 노트는 이전 태그 이후의 커밋 제목으로 채워집니다.
+- Actions 탭에서 수동 실행(workflow_dispatch)하면 릴리즈 없이 빌드만 점검합니다.
 
 ## 📌 알아둘 점
 

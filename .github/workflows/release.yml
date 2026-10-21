@@ -1,0 +1,97 @@
+name: Release
+
+# vX.Y.Z 태그를 푸시하면 Woodada.exe를 빌드해 GitHub 릴리즈에 올립니다.
+# 설치된 앱은 켜질 때마다 최신 릴리즈를 확인해 이 exe로 스스로 바꿔 끼웁니다
+# (src/Woodada/Update/Updater.cs — 릴리즈 파일 이름 Woodada.exe가 양쪽에서 같아야 합니다).
+# workflow_dispatch로 수동 실행하면 빌드만 하고 릴리즈는 건너뜁니다 — 빌드 점검용.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # 릴리즈 노트에 이전 태그 이후 커밋을 적기 위해 전체 기록과 태그를 받습니다
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      # 태그 vX.Y.Z → 버전 X.Y.Z. 앱이 System.Version으로 비교하므로 이 형식만 받습니다.
+      # 태그 없이 돌린 빌드 점검은 0.0.0이 되고, 그 exe는 자동 업데이트를 하지 않습니다.
+      - name: Resolve version
+        id: version
+        shell: bash
+        run: |
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            if [[ ! "$GITHUB_REF_NAME" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+              echo "::error::태그는 vX.Y.Z 형식이어야 합니다: $GITHUB_REF_NAME"
+              exit 1
+            fi
+            version="${BASH_REMATCH[1]}"
+          else
+            version="0.0.0"
+          fi
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+          echo "version: $version"
+
+      # .NET 런타임까지 exe 하나에 담아(self-contained) 사용자 PC에 아무것도 설치돼 있지 않아도 실행되게 합니다.
+      # 압축하지 않으면 약 100MB, 압축하면 약 46MB입니다. WinForms는 트리밍을 지원하지 않아 더 줄이기 어렵습니다.
+      - name: Publish Woodada.exe
+        run: >
+          dotnet publish src/Woodada -c Release -r win-x64 --self-contained true
+          -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:EnableCompressionInSingleFile=true -p:DebugType=none
+          -p:Version=${{ steps.version.outputs.value }}
+          -o publish
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Woodada
+          path: publish/Woodada.exe
+
+      # 릴리즈 본문 = 이전 태그 이후 커밋 제목 목록 + 설치 안내.
+      - name: Build release notes
+        if: github.ref_type == 'tag'
+        shell: bash
+        run: |
+          tag="$GITHUB_REF_NAME"
+          prev=$(git describe --tags --abbrev=0 --match 'v*' "$tag^" 2>/dev/null || true)
+          if [ -n "$prev" ]; then
+            range="$prev..$tag"
+            compare="https://github.com/$GITHUB_REPOSITORY/compare/$prev...$tag"
+          else
+            range="$tag"
+            compare="https://github.com/$GITHUB_REPOSITORY/commits/$tag"
+          fi
+          {
+            echo "## 변경 사항"
+            echo
+            git log --no-merges --pretty='- %s' "$range"
+            echo
+            echo "## 설치"
+            echo
+            echo "\`Woodada.exe\`를 받아 원하는 폴더에 두고 실행하세요. 따로 설치할 것은 없습니다."
+            echo "한 번 설치하면 앱이 켜질 때마다 새 버전을 확인해 자동으로 업데이트합니다."
+            echo
+            echo "고양이 이미지는 [RunCat365](https://github.com/runcat-dev/RunCat365)에서 가져왔으며 [Apache License 2.0](https://github.com/$GITHUB_REPOSITORY/blob/$tag/src/Woodada/Assets/RunCat/LICENSE)을 따릅니다."
+            echo
+            echo "**전체 변경 내역**: $compare"
+          } > RELEASE_BODY.md
+          cat RELEASE_BODY.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Create release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: publish/Woodada.exe
+          fail_on_unmatched_files: true
+          body_path: RELEASE_BODY.md

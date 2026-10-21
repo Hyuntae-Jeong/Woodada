@@ -10,6 +10,8 @@
     <AssemblyName>Woodada</AssemblyName>
     <RootNamespace>Woodada</RootNamespace>
     <Product>Woodada</Product>
+    <!-- 릴리즈 CI가 태그(vX.Y.Z)로 덮어쓴다. 0.0.0인 로컬 빌드는 자동 업데이트를 하지 않는다. -->
+    <Version>0.0.0</Version>
     <!-- 레이어드 창 좌표를 Win32에서 물리 픽셀로 받아 쓰므로 프로세스가 DPI를 직접 인지해야 한다. -->
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
@@ -23,6 +25,8 @@
     <EmbeddedResource Include="Assets\RunCat\cat_running_*.png" LogicalName="RunCat.%(Filename)%(Extension)" />
     <!-- 트레이·설정 창이 크기별 프레임을 골라 쓰도록 같은 ico를 리소스로도 넣는다 -->
     <EmbeddedResource Include="Assets\Icon\Woodada.ico" LogicalName="Woodada.ico" />
+    <!-- 릴리즈는 exe 하나만 배포하므로 Apache-2.0 라이선스 전문을 exe 안에도 담아 함께 나가게 한다. -->
+    <EmbeddedResource Include="Assets\RunCat\LICENSE" LogicalName="ThirdParty.RunCat365-LICENSE.txt" />
     <None Include="Assets\RunCat\LICENSE" CopyToOutputDirectory="PreserveNewest" Link="ThirdParty\RunCat365-LICENSE.txt" />
   </ItemGroup>
 

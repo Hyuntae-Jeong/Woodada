@@ -5,6 +5,7 @@ using Woodada.Rendering;
 using Woodada.Settings;
 using Woodada.Sprites;
 using Woodada.UI;
+using Woodada.Update;
 
 namespace Woodada;
 
@@ -22,9 +23,10 @@ internal sealed class TrayAppContext : ApplicationContext
     private readonly System.Windows.Forms.Timer _tooltipTimer = new() { Interval = 1000 };
     private readonly ToolStripMenuItem _pauseItem;
     private readonly ToolStripMenuItem _startupItem;
+    private readonly CancellationTokenSource _updateCts = new();
     private SettingsForm? _settingsForm;
 
-    public TrayAppContext(bool openSettings = false)
+    public TrayAppContext(bool openSettings = false, bool updated = false, bool checkForUpdate = true)
     {
         MigrateLegacyStartup();
         _overlay = new OverlayController(_store);
@@ -78,6 +80,30 @@ internal sealed class TrayAppContext : ApplicationContext
         _tooltipTimer.Start();
 
         if (openSettings) ShowSettings();
+        if (updated)
+            _tray.ShowBalloonTip(3000, "Woodada", $"v{Updater.Current.ToString(3)}(으)로 업데이트했어요.", ToolTipIcon.Info);
+
+        if (checkForUpdate) _ = UpdateInBackgroundAsync();
+    }
+
+    /// <summary>
+    /// 켜질 때마다 새 릴리즈를 확인해, 있으면 묻지 않고 바꿔 끼운 뒤 다시 실행한다.
+    /// 내려받기는 백그라운드에서 하고, 설치 단계로 넘기고 종료하는 건 UI 스레드에서 한다.
+    /// 실제 exe 교체는 이 프로세스가 끝난 뒤 설치 단계(Updater.TryRunInstaller)가 한다.
+    /// </summary>
+    private async Task UpdateInBackgroundAsync()
+    {
+        try
+        {
+            var staged = await Task.Run(() => Updater.PrepareAsync(_updateCts.Token));
+            if (staged is null || _updateCts.IsCancellationRequested) return;
+            if (Updater.StartInstaller(staged)) ExitThread();
+        }
+        catch (Exception ex)
+        {
+            // 버려진 Task라 여기서 잡지 않으면 실패가 아무 흔적 없이 사라진다. 앱은 지금 버전으로 계속 돈다.
+            Updater.Log($"자동 업데이트 실패: {ex.Message}");
+        }
     }
 
     private void ShowSettings()
@@ -155,6 +181,7 @@ internal sealed class TrayAppContext : ApplicationContext
 
     protected override void ExitThreadCore()
     {
+        _updateCts.Cancel();
         _tooltipTimer.Dispose();
         _settingsForm?.Close();
         _tray.Visible = false;
