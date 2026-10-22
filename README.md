@@ -10,6 +10,7 @@
 
 ![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?logo=windows&logoColor=white) ![.NET](https://img.shields.io/badge/.NET-9.0-512BD4?logo=dotnet&logoColor=white) ![WinForms](https://img.shields.io/badge/UI-WinForms-68217A) ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 
+<br>
 <img src="docs/demo.gif" alt="작업표시줄 위를 달리는 Woodada 고양이" width="100%">
 
 <br><br>
