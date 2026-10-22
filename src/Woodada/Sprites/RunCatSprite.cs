@@ -13,7 +13,7 @@ namespace Woodada.Sprites;
 public sealed class RunCatSprite : IRunnerSprite
 {
     private const int FrameCount = 5;
-    private const int MaxCacheEntries = 24;
+    private const int MaxCacheEntries = 64; // 설정 창의 색 칸(20개)과 미리보기를 함께 그려도 넘치지 않게
 
     private readonly FrameMask[] _masks;
     private readonly Size _crop;

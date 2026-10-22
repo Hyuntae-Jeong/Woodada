@@ -50,14 +50,17 @@ internal sealed class RunnerPreview : Control
     protected override void OnPaint(PaintEventArgs e)
     {
         var g = e.Graphics;
-        g.Clear(BackColor);
+        var p = Theme.Current;
+        // 고양이 색이 바탕과 비슷하면(밝은 테마의 하양 고양이, 어두운 테마의 까망 고양이) 대비가 나는 바탕을 깐다.
+        bool alt = GameArt.LowContrast(RunnerColor, p.PreviewBack);
+        g.Clear(alt ? p.PreviewAltBack : p.PreviewBack);
 
         // 작업표시줄 흉내: 아래쪽에 띠를 깔고 그 윗선 위를 달린다.
         int barHeight = Math.Min(Height / 3, 36);
         var bar = new Rectangle(0, Height - barHeight, Width, barHeight);
-        using (var barBrush = new SolidBrush(Color.FromArgb(255, 238, 236, 233)))
+        using (var barBrush = new SolidBrush(alt ? p.PreviewAltBar : p.PreviewBar))
             g.FillRectangle(barBrush, bar);
-        using (var linePen = new Pen(Color.FromArgb(255, 214, 211, 206)))
+        using (var linePen = new Pen(alt ? p.PreviewAltLine : p.PreviewLine))
             g.DrawLine(linePen, 0, bar.Top, Width, bar.Top);
 
         var size = Sprite.Measure(RunnerSize);
@@ -65,7 +68,7 @@ internal sealed class RunnerPreview : Control
         Sprite.Draw(g, box, new RunnerPose(_state.Direction, _state.GaitPhase, _state.Intensity), RunnerColor);
 
         using var font = new Font(Font.FontFamily, 8.5f);
-        using var textBrush = new SolidBrush(Color.FromArgb(255, 110, 106, 100));
+        using var textBrush = new SolidBrush(p.PreviewText);
         g.DrawString($"{_usage:0}%  ·  {_state.Speed:0} px/s", font, textBrush, 8, bar.Top + 6);
     }
 

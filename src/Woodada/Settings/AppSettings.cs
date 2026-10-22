@@ -8,6 +8,9 @@ public sealed class AppSettings
     public const int MinSize = 16;
     public const int MaxSize = 72;
 
+    /// <summary>까망. 색이 깨졌을 때도 이 색으로 돌린다. 무료 색이라 잠금에 걸리지 않는다.</summary>
+    public const string DefaultColor = "#1E1E22";
+
     /// <summary>오버레이 갱신 주기. 상주 앱이라 60보다 30이 CPU에 덜 부담된다.</summary>
     public int FramesPerSecond { get; set; } = 30;
 
@@ -23,8 +26,9 @@ public sealed class AppSettings
     {
         Runners =
         {
-            new RunnerConfig { Id = "cpu",    Metric = MetricKind.Cpu,    SpriteId = "cat", Color = "#F4A261", Size = 28, Enabled = true },
-            new RunnerConfig { Id = "memory", Metric = MetricKind.Memory, SpriteId = "cat", Color = "#6D8BA8", Size = 28, Enabled = true },
+            // 처음부터 갖고 있는 색은 까망·하양뿐이다. 나머지는 생선으로 잠금 해제한다(RewardCatalog).
+            new RunnerConfig { Id = "cpu",    Metric = MetricKind.Cpu,    SpriteId = "cat", Color = DefaultColor, Size = 28, Enabled = true },
+            new RunnerConfig { Id = "memory", Metric = MetricKind.Memory, SpriteId = "cat", Color = "#ECE7DF", Size = 28, Enabled = true },
         },
     };
 
@@ -43,7 +47,7 @@ public sealed class AppSettings
         {
             r.Size = Math.Clamp(r.Size, MinSize, MaxSize);
             if (string.IsNullOrWhiteSpace(r.SpriteId)) r.SpriteId = "cat";
-            if (!ColorUtil.TryParse(r.Color, out _)) r.Color = "#F4A261";
+            if (!ColorUtil.TryParse(r.Color, out _)) r.Color = DefaultColor;
         }
         FramesPerSecond = Math.Clamp(FramesPerSecond, 10, 60);
     }
@@ -60,7 +64,7 @@ public sealed class RunnerConfig
     /// <summary>스프라이트 종류. 지금은 "cat"만 있다. 다른 러너는 SpriteRegistry에 등록.</summary>
     public string SpriteId { get; set; } = "cat";
     public bool Enabled { get; set; } = true;
-    public string Color { get; set; } = "#F4A261";
+    public string Color { get; set; } = AppSettings.DefaultColor;
     /// <summary>러너 높이(px, 물리 픽셀).</summary>
     public int Size { get; set; } = 28;
 }

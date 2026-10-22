@@ -2,6 +2,7 @@ using System.Drawing.Drawing2D;
 using Microsoft.Win32;
 using Woodada.Interop;
 using Woodada.Rendering;
+using Woodada.Rewards;
 using Woodada.Settings;
 using Woodada.Sprites;
 using Woodada.Stats;
@@ -18,6 +19,7 @@ internal sealed class TrayAppContext : ApplicationContext
 
     private readonly SettingsStore _store = new();
     private readonly StatsStore _stats = new();
+    private readonly RewardStore _rewards;
     private readonly OverlayController _overlay;
     private readonly NotifyIcon _tray;
     private readonly Icon _trayIcon;
@@ -31,6 +33,8 @@ internal sealed class TrayAppContext : ApplicationContext
     public TrayAppContext(bool openSettings = false, bool updated = false, bool checkForUpdate = true)
     {
         MigrateLegacyStartup();
+        _rewards = new RewardStore(_stats);
+        _rewards.GrantStartingItems(_store.Current);
         _overlay = new OverlayController(_store, _stats);
         _trayIcon = LoadAppIcon(SystemInformation.SmallIconSize);
         _windowIcon = LoadAppIcon(SystemInformation.IconSize);
@@ -43,7 +47,7 @@ internal sealed class TrayAppContext : ApplicationContext
 
         var menu = new ContextMenuStrip();
         menu.Items.Add(new ToolStripMenuItem("설정…", null, (_, _) => ShowSettings()) { Font = new Font(menu.Font, FontStyle.Bold) });
-        menu.Items.Add(new ToolStripMenuItem("프로필…", null, (_, _) => ShowSettings(SettingsForm.Page.Profile)));
+        menu.Items.Add(new ToolStripMenuItem("기록…", null, (_, _) => ShowSettings(SettingsForm.Page.Profile)));
         menu.Items.Add(new ToolStripSeparator());
         int runnerSlot = menu.Items.Count; // 고양이 표시 토글은 메뉴를 열 때마다 현재 설정으로 다시 만든다
         menu.Items.Add(new ToolStripSeparator());
@@ -109,7 +113,7 @@ internal sealed class TrayAppContext : ApplicationContext
         }
     }
 
-    private void ShowSettings(SettingsForm.Page page = SettingsForm.Page.Settings)
+    private void ShowSettings(SettingsForm.Page page = SettingsForm.Page.Cats)
     {
         if (_settingsForm is { IsDisposed: false })
         {
@@ -117,7 +121,7 @@ internal sealed class TrayAppContext : ApplicationContext
             _settingsForm.Activate();
             return;
         }
-        _settingsForm = new SettingsForm(_store, _stats, _overlay.Sampler) { Icon = _windowIcon };
+        _settingsForm = new SettingsForm(_store, _stats, _rewards, _overlay.Sampler) { Icon = _windowIcon };
         _settingsForm.ShowPage(page);
         _settingsForm.FormClosed += (_, _) => _settingsForm = null;
         _settingsForm.Show();
