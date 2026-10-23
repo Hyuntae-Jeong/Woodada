@@ -1,4 +1,6 @@
-using System.Drawing.Drawing2D;
+using Avalonia;
+using Avalonia.Input;
+using Avalonia.Media;
 
 namespace Woodada.UI;
 
@@ -19,30 +21,32 @@ internal enum TileState
 }
 
 /// <summary>상점 칸 하나. 위에는 그림, 아래에는 이름과(잠겼으면) 생선 가격.</summary>
-internal sealed class ShopTile : Control
+internal sealed class ShopTile : ClickableControl
 {
     private TileState _state;
-    private bool _hover;
+    private bool _previewing;
+    private Action<DrawingContext, Rect, double>? _art;
 
     public ShopTile()
     {
-        SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer |
-                 ControlStyles.UserPaint | ControlStyles.ResizeRedraw | ControlStyles.SupportsTransparentBackColor, true);
-        BackColor = Color.Transparent;
-        Cursor = Cursors.Hand;
+        Cursor = new Cursor(StandardCursorType.Hand);
     }
 
-    /// <summary>그림 영역에 그린다. 잠긴 칸이면 그 위에 흐린 막과 자물쇠를 얹는다.</summary>
-    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
-    public Action<Graphics, RectangleF>? Art { get; set; }
+    /// <summary>그림 영역에 그린다(상자, 렌더 배율). 잠긴 칸이면 그 위에 흐린 막과 자물쇠를 얹는다.</summary>
+    public Action<DrawingContext, Rect, double>? Art
+    {
+        get => _art;
+        set
+        {
+            _art = value;
+            InvalidateVisual();
+        }
+    }
 
-    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
     public string Caption { get; set; } = "";
 
-    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
     public int Price { get; set; }
 
-    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
     public TileState State
     {
         get => _state;
@@ -50,16 +54,13 @@ internal sealed class ShopTile : Control
         {
             if (_state == value) return;
             _state = value;
-            Invalidate();
+            InvalidateVisual();
         }
     }
 
     public bool IsLocked => _state is TileState.Buyable or TileState.TooExpensive or TileState.Unavailable;
 
-    private bool _previewing;
-
     /// <summary>사기 전에 입어 보는 중인 칸. 잠긴 채로 두되 그림을 덜 가리고 강조 테두리를 두른다.</summary>
-    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
     public bool Previewing
     {
         get => _previewing;
@@ -67,100 +68,86 @@ internal sealed class ShopTile : Control
         {
             if (_previewing == value) return;
             _previewing = value;
-            Invalidate();
+            InvalidateVisual();
         }
     }
 
-    protected override void OnMouseEnter(EventArgs e)
-    {
-        _hover = true;
-        Invalidate();
-        base.OnMouseEnter(e);
-    }
+    public void Redraw() => InvalidateVisual();
 
-    protected override void OnMouseLeave(EventArgs e)
+    protected override void Paint(DrawingContext ctx)
     {
-        _hover = false;
-        Invalidate();
-        base.OnMouseLeave(e);
-    }
-
-    protected override void OnPaint(PaintEventArgs e)
-    {
-        var g = e.Graphics;
-        g.SmoothingMode = SmoothingMode.AntiAlias;
-        float s = DeviceDpi / 96f;
-        var outer = new RectangleF(1.5f * s, 1.5f * s, Width - 3 * s, Height - 3 * s);
+        var outer = new Rect(1.5, 1.5, Bounds.Width - 3, Bounds.Height - 3);
+        if (outer.Width <= 0 || outer.Height <= 0) return;
 
         if (_state == TileState.ComingSoon)
         {
-            PaintComingSoon(g, outer, s);
+            PaintComingSoon(ctx, outer);
             return;
         }
 
         Color fill = IsLocked ? GameArt.Locked : GameArt.Card;
-        if (_hover && _state != TileState.Unavailable) fill = IsLocked ? GameArt.LockedHover : GameArt.AccentSoft;
+        if (Hover && _state != TileState.Unavailable) fill = IsLocked ? GameArt.LockedHover : GameArt.AccentSoft;
         Color border = _previewing ? GameArt.Accent : _state switch
         {
             TileState.Equipped => GameArt.Accent,
             TileState.Buyable => GameArt.Fish,
             _ => GameArt.CardBorder,
         };
-        float borderWidth = _previewing ? 2.5f * s : _state switch
+        double borderWidth = _previewing ? 2.5 : _state switch
         {
-            TileState.Equipped => 2.5f * s,
-            TileState.Buyable => 1.6f * s,
-            _ => 1f * s,
+            TileState.Equipped => 2.5,
+            TileState.Buyable => 1.6,
+            _ => 1,
         };
-        GameArt.FillRound(g, outer, 8 * s, fill, border, borderWidth);
+        GameArt.FillRound(ctx, outer, 8, fill, border, borderWidth);
 
         bool showPrice = IsLocked;
-        float textLine = 15 * s;
-        float bottomText = showPrice ? textLine * 2 : textLine;
-        var art = new RectangleF(outer.Left + 4 * s, outer.Top + 5 * s, outer.Width - 8 * s, outer.Height - bottomText - 9 * s);
+        const double textLine = 15;
+        double bottomText = showPrice ? textLine * 2 : textLine;
+        var art = new Rect(outer.X + 4, outer.Y + 5, outer.Width - 8, Math.Max(1, outer.Height - bottomText - 9));
 
-        Art?.Invoke(g, art);
+        _art?.Invoke(ctx, art, RenderScaling);
         if (IsLocked)
         {
             // 그림을 흐리게 덮고 오른쪽 위에 자물쇠.
-            int veilAlpha = _previewing ? 40 : _state == TileState.Buyable ? 90 : 150;
-            using (var veil = new SolidBrush(Color.FromArgb(veilAlpha, GameArt.Locked)))
-                g.FillRectangle(veil, art);
-            float lockSize = 11 * s;
-            GameArt.DrawLock(g, new RectangleF(outer.Right - lockSize - 6 * s, outer.Top + 6 * s, lockSize * 0.8f, lockSize),
+            byte veilAlpha = (byte)(_previewing ? 40 : _state == TileState.Buyable ? 90 : 150);
+            ctx.FillRectangle(GameArt.Brush(Settings.ColorUtil.WithAlpha(GameArt.Locked, veilAlpha)), art);
+            const double lockSize = 11;
+            GameArt.DrawLock(ctx, new Rect(outer.Right - lockSize - 6, outer.Y + 6, lockSize * 0.8, lockSize),
                 _state == TileState.Buyable ? GameArt.FishDark : GameArt.SubText);
         }
         if (_state == TileState.Equipped)
         {
             // 오른쪽 위 체크 배지
-            float d = 15 * s;
-            var badge = new RectangleF(outer.Right - d - 4 * s, outer.Top + 4 * s, d, d);
-            using (var b = new SolidBrush(GameArt.Accent)) g.FillEllipse(b, badge);
-            using var pen = new Pen(GameArt.OnAccent, 1.8f * s) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
-            g.DrawLines(pen, new[]
+            const double d = 15;
+            var badge = new Rect(outer.Right - d - 4, outer.Y + 4, d, d);
+            ctx.DrawEllipse(GameArt.Brush(GameArt.Accent), null, badge);
+            var check = new StreamGeometry();
+            using (var g = check.Open())
             {
-                new PointF(badge.Left + d * 0.27f, badge.Top + d * 0.52f),
-                new PointF(badge.Left + d * 0.44f, badge.Top + d * 0.68f),
-                new PointF(badge.Left + d * 0.74f, badge.Top + d * 0.34f),
-            });
+                g.BeginFigure(new Point(badge.X + d * 0.27, badge.Y + d * 0.52), false);
+                g.LineTo(new Point(badge.X + d * 0.44, badge.Y + d * 0.68));
+                g.LineTo(new Point(badge.X + d * 0.74, badge.Y + d * 0.34));
+                g.EndFigure(false);
+            }
+            ctx.DrawGeometry(null, new Pen(GameArt.Brush(GameArt.OnAccent), 1.8, lineCap: PenLineCap.Round, lineJoin: PenLineJoin.Round), check);
         }
 
-        using var captionFont = new Font("Segoe UI", 8.25f, _state == TileState.Equipped ? FontStyle.Bold : FontStyle.Regular);
-        var captionRect = new Rectangle((int)outer.Left, (int)(art.Bottom + 2 * s), (int)outer.Width, (int)textLine);
+        var captionRect = new Rect(outer.X, art.Bottom + 2, outer.Width, textLine);
         var captionColor = _state == TileState.Unavailable ? GameArt.SubText : GameArt.Text;
-        TextRenderer.DrawText(g, Caption, captionFont, captionRect, captionColor,
-            TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPadding);
+        GameArt.DrawCentered(ctx, GameArt.Format(Caption, GameArt.FontSmall, captionColor,
+            _state == TileState.Equipped ? FontWeight.Bold : FontWeight.Normal), captionRect);
 
         if (showPrice)
         {
-            using var priceFont = new Font("Segoe UI", 8.25f, _state == TileState.Buyable ? FontStyle.Bold : FontStyle.Regular);
+            var weight = _state == TileState.Buyable ? FontWeight.Bold : FontWeight.Normal;
             string price = GameArt.FormatCount(Price);
-            float h = 12 * s;
-            var size = GameArt.MeasurePrice(g, price, priceFont, h);
-            var origin = new PointF(outer.Left + (outer.Width - size.Width) / 2, captionRect.Bottom + (textLine - h) / 2);
+            const double h = 12;
+            var size = GameArt.MeasurePrice(price, GameArt.FontSmall, weight, h);
+            var origin = new Point(outer.X + (outer.Width - size.Width) / 2, captionRect.Bottom + (textLine - h) / 2);
             var textColor = _state == TileState.Buyable ? GameArt.FishDark : GameArt.SubText;
             var fishColor = _state == TileState.Buyable ? GameArt.Fish : GameArt.FishMuted;
-            GameArt.DrawPrice(g, price, priceFont, origin, h, textColor, fishColor);
+            GameArt.DrawPrice(ctx, price, GameArt.FontSmall, weight, origin, h, textColor, fishColor);
         }
     }
 
@@ -168,41 +155,26 @@ internal sealed class ShopTile : Control
     /// 출시 예정 칸: 자물쇠 대신 강조색 점선 테두리와 "COMING SOON" 배지, 아래에 "곧 만나요!".
     /// 그림은 살짝만 흐리게 해서 어떤 친구가 오는지 보이게 하고, 마우스를 올리면 흐림을 걷는다.
     /// </summary>
-    private void PaintComingSoon(Graphics g, RectangleF outer, float s)
+    private void PaintComingSoon(DrawingContext ctx, Rect outer)
     {
-        GameArt.FillRound(g, outer, 8 * s, _hover ? GameArt.AccentSoft : GameArt.Card);
-        using (var path = GameArt.RoundRect(outer, 8 * s))
-        using (var dash = new Pen(GameArt.Accent, 1.4f * s) { DashStyle = DashStyle.Dash })
-            g.DrawPath(dash, path);
+        GameArt.FillRound(ctx, outer, 8, Hover ? GameArt.AccentSoft : GameArt.Card);
+        var dash = new Pen(GameArt.Brush(GameArt.Accent), 1.4, new DashStyle(new double[] { 4, 3 }, 0));
+        ctx.DrawRectangle(null, dash, outer, 8, 8);
 
-        float textLine = 15 * s;
-        var art = new RectangleF(outer.Left + 4 * s, outer.Top + 5 * s, outer.Width - 8 * s, outer.Height - textLine * 2 - 9 * s);
-        Art?.Invoke(g, art);
-        if (!_hover)
-        {
-            using var veil = new SolidBrush(Color.FromArgb(70, GameArt.Card));
-            g.FillRectangle(veil, art);
-        }
+        const double textLine = 15;
+        var art = new Rect(outer.X + 4, outer.Y + 5, outer.Width - 8, Math.Max(1, outer.Height - textLine * 2 - 9));
+        _art?.Invoke(ctx, art, RenderScaling);
+        if (!Hover) ctx.FillRectangle(GameArt.Brush(Settings.ColorUtil.WithAlpha(GameArt.Card, 70)), art);
 
         // 왼쪽 위 배지
-        using (var badgeFont = new Font("Segoe UI", 6.75f, FontStyle.Bold))
-        {
-            const string badgeText = "COMING SOON";
-            var textSize = TextRenderer.MeasureText(g, badgeText, badgeFont, Size.Empty, TextFormatFlags.NoPadding);
-            var badge = new RectangleF(art.Left + 4 * s, art.Top + 4 * s, textSize.Width + 10 * s, textSize.Height + 4 * s);
-            GameArt.FillRound(g, badge, badge.Height / 2, GameArt.Accent);
-            TextRenderer.DrawText(g, badgeText, badgeFont, Rectangle.Round(badge), GameArt.OnAccent,
-                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
-        }
+        var badgeText = GameArt.Format("COMING SOON", 9, GameArt.OnAccent, FontWeight.Bold);
+        var badge = new Rect(art.X + 4, art.Y + 4, badgeText.Width + 10, badgeText.Height + 4);
+        GameArt.FillRound(ctx, badge, badge.Height / 2, GameArt.Accent);
+        GameArt.DrawCentered(ctx, badgeText, badge);
 
-        using var captionFont = new Font("Segoe UI", 8.25f, FontStyle.Regular);
-        var captionRect = new Rectangle((int)outer.Left, (int)(art.Bottom + 2 * s), (int)outer.Width, (int)textLine);
-        TextRenderer.DrawText(g, Caption, captionFont, captionRect, GameArt.Text,
-            TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPadding);
-
-        using var soonFont = new Font("Segoe UI", 8.25f, FontStyle.Bold);
-        var soonRect = new Rectangle((int)outer.Left, captionRect.Bottom, (int)outer.Width, (int)textLine);
-        TextRenderer.DrawText(g, "곧 만나요!", soonFont, soonRect, GameArt.Accent,
-            TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+        var captionRect = new Rect(outer.X, art.Bottom + 2, outer.Width, textLine);
+        GameArt.DrawCentered(ctx, GameArt.Format(Caption, GameArt.FontSmall, GameArt.Text), captionRect);
+        var soonRect = new Rect(outer.X, captionRect.Bottom, outer.Width, textLine);
+        GameArt.DrawCentered(ctx, GameArt.Format("곧 만나요!", GameArt.FontSmall, GameArt.Accent, FontWeight.Bold), soonRect);
     }
 }

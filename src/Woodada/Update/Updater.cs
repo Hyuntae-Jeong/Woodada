@@ -6,9 +6,11 @@ using System.Text.Json;
 namespace Woodada.Update;
 
 /// <summary>
-/// 앱이 켜질 때 GitHub 최신 릴리즈를 확인하고, 더 새 버전이 있으면 묻지 않고 바꿔 끼운 뒤 다시 실행한다.
+/// 앱이 켜질 때 GitHub 최신 릴리즈를 확인한다.
+/// Windows는 더 새 버전이 있으면 묻지 않고 바꿔 끼운 뒤 다시 실행한다.
+/// macOS는 아직 알림만 띄운다(<see cref="FindNewerReleaseAsync"/>). .app 교체는 서명·공증과 함께 따로 만든다.
 ///
-/// 교체는 세 단계로 한다.
+/// Windows 교체는 세 단계로 한다.
 /// 1. 지금 앱이 새 exe를 임시 폴더에 받아 검증하고, 그 exe를 설치 모드(<see cref="InstallArg"/>)로 띄운 뒤 정상 종료한다.
 /// 2. 설치 모드의 새 exe가 지금 앱이 끝나길 기다렸다가 자기 자신을 설치 위치에 복사한다(<see cref="TryRunInstaller"/>).
 /// 3. 설치된 exe를 다시 띄우고 설치 모드는 끝난다. 다시 뜬 앱이 임시 폴더의 exe를 지운다(<see cref="CleanUpStaged"/>).
@@ -59,19 +61,44 @@ internal static class Updater
     /// <summary>내려받아 검증까지 마친 새 exe. 아직 설치 폴더는 건드리지 않은 상태.</summary>
     public sealed record Staged(Version Version, string ExePath);
 
+    /// <summary>새 릴리즈. macOS는 바꿔 끼우지 않고 이 정보로 알림만 띄운다.</summary>
+    public sealed record Release(Version Version, string PageUrl);
+
     /// <summary>
-    /// 새 버전이 있으면 임시 폴더에 내려받아 검증해 둔다. 없거나 실패하면 null.
+    /// 새 버전이 있으면 임시 폴더에 내려받아 검증해 둔다(Windows). 없거나 실패하면 null.
     /// 실패해도 앱은 지금 버전 그대로 계속 돌아야 하므로 예외를 밖으로 던지지 않는다.
     /// </summary>
-    public static async Task<Staged?> PrepareAsync(CancellationToken ct)
+    public static Task<Staged?> PrepareAsync(CancellationToken ct)
     {
-        if (!IsReleaseBuild || !IsInstalledExe()) return null;
+        if (!OperatingSystem.IsWindows() || !IsReleaseBuild || !IsInstalledExe()) return Task.FromResult<Staged?>(null);
+        return WithRetriesAsync(PrepareOnceAsync, ct);
+    }
 
+    /// <summary>
+    /// 더 새 릴리즈가 있는지만 본다(macOS). 앱 교체는 아직 하지 않고, 사용자가 릴리즈 페이지에서 받게 한다.
+    /// </summary>
+    public static Task<Release?> FindNewerReleaseAsync(CancellationToken ct)
+    {
+        if (!IsReleaseBuild) return Task.FromResult<Release?>(null);
+        return WithRetriesAsync(async token =>
+        {
+            using var doc = JsonDocument.Parse(await Http.GetStringAsync(LatestReleaseApi, token).ConfigureAwait(false));
+            var release = doc.RootElement;
+            if (ParseNewer(release) is not { } latest) return null;
+            string page = release.TryGetProperty("html_url", out var url) ? url.GetString() ?? ReleasesPage : ReleasesPage;
+            return new Release(latest, page);
+        }, ct);
+    }
+
+    private const string ReleasesPage = "https://github.com/Hyuntae-Jeong/Woodada/releases/latest";
+
+    private static async Task<T?> WithRetriesAsync<T>(Func<CancellationToken, Task<T?>> once, CancellationToken ct) where T : class
+    {
         for (int attempt = 0; ; attempt++)
         {
             try
             {
-                return await PrepareOnceAsync(ct).ConfigureAwait(false);
+                return await once(ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -92,11 +119,9 @@ internal static class Updater
         }
     }
 
-    private static async Task<Staged?> PrepareOnceAsync(CancellationToken ct)
+    /// <summary>릴리즈 태그가 지금보다 새 버전이면 그 버전. 아니면 null.</summary>
+    private static Version? ParseNewer(JsonElement release)
     {
-        using var doc = JsonDocument.Parse(await Http.GetStringAsync(LatestReleaseApi, ct).ConfigureAwait(false));
-        var release = doc.RootElement;
-
         string tag = release.GetProperty("tag_name").GetString() ?? "";
         if (!Version.TryParse(tag.TrimStart('v'), out var parsed))
         {
@@ -109,6 +134,15 @@ internal static class Updater
             Log("최신 버전입니다");
             return null;
         }
+        return latest;
+    }
+
+    private static async Task<Staged?> PrepareOnceAsync(CancellationToken ct)
+    {
+        using var doc = JsonDocument.Parse(await Http.GetStringAsync(LatestReleaseApi, ct).ConfigureAwait(false));
+        var release = doc.RootElement;
+        string tag = release.GetProperty("tag_name").GetString() ?? "";
+        if (ParseNewer(release) is not { } latest) return null;
 
         JsonElement? asset = null;
         foreach (var a in release.GetProperty("assets").EnumerateArray())

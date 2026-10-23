@@ -1,4 +1,5 @@
-using Woodada.Interop;
+using Avalonia;
+using Woodada.Platform;
 
 namespace Woodada.Core;
 
@@ -8,37 +9,42 @@ public readonly record struct TrackBounds(double MinX, double MaxX)
     public double Width => MaxX - MinX;
 }
 
-/// <summary>러너들이 달리는 가로 띠. 작업표시줄 위치에 따라 정해진다.</summary>
+/// <summary>
+/// 러너들이 달리는 가로 띠. 작업표시줄·독 위치에 따라 정해진다.
+/// 좌표는 Avalonia 화면 단위(Windows 물리 픽셀, macOS 포인트)다.
+/// </summary>
 public readonly record struct Runway(int Left, int Right, int GroundY, bool HangBelow)
 {
     public int Width => Right - Left;
 
     /// <summary>러너 발이 닿는 선 기준으로 오버레이 창이 차지할 사각형.</summary>
-    public Rectangle GetStrip(int height)
+    public PixelRect GetStrip(int height)
     {
-        // 작업표시줄과 1px 겹쳐서 발이 떠 보이지 않게 한다.
+        // 막대와 1단위 겹쳐서 발이 떠 보이지 않게 한다.
         const int overlap = 1;
         return HangBelow
-            ? new Rectangle(Left, GroundY - overlap, Width, height)
-            : new Rectangle(Left, GroundY - height + overlap, Width, height);
+            ? new PixelRect(Left, GroundY - overlap, Width, height)
+            : new PixelRect(Left, GroundY - height + overlap, Width, height);
     }
 
     public TrackBounds TrackFor(double bodyWidth) => new(Left, Right - bodyWidth);
 
-    public static Runway FromTaskbar(TaskbarGeometry tb)
+    /// <summary>Windows 작업표시줄과 macOS 독에 똑같이 쓰는 규칙.</summary>
+    public static Runway FromBar(ScreenBar bar)
     {
-        var b = tb.Bounds;
-        var s = tb.Screen;
-        return tb.Edge switch
+        var b = bar.Bounds;
+        var s = bar.Screen;
+        if (!bar.HasBar) return new Runway(s.X, s.Right, s.Bottom, HangBelow: false);
+        return bar.Edge switch
         {
-            // 기본: 작업표시줄 윗선 위를 달린다.
-            TaskbarEdge.Bottom => new Runway(b.Left, b.Right, b.Top, HangBelow: false),
+            // 기본: 막대 윗선 위를 달린다.
+            BarEdge.Bottom => new Runway(b.X, b.Right, b.Y, HangBelow: false),
             // 위쪽 작업표시줄: 위로 올라갈 공간이 없으니 아랫선 밑으로 매달려 달린다.
-            TaskbarEdge.Top => new Runway(b.Left, b.Right, b.Bottom, HangBelow: true),
-            // 세로 작업표시줄: 화면 바닥을 따라, 작업표시줄을 피해서 달린다.
-            TaskbarEdge.Left => new Runway(b.Right, s.Right, s.Bottom, HangBelow: false),
-            TaskbarEdge.Right => new Runway(s.Left, b.Left, s.Bottom, HangBelow: false),
-            _ => new Runway(s.Left, s.Right, s.Bottom, HangBelow: false),
+            BarEdge.Top => new Runway(b.X, b.Right, b.Bottom, HangBelow: true),
+            // 세로 막대: 화면 바닥을 따라, 막대를 피해서 달린다.
+            BarEdge.Left => new Runway(b.Right, s.Right, s.Bottom, HangBelow: false),
+            BarEdge.Right => new Runway(s.X, b.X, s.Bottom, HangBelow: false),
+            _ => new Runway(s.X, s.Right, s.Bottom, HangBelow: false),
         };
     }
 }

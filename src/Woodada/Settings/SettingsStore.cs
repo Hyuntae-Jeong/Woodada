@@ -29,9 +29,8 @@ public sealed class SettingsStore
 
     public SettingsStore()
     {
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
         FilePath = Path.Combine(AppInfo.DataFolder, "settings.json");
-        MigrateLegacy(appData);
+        MigrateLegacy(Platform.PlatformServices.Current.DataRoot);
         Current = Load();
     }
 

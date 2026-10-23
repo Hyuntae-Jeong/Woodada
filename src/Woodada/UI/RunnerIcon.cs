@@ -1,3 +1,6 @@
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Media;
 using Woodada.Settings;
 using Woodada.Sprites;
 
@@ -12,16 +15,13 @@ internal sealed class RunnerIcon : Control
     public RunnerIcon(RunnerConfig runner)
     {
         _sprite = SpriteRegistry.Get(runner.SpriteId);
-        _color = ColorUtil.Parse(runner.Color, Color.Black);
-        SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer |
-                 ControlStyles.UserPaint | ControlStyles.SupportsTransparentBackColor, true);
-        BackColor = Color.Transparent;
+        _color = ColorUtil.Parse(runner.Color, Colors.Black);
     }
 
-    protected override void OnPaint(PaintEventArgs e)
+    public override void Render(DrawingContext ctx)
     {
-        var size = _sprite.Measure(Math.Max(4, Height - 6));
-        var box = new RectangleF((Width - size.Width) / 2, (Height - size.Height) / 2, size.Width, size.Height);
-        _sprite.Draw(e.Graphics, box, new RunnerPose(1, 0.0, 0.3), _color);
+        var size = _sprite.Measure(Math.Max(4, Bounds.Height - 6));
+        var box = new Rect((Bounds.Width - size.Width) / 2, (Bounds.Height - size.Height) / 2, size.Width, size.Height);
+        _sprite.Draw(ctx, box, new RunnerPose(1, 0.0, 0.3), _color, TopLevel.GetTopLevel(this)?.RenderScaling ?? 1);
     }
 }

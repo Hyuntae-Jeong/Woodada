@@ -1,3 +1,4 @@
+using Avalonia;
 using Woodada.Settings;
 using Woodada.Sprites;
 
@@ -22,7 +23,7 @@ public sealed class RunnerInstance
     public RunnerState State { get; } = new();
     public double Usage => double.IsNaN(_smoothedUsage) ? 0 : _smoothedUsage;
 
-    public SizeF BodySize => Sprite.Measure(Config.Size);
+    public Size BodySize => Sprite.Measure(Config.Size);
 
     /// <returns>이번에 실제로 달린 거리(px). 다른 모니터로 옮겨져 새 자리에서 출발한 순간이동은 세지 않는다.</returns>
     public double Update(double dt, double rawUsage, Runway runway)

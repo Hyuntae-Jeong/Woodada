@@ -1,91 +1,112 @@
-using Woodada.Interop;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Media;
+using Woodada.Platform;
+using Woodada.Sprites;
 
 namespace Woodada.Rendering;
 
+/// <summary>오버레이에 그릴 러너 한 마리.</summary>
+internal readonly record struct RunnerFrame(IRunnerSprite Sprite, Rect Box, RunnerPose Pose, Color Color);
+
 /// <summary>
-/// 작업표시줄 위에 깔리는 투명 띠 창.
-/// 클릭을 통과시키고(TRANSPARENT), 포커스를 뺏지 않고(NOACTIVATE), Alt+Tab에 안 뜨게(TOOLWINDOW) 한다.
-/// 위치·크기는 WinForms Bounds가 아니라 UpdateLayeredWindow로만 정한다(물리 픽셀 그대로 쓰려고).
+/// 작업표시줄·독 위에 깔리는 투명 띠 창. 클릭 통과·포커스 안 뺏기 같은 OS별 설정은 IPlatform이 한다.
+/// 위치는 화면 단위(Windows 물리 픽셀, macOS 포인트), 크기는 Avalonia 논리 단위로 정한다.
 /// </summary>
-internal sealed class OverlayWindow : Form
+internal sealed class OverlayWindow : Window
 {
+    private readonly RunnerLayer _layer = new();
+    private readonly IPlatform _platform = PlatformServices.Current;
     private bool _shown;
 
     public OverlayWindow()
     {
-        FormBorderStyle = FormBorderStyle.None;
+        Title = "Woodada Overlay";
+        SystemDecorations = SystemDecorations.None;
+        Topmost = true;
         ShowInTaskbar = false;
-        StartPosition = FormStartPosition.Manual;
-        Text = "Woodada Overlay";
-        Bounds = new Rectangle(-32000, -32000, 1, 1);
+        ShowActivated = false;
+        CanResize = false;
+        Focusable = false;
+        Background = Brushes.Transparent;
+        TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent };
+        WindowStartupLocation = WindowStartupLocation.Manual;
+        SizeToContent = SizeToContent.Manual;
+        Content = _layer;
+        Position = new PixelPoint(-32000, -32000);
+        Width = Height = 1;
     }
 
-    protected override CreateParams CreateParams
+    /// <param name="strip">창이 차지할 사각형(화면 단위).</param>
+    /// <param name="frames">그릴 러너들. Box는 strip 왼쪽 위 기준 화면 단위다.</param>
+    public void Present(PixelRect strip, IReadOnlyList<RunnerFrame> frames, bool hangBelow)
     {
-        get
-        {
-            var cp = base.CreateParams;
-            cp.ExStyle |= NativeMethods.WS_EX_LAYERED | NativeMethods.WS_EX_TRANSPARENT |
-                          NativeMethods.WS_EX_NOACTIVATE | NativeMethods.WS_EX_TOOLWINDOW |
-                          NativeMethods.WS_EX_TOPMOST;
-            return cp;
-        }
-    }
+        if (Position != strip.Position) Position = strip.Position;
 
-    protected override bool ShowWithoutActivation => true;
+        // 화면 단위 ÷ 논리 단위. Windows는 창이 놓인 모니터의 배율, macOS는 늘 1이다.
+        // 배율이 다른 모니터로 옮기면 다음 프레임부터 새 배율로 맞춰진다.
+        double s = DesktopScaling > 0 ? DesktopScaling : 1;
+        double w = strip.Width / s, h = strip.Height / s;
+        if (Math.Abs(Width - w) > 0.01) Width = w;
+        if (Math.Abs(Height - h) > 0.01) Height = h;
 
-    // 레이어드 창은 UpdateLayeredWindow가 내용을 책임지므로 WinForms 배경 그리기를 막는다.
-    protected override void OnPaintBackground(PaintEventArgs e) { }
-
-    public bool IsOverlayVisible => _shown;
-
-    public void Present(LayeredSurface surface, Point screenLocation)
-    {
-        if (!IsHandleCreated) CreateHandle();
-        surface.Flush();
-
-        var size = new NativeMethods.SIZE(surface.Width, surface.Height);
-        var src = new NativeMethods.POINT(0, 0);
-        var dst = new NativeMethods.POINT(screenLocation.X, screenLocation.Y);
-        var blend = new NativeMethods.BLENDFUNCTION
-        {
-            BlendOp = NativeMethods.AC_SRC_OVER,
-            SourceConstantAlpha = 255,
-            AlphaFormat = NativeMethods.AC_SRC_ALPHA,
-        };
-
-        IntPtr screenDc = NativeMethods.GetDC(IntPtr.Zero);
-        try
-        {
-            NativeMethods.UpdateLayeredWindow(Handle, screenDc, ref dst, ref size, surface.MemoryDC, ref src, 0,
-                ref blend, NativeMethods.ULW_ALPHA);
-        }
-        finally
-        {
-            NativeMethods.ReleaseDC(IntPtr.Zero, screenDc);
-        }
+        // Windows는 창 최소 높이(약 39px)보다 낮게 만들 수 없어 창이 strip보다 클 수 있다.
+        // 그래서 그림은 창 크기가 아니라 strip 높이(h) 기준으로 놓는다.
+        _layer.Update(frames.Select(f => f with { Box = new Rect(f.Box.X / s, f.Box.Y / s, f.Box.Width / s, f.Box.Height / s) }).ToList(), hangBelow, h);
 
         if (!_shown)
         {
-            NativeMethods.ShowWindow(Handle, NativeMethods.SW_SHOWNOACTIVATE);
+            Show();
             _shown = true;
-            BringToTop();
+            // Show할 때 OS 창 설정이 초기화될 수 있으니 뜰 때마다 다시 건다.
+            _platform.PrepareOverlay(this);
+            _platform.KeepOverlayOnTop(this);
         }
     }
 
     public void HideOverlay()
     {
-        if (!_shown || !IsHandleCreated) return;
-        NativeMethods.ShowWindow(Handle, NativeMethods.SW_HIDE);
+        if (!_shown) return;
+        Hide();
         _shown = false;
     }
 
-    /// <summary>작업표시줄도 topmost라 클릭하면 우리 창 위로 올라온다. 주기적으로 다시 올린다.</summary>
     public void BringToTop()
     {
-        if (!_shown || !IsHandleCreated) return;
-        NativeMethods.SetWindowPos(Handle, NativeMethods.HWND_TOPMOST, 0, 0, 0, 0,
-            NativeMethods.SWP_NOMOVE | NativeMethods.SWP_NOSIZE | NativeMethods.SWP_NOACTIVATE |
-            NativeMethods.SWP_NOOWNERZORDER);
+        if (_shown) _platform.KeepOverlayOnTop(this);
+    }
+
+    /// <summary>러너들을 그리는 판. 컨트롤러가 매 프레임 그릴 목록을 넘겨준다.</summary>
+    private sealed class RunnerLayer : Control
+    {
+        private IReadOnlyList<RunnerFrame> _frames = Array.Empty<RunnerFrame>();
+        private bool _hangBelow;
+        private double _stripHeight;
+
+        public void Update(IReadOnlyList<RunnerFrame> frames, bool hangBelow, double stripHeight)
+        {
+            _frames = frames;
+            _hangBelow = hangBelow;
+            _stripHeight = stripHeight;
+            InvalidateVisual();
+        }
+
+        public override void Render(DrawingContext ctx)
+        {
+            double scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
+            if (!_hangBelow)
+            {
+                DrawAll(ctx, scaling);
+                return;
+            }
+            // 위쪽 작업표시줄: 아랫면에 거꾸로 매달려 달린다.
+            using (ctx.PushTransform(Matrix.CreateScale(1, -1) * Matrix.CreateTranslation(0, _stripHeight)))
+                DrawAll(ctx, scaling);
+        }
+
+        private void DrawAll(DrawingContext ctx, double scaling)
+        {
+            foreach (var f in _frames) f.Sprite.Draw(ctx, f.Box, f.Pose, f.Color, scaling);
+        }
     }
 }

@@ -27,7 +27,7 @@ if errorlevel 1 (
 )
 
 rem start로 띄우면 앱이 이 창의 출력을 물려받아 같은 문제가 생기므로 셸 실행(Start-Process)으로 띄운다.
-powershell -NoProfile -Command "Start-Process -FilePath 'src\Woodada\bin\Debug\net9.0-windows\Woodada.exe' -ArgumentList '--settings'"
+powershell -NoProfile -Command "Start-Process -FilePath 'src\Woodada\bin\Debug\net9.0\Woodada.exe' -ArgumentList '--settings'"
 echo 개발용 Woodada를 띄웠습니다. 트레이 툴팁과 창 제목에 [DEV] / (개발용)이 붙어 있습니다.
 exit /b 0
 

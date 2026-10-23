@@ -1,8 +1,9 @@
 name: Release
 
-# vX.Y.Z 태그를 푸시하면 Woodada.exe를 빌드해 GitHub 릴리즈에 올립니다.
-# 설치된 앱은 켜질 때마다 최신 릴리즈를 확인해 이 exe로 스스로 바꿔 끼웁니다
+# vX.Y.Z 태그를 푸시하면 Windows용 Woodada.exe와 macOS용 .dmg(애플 실리콘·인텔)를 빌드해 GitHub 릴리즈에 올립니다.
+# Windows 앱은 켜질 때마다 최신 릴리즈를 확인해 이 exe로 스스로 바꿔 끼웁니다
 # (src/Woodada/Update/Updater.cs — 릴리즈 파일 이름 Woodada.exe가 양쪽에서 같아야 합니다).
+# macOS 앱은 새 릴리즈가 있으면 알림만 띄웁니다.
 # workflow_dispatch로 수동 실행하면 빌드만 하고 릴리즈는 건너뜁니다 — 빌드 점검용.
 on:
   push:
@@ -14,22 +15,15 @@ permissions:
   contents: write
 
 jobs:
-  release:
-    runs-on: windows-latest
+  # 태그 vX.Y.Z → 버전 X.Y.Z. 앱이 System.Version으로 비교하므로 이 형식만 받습니다.
+  # 태그 없이 돌린 빌드 점검은 0.0.0이 되고, 그 앱은 업데이트 확인을 하지 않습니다.
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      value: ${{ steps.version.outputs.value }}
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0   # 릴리즈 노트에 이전 태그 이후 커밋을 적기 위해 전체 기록과 태그를 받습니다
-
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 9.0.x
-
-      # 태그 vX.Y.Z → 버전 X.Y.Z. 앱이 System.Version으로 비교하므로 이 형식만 받습니다.
-      # 태그 없이 돌린 빌드 점검은 0.0.0이 되고, 그 exe는 자동 업데이트를 하지 않습니다.
       - name: Resolve version
         id: version
-        shell: bash
         run: |
           if [ "$GITHUB_REF_TYPE" = "tag" ]; then
             if [[ ! "$GITHUB_REF_NAME" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
@@ -43,25 +37,69 @@ jobs:
           echo "value=$version" >> "$GITHUB_OUTPUT"
           echo "version: $version"
 
+  windows:
+    needs: version
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
       # .NET 런타임까지 exe 하나에 담아(self-contained) 사용자 PC에 아무것도 설치돼 있지 않아도 실행되게 합니다.
-      # 압축하지 않으면 약 100MB, 압축하면 약 46MB입니다. WinForms는 트리밍을 지원하지 않아 더 줄이기 어렵습니다.
+      # 압축하면 약 46MB입니다. 리플렉션을 쓰는 UI 라이브러리라 트리밍은 하지 않습니다.
       - name: Publish Woodada.exe
         run: >
           dotnet publish src/Woodada -c Release -r win-x64 --self-contained true
           -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
           -p:EnableCompressionInSingleFile=true -p:DebugType=none
-          -p:Version=${{ steps.version.outputs.value }}
+          -p:Version=${{ needs.version.outputs.value }}
           -o publish
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Woodada
+          name: Woodada-windows
           path: publish/Woodada.exe
+
+  mac:
+    needs: version
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        rid: [osx-arm64, osx-x64]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      # Woodada.app을 만들어 임시 서명하고 .dmg로 묶습니다. 로컬 맥에서도 같은 스크립트로 만들 수 있습니다.
+      - name: Build Woodada.app and .dmg
+        run: bash build/mac/build-app.sh ${{ matrix.rid }} ${{ needs.version.outputs.value }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Woodada-${{ matrix.rid }}
+          path: publish/mac-${{ matrix.rid }}/*.dmg
+
+  release:
+    needs: [version, windows, mac]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # 릴리즈 노트에 이전 태그 이후 커밋을 적기 위해 전체 기록과 태그를 받습니다
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
 
       # 릴리즈 본문 = 이전 태그 이후 커밋 제목 목록 + 설치 안내.
       - name: Build release notes
-        if: github.ref_type == 'tag'
-        shell: bash
         run: |
           tag="$GITHUB_REF_NAME"
           prev=$(git describe --tags --abbrev=0 --match 'v*' "$tag^" 2>/dev/null || true)
@@ -79,8 +117,13 @@ jobs:
             echo
             echo "## 설치"
             echo
-            echo "\`Woodada.exe\`를 받아 원하는 폴더에 두고 실행하세요. 따로 설치할 것은 없습니다."
+            echo "**Windows** — \`Woodada.exe\`를 받아 원하는 폴더에 두고 실행하세요. 따로 설치할 것은 없습니다."
             echo "한 번 설치하면 앱이 켜질 때마다 새 버전을 확인해 자동으로 업데이트합니다."
+            echo
+            echo "**macOS** — 애플 실리콘(M1 이후)은 \`Woodada-mac-arm64.dmg\`, 인텔 맥은 \`Woodada-mac-x64.dmg\`를 받아"
+            echo "열고 Woodada를 응용 프로그램 폴더로 끌어다 놓으세요. Apple 개발자 서명이 없어 처음 열 때 경고가 뜹니다."
+            echo "그러면 시스템 설정 → 개인정보 보호 및 보안에서 \"그래도 열기\"를 누르세요."
+            echo "새 버전이 나오면 메뉴 막대 아이콘이 알려 줍니다(자동 업데이트는 아직 없습니다)."
             echo
             echo "고양이 이미지는 [RunCat365](https://github.com/runcat-dev/RunCat365)에서 가져왔으며 [Apache License 2.0](https://github.com/$GITHUB_REPOSITORY/blob/$tag/src/Woodada/Assets/RunCat/LICENSE)을 따릅니다."
             echo
@@ -89,9 +132,11 @@ jobs:
           cat RELEASE_BODY.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Create release
-        if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v2
         with:
-          files: publish/Woodada.exe
+          files: |
+            artifacts/Woodada.exe
+            artifacts/Woodada-mac-arm64.dmg
+            artifacts/Woodada-mac-x64.dmg
           fail_on_unmatched_files: true
           body_path: RELEASE_BODY.md

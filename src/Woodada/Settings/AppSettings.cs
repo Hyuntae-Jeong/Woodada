@@ -1,3 +1,4 @@
+using Avalonia.Media;
 using Woodada.Core;
 
 namespace Woodada.Settings;
@@ -17,7 +18,10 @@ public sealed class AppSettings
     /// <summary>전체 화면 앱(게임·발표)이 떠 있으면 숨김.</summary>
     public bool HideInFullScreen { get; set; } = true;
 
-    /// <summary>러너가 달릴 모니터(Screen.DeviceName, 예: \.\DISPLAY2). null이면 주 모니터.</summary>
+    /// <summary>
+    /// 러너가 달릴 모니터(IPlatform.ScreenKey: Windows는 \.\DISPLAY2 같은 장치 이름, macOS는 display:ID).
+    /// null이거나 지금 없는 모니터면 주 모니터. 이름은 예전 설정 파일과 맞추려고 그대로 둔다.
+    /// </summary>
     public string? MonitorDeviceName { get; set; }
 
     public List<RunnerConfig> Runners { get; set; } = new();
@@ -66,37 +70,24 @@ public sealed class RunnerConfig
     public string SpriteId { get; set; } = "cat";
     public bool Enabled { get; set; } = true;
     public string Color { get; set; } = AppSettings.DefaultColor;
-    /// <summary>러너 높이(px, 물리 픽셀).</summary>
+    /// <summary>러너 높이. 화면 단위라 Windows는 물리 픽셀, macOS는 포인트(레티나에서도 같은 크기로 보인다).</summary>
     public int Size { get; set; } = 28;
 }
 
 public static class ColorUtil
 {
+    /// <summary>"#RRGGBB" 같은 색 문자열. 설정 파일에는 늘 이 형식으로 저장한다.</summary>
     public static bool TryParse(string? hex, out Color color)
     {
-        color = Color.Empty;
-        if (string.IsNullOrWhiteSpace(hex)) return false;
-        try
-        {
-            color = ColorTranslator.FromHtml(hex);
-            return !color.IsEmpty;
-        }
-        catch (Exception)
-        {
-            return false;
-        }
+        color = default;
+        return !string.IsNullOrWhiteSpace(hex) && Color.TryParse(hex.Trim(), out color);
     }
 
     public static Color Parse(string? hex, Color fallback) => TryParse(hex, out var c) ? c : fallback;
 
     public static string ToHex(Color c) => $"#{c.R:X2}{c.G:X2}{c.B:X2}";
 
-    public static Color Scale(Color c, double f) => Color.FromArgb(c.A,
-        (int)Math.Clamp(c.R * f, 0, 255), (int)Math.Clamp(c.G * f, 0, 255), (int)Math.Clamp(c.B * f, 0, 255));
-
-    public static Color Mix(Color a, Color b, double t) => Color.FromArgb(
-        (int)(a.A + (b.A - a.A) * t), (int)(a.R + (b.R - a.R) * t),
-        (int)(a.G + (b.G - a.G) * t), (int)(a.B + (b.B - a.B) * t));
+    public static Color WithAlpha(Color c, byte alpha) => Color.FromArgb(alpha, c.R, c.G, c.B);
 
     /// <summary>검정 고양이 눈이 안 보이는 걸 막으려고 밝기를 본다.</summary>
     public static double Luminance(Color c) => (0.299 * c.R + 0.587 * c.G + 0.114 * c.B) / 255.0;
