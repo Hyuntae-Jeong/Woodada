@@ -23,6 +23,10 @@
   <ItemGroup>
     <!-- RunCat365 (Apache-2.0) 고양이 프레임. 출처는 Assets/RunCat/LICENSE, README 참고. -->
     <EmbeddedResource Include="Assets\RunCat\cat_running_*.png" LogicalName="RunCat.%(Filename)%(Extension)" />
+    <!-- 닥스훈트 프레임은 직접 그렸다 (tools/draw_dachshund.py로 다시 만들 수 있음). 저장소 라이선스(MIT)를 따른다. -->
+    <EmbeddedResource Include="Assets\Dog\dog_running_*.png" LogicalName="Dog.%(Filename)%(Extension)" />
+    <!-- 토끼 프레임도 직접 그렸다 (tools/draw_rabbit.py). 저장소 라이선스(MIT)를 따른다. -->
+    <EmbeddedResource Include="Assets\Rabbit\rabbit_running_*.png" LogicalName="Rabbit.%(Filename)%(Extension)" />
     <!-- 트레이·설정 창이 크기별 프레임을 골라 쓰도록 같은 ico를 리소스로도 넣는다 -->
     <EmbeddedResource Include="Assets\Icon\Woodada.ico" LogicalName="Woodada.ico" />
     <!-- 릴리즈는 exe 하나만 배포하므로 Apache-2.0 라이선스 전문을 exe 안에도 담아 함께 나가게 한다. -->

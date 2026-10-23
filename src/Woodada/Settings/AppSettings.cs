@@ -46,7 +46,8 @@ public sealed class AppSettings
         foreach (var r in Runners)
         {
             r.Size = Math.Clamp(r.Size, MinSize, MaxSize);
-            if (string.IsNullOrWhiteSpace(r.SpriteId)) r.SpriteId = "cat";
+            // 출시 전 러너는 입을 수 없다. 개발용으로 써 본 설정 파일에 남아 있어도 고양이로 돌린다.
+            if (string.IsNullOrWhiteSpace(r.SpriteId) || Sprites.SpriteRegistry.IsUpcoming(r.SpriteId)) r.SpriteId = "cat";
             if (!ColorUtil.TryParse(r.Color, out _)) r.Color = DefaultColor;
         }
         FramesPerSecond = Math.Clamp(FramesPerSecond, 10, 60);
@@ -61,7 +62,7 @@ public sealed class RunnerConfig
     /// <summary>고정 식별자. 같은 지표에 러너를 여러 마리 둘 수 있게 Metric과 분리했다.</summary>
     public string Id { get; set; } = "";
     public MetricKind Metric { get; set; }
-    /// <summary>스프라이트 종류. 지금은 "cat"만 있다. 다른 러너는 SpriteRegistry에 등록.</summary>
+    /// <summary>스프라이트 종류("cat", "dachshund", "rabbit" …). 목록은 SpriteRegistry에 있다.</summary>
     public string SpriteId { get; set; } = "cat";
     public bool Enabled { get; set; } = true;
     public string Color { get; set; } = AppSettings.DefaultColor;

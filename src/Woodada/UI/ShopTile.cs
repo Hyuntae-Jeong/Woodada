@@ -14,6 +14,8 @@ internal enum TileState
     TooExpensive,
     /// <summary>아직 살 수 없다(앞 칸을 먼저 열어야 함, 준비 중 등).</summary>
     Unavailable,
+    /// <summary>그림까지 나온 출시 예정 러너. 보여 주기만 하고 데려올 수는 없다.</summary>
+    ComingSoon,
 }
 
 /// <summary>상점 칸 하나. 위에는 그림, 아래에는 이름과(잠겼으면) 생선 가격.</summary>
@@ -90,6 +92,12 @@ internal sealed class ShopTile : Control
         float s = DeviceDpi / 96f;
         var outer = new RectangleF(1.5f * s, 1.5f * s, Width - 3 * s, Height - 3 * s);
 
+        if (_state == TileState.ComingSoon)
+        {
+            PaintComingSoon(g, outer, s);
+            return;
+        }
+
         Color fill = IsLocked ? GameArt.Locked : GameArt.Card;
         if (_hover && _state != TileState.Unavailable) fill = IsLocked ? GameArt.LockedHover : GameArt.AccentSoft;
         Color border = _previewing ? GameArt.Accent : _state switch
@@ -154,5 +162,47 @@ internal sealed class ShopTile : Control
             var fishColor = _state == TileState.Buyable ? GameArt.Fish : GameArt.FishMuted;
             GameArt.DrawPrice(g, price, priceFont, origin, h, textColor, fishColor);
         }
+    }
+
+    /// <summary>
+    /// 출시 예정 칸: 자물쇠 대신 강조색 점선 테두리와 "COMING SOON" 배지, 아래에 "곧 만나요!".
+    /// 그림은 살짝만 흐리게 해서 어떤 친구가 오는지 보이게 하고, 마우스를 올리면 흐림을 걷는다.
+    /// </summary>
+    private void PaintComingSoon(Graphics g, RectangleF outer, float s)
+    {
+        GameArt.FillRound(g, outer, 8 * s, _hover ? GameArt.AccentSoft : GameArt.Card);
+        using (var path = GameArt.RoundRect(outer, 8 * s))
+        using (var dash = new Pen(GameArt.Accent, 1.4f * s) { DashStyle = DashStyle.Dash })
+            g.DrawPath(dash, path);
+
+        float textLine = 15 * s;
+        var art = new RectangleF(outer.Left + 4 * s, outer.Top + 5 * s, outer.Width - 8 * s, outer.Height - textLine * 2 - 9 * s);
+        Art?.Invoke(g, art);
+        if (!_hover)
+        {
+            using var veil = new SolidBrush(Color.FromArgb(70, GameArt.Card));
+            g.FillRectangle(veil, art);
+        }
+
+        // 왼쪽 위 배지
+        using (var badgeFont = new Font("Segoe UI", 6.75f, FontStyle.Bold))
+        {
+            const string badgeText = "COMING SOON";
+            var textSize = TextRenderer.MeasureText(g, badgeText, badgeFont, Size.Empty, TextFormatFlags.NoPadding);
+            var badge = new RectangleF(art.Left + 4 * s, art.Top + 4 * s, textSize.Width + 10 * s, textSize.Height + 4 * s);
+            GameArt.FillRound(g, badge, badge.Height / 2, GameArt.Accent);
+            TextRenderer.DrawText(g, badgeText, badgeFont, Rectangle.Round(badge), GameArt.OnAccent,
+                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+        }
+
+        using var captionFont = new Font("Segoe UI", 8.25f, FontStyle.Regular);
+        var captionRect = new Rectangle((int)outer.Left, (int)(art.Bottom + 2 * s), (int)outer.Width, (int)textLine);
+        TextRenderer.DrawText(g, Caption, captionFont, captionRect, GameArt.Text,
+            TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPadding);
+
+        using var soonFont = new Font("Segoe UI", 8.25f, FontStyle.Bold);
+        var soonRect = new Rectangle((int)outer.Left, captionRect.Bottom, (int)outer.Width, (int)textLine);
+        TextRenderer.DrawText(g, "곧 만나요!", soonFont, soonRect, GameArt.Accent,
+            TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
     }
 }

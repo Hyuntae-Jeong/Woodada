@@ -32,6 +32,9 @@ internal sealed class SettingsForm : Form
     private Page _page = Page.Cats;
     private readonly Button _reset = new();
     private readonly System.Windows.Forms.Timer _tick = new() { Interval = 1000 };
+    // 옷장의 출시 예정 칸에 마우스를 올렸을 때 제자리 달리기를 보여 주는 타이머.
+    private readonly System.Windows.Forms.Timer _teaserTimer = new() { Interval = 110 };
+    private Action? _teaserStep;
 
     // 고양이 탭
     private readonly FlowLayoutPanel _cards = new();
@@ -102,11 +105,13 @@ internal sealed class SettingsForm : Form
             if (_page == Page.Profile) RefreshProfile();
         };
         _tick.Start();
+        _teaserTimer.Tick += (_, _) => _teaserStep?.Invoke();
         FormClosed += (_, _) =>
         {
             _store.Changed -= OnStoreChanged;
             _rewards.Changed -= OnRewardsChanged;
             _tick.Dispose();
+            _teaserTimer.Dispose();
         };
     }
 
@@ -654,6 +659,11 @@ internal sealed class SettingsForm : Form
         {
             var s = sprite;
             int price = RewardCatalog.RunnerPrice(s.Id);
+            if (SpriteRegistry.IsUpcoming(s.Id))
+            {
+                _runnerTiles.Controls.Add(UpcomingTile(s, price, wearing?.Color));
+                continue;
+            }
             bool owned = _rewards.OwnsRunner(s.Id);
             var tile = RunnerTile(s.DisplayName, (g, box) => DrawRunnerArt(g, box, s, wearing?.Color));
             tile.Price = price;
@@ -684,13 +694,78 @@ internal sealed class SettingsForm : Form
         Caption = caption, Size = new Size(128, 140), Margin = new Padding(0, 0, 8, 8), Art = art,
     };
 
-    private static void DrawRunnerArt(Graphics g, RectangleF box, IRunnerSprite sprite, string? hex)
+    /// <summary>
+    /// 출시 예정 러너 칸. 그림은 보여 주되 데려올 수는 없다.
+    /// 마우스를 올리면 그 자리에서 달리기 연습을 해서 어떻게 뛰는지 미리 보여 준다.
+    /// </summary>
+    private ShopTile UpcomingTile(IRunnerSprite sprite, int price, string? hex)
+    {
+        double phase = 0.4; // 멈춰 있을 때는 다른 칸과 같은 자세
+        var tile = RunnerTile(sprite.DisplayName, (g, box) => DrawRunnerArt(g, box, sprite, hex, phase));
+        tile.Price = price;
+        tile.State = TileState.ComingSoon;
+        tile.Cursor = Cursors.Default;
+        tile.MouseEnter += (_, _) =>
+        {
+            _closetHint.Text = UpcomingTeaser(sprite, price);
+            StartTeaser(() =>
+            {
+                // 생선이 늘면 옷장을 새로 그리면서 이 칸이 사라질 수 있다.
+                if (tile.IsDisposed) { StopTeaser(); return; }
+                phase = (phase + 0.2) % 1.0; // 5프레임을 한 칸씩
+                tile.Invalidate();
+            });
+        };
+        tile.MouseLeave += (_, _) =>
+        {
+            StopTeaser();
+            phase = 0.4;
+            tile.Invalidate();
+            _closetHint.Text = DefaultClosetHint();
+        };
+        tile.Click += (_, _) =>
+            _closetHint.Text = $"{WithTopic(sprite.DisplayName)} 아직 연습 중이라 데려올 수 없어요. 조금만 기다려 주세요!";
+        return tile;
+    }
+
+    private static string UpcomingTeaser(IRunnerSprite sprite, int price)
+    {
+        string practice = sprite.Id switch
+        {
+            "dachshund" => "닥스훈트가 짧은 다리로 열심히 달리기 연습 중이에요",
+            "rabbit" => "토끼가 깡충 뛰기 연습 중이에요",
+            _ => $"{sprite.DisplayName}가 달리기 연습 중이에요",
+        };
+        return $"{practice}. 곧 출시돼요! 생선 {GameArt.FormatCount(price)}개를 모아 두면 나오자마자 데려올 수 있어요";
+    }
+
+    /// <summary>받침이 있으면 "은", 없으면 "는".</summary>
+    private static string WithTopic(string word)
+    {
+        char last = word[^1];
+        bool batchim = last is >= '가' and <= '힣' && (last - '가') % 28 != 0;
+        return word + (batchim ? "은" : "는");
+    }
+
+    private void StartTeaser(Action step)
+    {
+        _teaserStep = step;
+        _teaserTimer.Start();
+    }
+
+    private void StopTeaser()
+    {
+        _teaserTimer.Stop();
+        _teaserStep = null;
+    }
+
+    private static void DrawRunnerArt(Graphics g, RectangleF box, IRunnerSprite sprite, string? hex, double phase = 0.4)
     {
         var color = ColorUtil.Parse(hex, Color.Black);
         GameArt.FillRound(g, box, 8, GameArt.SwatchBackFor(color));
         var size = sprite.Measure(Math.Max(4, (int)(box.Height * 0.55f)));
         var catBox = new RectangleF(box.Left + (box.Width - size.Width) / 2, box.Top + (box.Height - size.Height) / 2, size.Width, size.Height);
-        sprite.Draw(g, catBox, new RunnerPose(1, 0.4, 0.5), color);
+        sprite.Draw(g, catBox, new RunnerPose(1, phase, 0.5), color);
     }
 
     private static void DrawMystery(Graphics g, RectangleF box)

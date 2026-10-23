@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Woodada.Settings;
+using Woodada.Sprites;
 using Woodada.Stats;
 
 namespace Woodada.Rewards;
@@ -119,11 +120,14 @@ public sealed class RewardStore
 
     // ───────────────────────── 러너 ─────────────────────────
 
+    /// <summary>출시 전 러너는 rewards.json에 들어 있어도(손으로 고친 파일 등) 갖고 있지 않은 것으로 본다.</summary>
     public bool OwnsRunner(string spriteId) =>
-        RewardCatalog.RunnerPrice(spriteId) == 0 || Current.Runners.Contains(spriteId, StringComparer.OrdinalIgnoreCase);
+        !SpriteRegistry.IsUpcoming(spriteId) &&
+        (RewardCatalog.RunnerPrice(spriteId) == 0 || Current.Runners.Contains(spriteId, StringComparer.OrdinalIgnoreCase));
 
     public bool TryBuyRunner(string spriteId)
     {
+        if (SpriteRegistry.IsUpcoming(spriteId)) return false;
         if (OwnsRunner(spriteId) || !Spend(RewardCatalog.RunnerPrice(spriteId))) return false;
         Current.Runners.Add(spriteId);
         Save();
@@ -147,7 +151,7 @@ public sealed class RewardStore
         }
         foreach (var r in settings.Runners)
         {
-            if (!OwnsRunner(r.SpriteId)) Current.Runners.Add(r.SpriteId);
+            if (!SpriteRegistry.IsUpcoming(r.SpriteId) && !OwnsRunner(r.SpriteId)) Current.Runners.Add(r.SpriteId);
         }
         Save();
     }

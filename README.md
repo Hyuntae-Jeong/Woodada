@@ -101,7 +101,7 @@ dotnet publish src/Woodada -c Release -r win-x64 --self-contained true -p:Publis
 맨 위에 가진 생선 수와 다음 생선까지 남은 정도가 보입니다.
 
 - **고양이** — CPU·메모리 고양이 카드(표시 여부, 실시간 미리보기, 크기)와 색 칸 20개. 카드를 눌러 고양이를 고르고, 칸을 눌러 색을 입히거나 입어 본 뒤 잠금 해제합니다.
-- **옷장** — 러너 모음. 새 러너를 생선으로 데려와 고양이 대신 달리게 합니다.
+- **옷장** — 러너 모음. 새 러너를 생선으로 데려와 고양이 대신 달리게 합니다. 준비 중인 닥스훈트·토끼는 "COMING SOON" 칸으로 먼저 보이고, 마우스를 올리면 달리기 연습하는 모습을 볼 수 있습니다.
 - **기록** — 달린 거리와 모은 생선
 - **일반** — 달릴 모니터, 전체 화면 앱 실행 중 숨기기
 
@@ -141,7 +141,8 @@ dotnet publish src/Woodada -c Release -r win-x64 --self-contained true -p:Publis
 | `Interop/TaskbarGeometry` | 모니터별 작업표시줄(`Shell_TrayWnd` / `Shell_SecondaryTrayWnd`) 위치·가장자리 조회, `MonitorCatalog` |
 | `Rendering/OverlayController` | 30fps 프레임 루프, 전체 화면 앱 감지 시 숨김 |
 | `Rendering/OverlayWindow`, `LayeredSurface` | 클릭 통과 레이어드 창 + premultiplied DIB |
-| `Sprites/RunCatSprite` | RunCat 고양이 5프레임을 알파 마스크로 써서 원하는 색으로 칠함, 눈 구멍은 흰색으로 채움 |
+| `Sprites/FrameSprite` | 실루엣 PNG 프레임(고양이·닥스훈트·토끼)을 알파 마스크로 써서 원하는 색으로 칠함, 눈 구멍은 흰색으로 채움 |
+| `Sprites/SpriteRegistry` | 러너 종류 목록과 출시 예정 러너 목록. 등록하면 옷장에 나타나고, 출시 예정이면 "COMING SOON" 칸으로만 보임 |
 | `Stats/StatsStore` | 러너별 달린 양(px·몸 길이·mm)과 날짜별 거리 누적·저장 |
 | `Rewards/RewardCatalog` | 생선 환산 기준(몸 길이 1,000 = 생선 1)과 색·나만의 색 칸·러너 가격표 |
 | `Rewards/RewardStore` | 생선 잔고 계산, 잠금 해제 · 구매 저장(`rewards.json`), 기존 사용자의 색 지급 |
@@ -150,11 +151,11 @@ dotnet publish src/Woodada -c Release -r win-x64 --self-contained true -p:Publis
 
 ### 새 러너 추가하기
 
-1. `Sprites/IRunnerSprite`를 구현합니다 (`Measure`, `Draw`).
-2. `Sprites/SpriteRegistry`에 등록합니다.
-3. `Settings/AppSettings.CreateDefault`에 `RunnerConfig`를 추가합니다 (`SpriteId`로 연결).
+1. 오른쪽을 보는 검은 실루엣 PNG 프레임을 만들고, 눈은 머리 쪽의 작은 투명 구멍으로 둡니다 (`tools/draw_*.py` 참고).
+2. `Woodada.csproj`에 임베디드 리소스로 넣고, `Sprites/SpriteRegistry`에 `FrameSprite`로 등록합니다. 그림을 직접 그리는 러너라면 `Sprites/IRunnerSprite`를 구현해도 됩니다 (`Measure`, `Draw`).
+3. 아직 내놓지 않을 러너는 `SpriteRegistry`의 출시 예정 목록(`Upcoming`)에 넣습니다. 옷장에 "COMING SOON" 칸으로 보이기만 하고 데려올 수 없습니다. 출시할 때 목록에서 빼면 됩니다.
 
-등록한 러너는 옷장에 자동으로 나타나고, 등록 순서대로 생선 1,000 → 2,000 → 3,000 …에 잠금 해제됩니다(`Rewards/RewardCatalog.RunnerPrice`).
+등록한 러너는 옷장에 자동으로 나타나고, 등록 순서대로 생선 1,000 → 2,000 → 3,000 …에 잠금 해제됩니다(`Rewards/RewardCatalog.RunnerPrice`). 출시 예정 러너도 이 순서에 자리를 차지하므로, 닥스훈트는 1,000, 토끼는 2,000으로 예고됩니다.
 
 ## 📦 릴리즈
 
@@ -183,6 +184,8 @@ git push origin v1.0.0
 고양이 이미지(`src/Woodada/Assets/RunCat/cat_running_*.png`)는
 [RunCat365](https://github.com/runcat-dev/RunCat365) (runcat-dev, Apache License 2.0)에서 가져왔습니다.
 라이선스 전문: `src/Woodada/Assets/RunCat/LICENSE` (빌드 시 `ThirdParty/RunCat365-LICENSE.txt`로 복사)
+
+닥스훈트(`src/Woodada/Assets/Dog/dog_running_*.png`)와 토끼(`src/Woodada/Assets/Rabbit/rabbit_running_*.png`) 이미지는 고양이 그림체에 맞춰 직접 그렸고, `tools/draw_dachshund.py`, `tools/draw_rabbit.py`로 다시 만들 수 있습니다. 소스 코드와 같은 MIT License를 따릅니다.
 
 ## 📄 라이선스
 

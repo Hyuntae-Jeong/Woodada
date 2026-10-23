@@ -6,22 +6,24 @@ using Woodada.Settings;
 namespace Woodada.Sprites;
 
 /// <summary>
-/// RunCat365(Apache-2.0)의 달리는 고양이 5프레임.
-/// 원본은 검은 실루엣이라 알파만 마스크로 쓰고 색은 설정값으로 칠한다.
+/// 검은 실루엣 PNG 프레임으로 달리는 러너 (RunCat 고양이, 닥스훈트 …).
+/// 알파만 마스크로 쓰고 색은 설정값으로 칠한다. 프레임은 오른쪽을 보고, 눈은 머리 쪽의 투명 구멍이어야 한다.
 /// 프레임은 (색, 높이, 방향)별로 미리 축소해 캐시해서 매 프레임 스케일링 비용이 들지 않는다.
 /// </summary>
-public sealed class RunCatSprite : IRunnerSprite
+public sealed class FrameSprite : IRunnerSprite
 {
-    private const int FrameCount = 5;
     private const int MaxCacheEntries = 64; // 설정 창의 색 칸(20개)과 미리보기를 함께 그려도 넘치지 않게
 
     private readonly FrameMask[] _masks;
     private readonly Size _crop;
     private readonly Dictionary<(int Argb, int Height, int Facing), Bitmap[]> _cache = new();
 
-    public RunCatSprite()
+    /// <param name="resourcePrefix">임베디드 리소스 이름 앞부분. 뒤에 "{i}.png"가 붙는다.</param>
+    public FrameSprite(string id, string displayName, string resourcePrefix, int frameCount)
     {
-        var raw = Enumerable.Range(0, FrameCount).Select(i => LoadArgb($"RunCat.cat_running_{i}.png")).ToArray();
+        Id = id;
+        DisplayName = displayName;
+        var raw = Enumerable.Range(0, frameCount).Select(i => LoadArgb($"{resourcePrefix}{i}.png")).ToArray();
 
         // 프레임마다 실루엣 범위가 달라서, 전 프레임 합집합으로 잘라야 발 위치(바닥선)가 흔들리지 않는다.
         var union = Rectangle.Empty;
@@ -34,8 +36,8 @@ public sealed class RunCatSprite : IRunnerSprite
         _masks = raw.Select(f => FrameMask.Build(f, union)).ToArray();
     }
 
-    public string Id => "cat";
-    public string DisplayName => "고양이";
+    public string Id { get; }
+    public string DisplayName { get; }
 
     public SizeF Measure(int heightPx) => new(heightPx * _crop.Width / (float)_crop.Height, heightPx);
 
@@ -43,8 +45,9 @@ public sealed class RunCatSprite : IRunnerSprite
     {
         int height = Math.Max(4, (int)Math.Round(box.Height));
         var frames = GetFrames(color, height, pose.Facing < 0 ? -1 : 1);
-        int index = (int)(pose.GaitPhase * FrameCount) % FrameCount;
-        if (index < 0) index += FrameCount;
+        int count = frames.Length;
+        int index = (int)(pose.GaitPhase * count) % count;
+        if (index < 0) index += count;
         var bmp = frames[index];
 
         var oldInterp = g.InterpolationMode;
@@ -89,7 +92,7 @@ public sealed class RunCatSprite : IRunnerSprite
 
     private static ArgbImage LoadArgb(string resourceName)
     {
-        using var stream = typeof(RunCatSprite).Assembly.GetManifestResourceStream(resourceName)
+        using var stream = typeof(FrameSprite).Assembly.GetManifestResourceStream(resourceName)
                            ?? throw new InvalidOperationException($"리소스 없음: {resourceName}");
         using var bmp = new Bitmap(stream);
         return ArgbImage.From(bmp);
