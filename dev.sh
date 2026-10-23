@@ -26,6 +26,11 @@ else
   DOTNET="$LOCAL_SDK/dotnet"
 fi
 
+# 빌드한 실행 파일은 기본 설치 위치(/usr/local/share/dotnet)에서만 .NET을 찾는다.
+# 이 스크립트가 받아 둔 SDK나 Homebrew의 .NET으로 빌드했으면 그 위치를 알려 줘야 뜬다.
+DOTNET_ROOT="$("$DOTNET" --list-runtimes | sed -n 's|^Microsoft\.NETCore\.App 9\.[^[]*\[\(.*\)/shared/Microsoft\.NETCore\.App\]$|\1|p' | head -n 1)"
+export DOTNET_ROOT
+
 # 빌드가 실행 파일을 덮어쓸 수 있도록 떠 있는 개발용 앱만 닫는다. 설치된 Woodada.app은 건드리지 않는다.
 pkill -f 'src/Woodada/bin/Debug/net9.0/Woodada' 2>/dev/null || true
 
