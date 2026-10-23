@@ -30,7 +30,6 @@ internal sealed class SettingsForm : Form
     private readonly Dictionary<Page, (NavPill Pill, Control View)> _pages = new();
     private readonly Panel _content = new();
     private Page _page = Page.Cats;
-    private readonly Button _reset = new();
     private readonly System.Windows.Forms.Timer _tick = new() { Interval = 1000 };
     // 옷장의 출시 예정 칸에 마우스를 올렸을 때 제자리 달리기를 보여 주는 타이머.
     private readonly System.Windows.Forms.Timer _teaserTimer = new() { Interval = 110 };
@@ -124,7 +123,6 @@ internal sealed class SettingsForm : Form
             pill.Selected = p == page;
             view.Visible = p == page;
         }
-        _reset.Visible = page == Page.Cats;
         if (page == Page.Profile)
         {
             BuildRunnerStatRows();
@@ -172,11 +170,6 @@ internal sealed class SettingsForm : Form
         var close = new Button { Text = "닫기", AutoSize = true, MinimumSize = new Size(80, 0), BackColor = GameArt.Card };
         close.Click += (_, _) => Close();
         buttons.Controls.Add(close);
-        _reset.Text = "선택한 고양이 기본값으로";
-        _reset.AutoSize = true;
-        _reset.BackColor = GameArt.Card;
-        _reset.Click += (_, _) => ResetSelected();
-        buttons.Controls.Add(_reset);
         AcceptButton = close;
         CancelButton = close;
         root.Controls.Add(buttons, 0, 3);
@@ -1073,19 +1066,6 @@ internal sealed class SettingsForm : Form
         _lastFish = -1; // 생선을 썼으니 지갑과 칸 상태를 바로 다시 그린다
         RefreshWallet();
         RefreshCards();
-    }
-
-    private void ResetSelected()
-    {
-        if (Selected is not { } r) return;
-        EndTrial();
-        var def = AppSettings.CreateDefault().Runners.FirstOrDefault(d => d.Id == r.Id);
-        if (def is null) return;
-        EditRunner(r.Id, x =>
-        {
-            x.Color = def.Color;
-            x.Size = def.Size;
-        });
     }
 
     public static string RunnerName(RunnerConfig r) => $"{MetricName(r.Metric)} {SpriteRegistry.Get(r.SpriteId).DisplayName}";
