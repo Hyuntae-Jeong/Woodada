@@ -34,6 +34,8 @@
     <EmbeddedResource Include="Assets\Rabbit\rabbit_running_*.png" LogicalName="Rabbit.%(Filename)%(Extension)" />
     <!-- 트레이·설정 창 아이콘. -->
     <EmbeddedResource Include="Assets\Icon\Woodada.ico" LogicalName="Woodada.ico" />
+    <!-- macOS 메뉴 막대 아이콘(검정 + 투명 템플릿). tools/draw_menubar_icon.py로 다시 만들 수 있음. -->
+    <EmbeddedResource Include="Assets\Icon\MenuBarTemplate.png" LogicalName="MenuBarTemplate.png" />
     <!-- 릴리즈는 exe 하나만 배포하므로 Apache-2.0 라이선스 전문을 exe 안에도 담아 함께 나가게 한다. -->
     <EmbeddedResource Include="Assets\RunCat\LICENSE" LogicalName="ThirdParty.RunCat365-LICENSE.txt" />
     <None Include="Assets\RunCat\LICENSE" CopyToOutputDirectory="PreserveNewest" Link="ThirdParty\RunCat365-LICENSE.txt" />

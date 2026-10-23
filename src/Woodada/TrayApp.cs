@@ -52,11 +52,14 @@ internal sealed class TrayApp : IDisposable
 
         _tray = new TrayIcon
         {
-            Icon = AppIcon.Load(),
+            // macOS는 다른 메뉴 막대 아이콘처럼 한 색으로 칠해지는 템플릿 아이콘을 쓴다.
+            Icon = OperatingSystem.IsMacOS() ? AppIcon.LoadMenuBarTemplate() : AppIcon.Load(),
             ToolTipText = AppInfo.Tag + "Woodada",
             Menu = _menu,
             IsVisible = true,
         };
+        // 아이콘을 넣은 뒤에 켜야 그 그림에 템플릿 표시가 붙는다.
+        if (OperatingSystem.IsMacOS()) MacOSProperties.SetIsTemplateIcon(_tray, true);
         // Windows에서 아이콘을 왼쪽 클릭하면 설정을 연다. macOS는 누르면 메뉴가 열린다.
         _tray.Clicked += (_, _) => ShowSettings();
 

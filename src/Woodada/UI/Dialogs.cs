@@ -142,17 +142,22 @@ internal static class Toast
     }
 }
 
-/// <summary>앱 아이콘(Woodada.ico). 트레이와 창이 함께 쓴다.</summary>
+/// <summary>앱 아이콘(Woodada.ico). 창과 Windows 트레이가 함께 쓴다.</summary>
 internal static class AppIcon
 {
     private static WindowIcon? _icon;
 
     public static WindowIcon Window => _icon ??= Load();
 
-    public static WindowIcon Load()
+    public static WindowIcon Load() => FromResource("Woodada.ico");
+
+    /// <summary>macOS 메뉴 막대 아이콘. 검정 + 투명 템플릿이라 macOS가 막대 색에 맞춰 칠한다.</summary>
+    public static WindowIcon LoadMenuBarTemplate() => FromResource("MenuBarTemplate.png");
+
+    private static WindowIcon FromResource(string name)
     {
-        using var stream = typeof(AppIcon).Assembly.GetManifestResourceStream("Woodada.ico")
-                           ?? throw new InvalidOperationException("리소스 없음: Woodada.ico");
+        using var stream = typeof(AppIcon).Assembly.GetManifestResourceStream(name)
+                           ?? throw new InvalidOperationException($"리소스 없음: {name}");
         return new WindowIcon(stream);
     }
 }

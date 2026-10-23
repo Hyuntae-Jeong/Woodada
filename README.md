@@ -221,6 +221,7 @@ git push origin v1.0.0
 고양이 이미지(`src/Woodada/Assets/RunCat/cat_running_*.png`)는
 [RunCat365](https://github.com/runcat-dev/RunCat365) (runcat-dev, Apache License 2.0)에서 가져왔습니다.
 라이선스 전문: `src/Woodada/Assets/RunCat/LICENSE` (빌드 시 `ThirdParty/RunCat365-LICENSE.txt`로 복사)
+macOS 메뉴 막대 아이콘(`src/Woodada/Assets/Icon/MenuBarTemplate.png`)은 이 고양이 프레임을 줄이고 밑줄을 더해 만들었고, `tools/draw_menubar_icon.py`로 다시 만들 수 있습니다.
 
 닥스훈트(`src/Woodada/Assets/Dog/dog_running_*.png`)와 토끼(`src/Woodada/Assets/Rabbit/rabbit_running_*.png`) 이미지는 고양이 그림체에 맞춰 직접 그렸고, `tools/draw_dachshund.py`, `tools/draw_rabbit.py`로 다시 만들 수 있습니다. 소스 코드와 같은 MIT License를 따릅니다.
 
