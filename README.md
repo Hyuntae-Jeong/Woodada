@@ -94,7 +94,7 @@ dotnet publish src/Woodada -c Release -r win-x64 --self-contained true -p:Publis
 | 동작 | 결과 |
 |---|---|
 | 트레이 아이콘 **왼쪽 클릭** | 설정 창 열기 |
-| 트레이 아이콘 **오른쪽 클릭** | 설정 · 기록 · 고양이별 표시 · 일시정지 · Windows 시작 시 실행 · 종료 |
+| 트레이 아이콘 **오른쪽 클릭** | 설정 · Windows 시작 시 실행 · 종료 |
 
 **설정 창**
 

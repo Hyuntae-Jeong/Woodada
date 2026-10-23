@@ -46,7 +46,6 @@ internal sealed class OverlayController : IDisposable
     }
 
     public MetricSampler Sampler { get; }
-    public bool Paused { get; set; }
 
     private void OnDisplayChanged(object? sender, EventArgs e)
     {
@@ -114,7 +113,7 @@ internal sealed class OverlayController : IDisposable
             _geometryAcc = 0;
         }
 
-        if (Paused || _runners.Count == 0 || _fullScreenApp || _runway.Width <= 0)
+        if (_runners.Count == 0 || _fullScreenApp || _runway.Width <= 0)
         {
             _window.HideOverlay();
             return;

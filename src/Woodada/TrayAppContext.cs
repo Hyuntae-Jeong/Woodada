@@ -25,7 +25,6 @@ internal sealed class TrayAppContext : ApplicationContext
     private readonly Icon _trayIcon;
     private readonly Icon _windowIcon;
     private readonly System.Windows.Forms.Timer _tooltipTimer = new() { Interval = 1000 };
-    private readonly ToolStripMenuItem _pauseItem;
     private readonly ToolStripMenuItem _startupItem;
     private readonly CancellationTokenSource _updateCts = new();
     private SettingsForm? _settingsForm;
@@ -39,7 +38,6 @@ internal sealed class TrayAppContext : ApplicationContext
         _trayIcon = LoadAppIcon(SystemInformation.SmallIconSize);
         _windowIcon = LoadAppIcon(SystemInformation.IconSize);
 
-        _pauseItem = new ToolStripMenuItem("일시정지", null, (_, _) => TogglePause());
         _startupItem = new ToolStripMenuItem("Windows 시작 시 실행", null, (_, _) => ToggleStartup())
         {
             Checked = IsStartupEnabled(),
@@ -47,28 +45,8 @@ internal sealed class TrayAppContext : ApplicationContext
 
         var menu = new ContextMenuStrip();
         menu.Items.Add(new ToolStripMenuItem("설정…", null, (_, _) => ShowSettings()) { Font = new Font(menu.Font, FontStyle.Bold) });
-        menu.Items.Add(new ToolStripMenuItem("기록…", null, (_, _) => ShowSettings(SettingsForm.Page.Profile)));
-        menu.Items.Add(new ToolStripSeparator());
-        int runnerSlot = menu.Items.Count; // 고양이 표시 토글은 메뉴를 열 때마다 현재 설정으로 다시 만든다
-        menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add(_pauseItem);
         menu.Items.Add(_startupItem);
-        menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(new ToolStripMenuItem("종료", null, (_, _) => ExitThread()));
-
-        var runnerItems = new List<ToolStripMenuItem>();
-        menu.Opening += (_, _) =>
-        {
-            foreach (var item in runnerItems) menu.Items.Remove(item);
-            runnerItems.Clear();
-            foreach (var r in _store.Current.Runners)
-            {
-                string id = r.Id;
-                var item = new ToolStripMenuItem($"{SettingsForm.RunnerName(r)} 표시", null, (_, _) => ToggleRunner(id)) { Checked = r.Enabled };
-                runnerItems.Add(item);
-                menu.Items.Insert(runnerSlot + runnerItems.Count - 1, item);
-            }
-        };
 
         _tray = new NotifyIcon
         {
@@ -126,21 +104,6 @@ internal sealed class TrayAppContext : ApplicationContext
         _settingsForm.FormClosed += (_, _) => _settingsForm = null;
         _settingsForm.Show();
         _settingsForm.Activate();
-    }
-
-    private void ToggleRunner(string id)
-    {
-        var settings = _store.Current.Clone();
-        var r = settings.Runners.FirstOrDefault(x => x.Id == id);
-        if (r is null) return;
-        r.Enabled = !r.Enabled;
-        _store.Update(settings);
-    }
-
-    private void TogglePause()
-    {
-        _overlay.Paused = !_overlay.Paused;
-        _pauseItem.Checked = _overlay.Paused;
     }
 
     /// <summary>
