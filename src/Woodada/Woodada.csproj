@@ -1,9 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <!-- Windows에서는 콘솔 창 없이 뜨는 exe, macOS에서는 .app 안에 들어갈 실행 파일이 된다. -->
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net9.0-windows</TargetFramework>
-    <UseWindowsForms>true</UseWindowsForms>
+    <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
@@ -12,13 +12,18 @@
     <Product>Woodada</Product>
     <!-- 릴리즈 CI가 태그(vX.Y.Z)로 덮어쓴다. 0.0.0인 로컬 빌드는 자동 업데이트를 하지 않는다. -->
     <Version>0.0.0</Version>
-    <!-- 레이어드 창 좌표를 Win32에서 물리 픽셀로 받아 쓰므로 프로세스가 DPI를 직접 인지해야 한다. -->
-    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
-    <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
-    <!-- 탐색기·작업표시줄·Alt+Tab에 보이는 exe 아이콘 -->
+    <!-- 탐색기·작업표시줄·Alt+Tab에 보이는 exe 아이콘. macOS는 .app의 Woodada.icns를 쓴다. -->
     <ApplicationIcon>Assets\Icon\Woodada.ico</ApplicationIcon>
+    <AvaloniaVersion>11.3.22</AvaloniaVersion>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="$(AvaloniaVersion)" />
+    <PackageReference Include="Avalonia.Desktop" Version="$(AvaloniaVersion)" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="$(AvaloniaVersion)" />
+    <PackageReference Include="Avalonia.Controls.ColorPicker" Version="$(AvaloniaVersion)" />
+  </ItemGroup>
 
   <ItemGroup>
     <!-- RunCat365 (Apache-2.0) 고양이 프레임. 출처는 Assets/RunCat/LICENSE, README 참고. -->
@@ -27,7 +32,7 @@
     <EmbeddedResource Include="Assets\Dog\dog_running_*.png" LogicalName="Dog.%(Filename)%(Extension)" />
     <!-- 토끼 프레임도 직접 그렸다 (tools/draw_rabbit.py). 저장소 라이선스(MIT)를 따른다. -->
     <EmbeddedResource Include="Assets\Rabbit\rabbit_running_*.png" LogicalName="Rabbit.%(Filename)%(Extension)" />
-    <!-- 트레이·설정 창이 크기별 프레임을 골라 쓰도록 같은 ico를 리소스로도 넣는다 -->
+    <!-- 트레이·설정 창 아이콘. -->
     <EmbeddedResource Include="Assets\Icon\Woodada.ico" LogicalName="Woodada.ico" />
     <!-- 릴리즈는 exe 하나만 배포하므로 Apache-2.0 라이선스 전문을 exe 안에도 담아 함께 나가게 한다. -->
     <EmbeddedResource Include="Assets\RunCat\LICENSE" LogicalName="ThirdParty.RunCat365-LICENSE.txt" />

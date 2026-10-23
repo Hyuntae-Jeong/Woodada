@@ -1,6 +1,9 @@
-using System.Drawing.Drawing2D;
-using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
+using Avalonia;
+using Avalonia.Media;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
+using SkiaSharp;
 using Woodada.Settings;
 
 namespace Woodada.Sprites;
@@ -8,106 +11,94 @@ namespace Woodada.Sprites;
 /// <summary>
 /// 검은 실루엣 PNG 프레임으로 달리는 러너 (RunCat 고양이, 닥스훈트 …).
 /// 알파만 마스크로 쓰고 색은 설정값으로 칠한다. 프레임은 오른쪽을 보고, 눈은 머리 쪽의 투명 구멍이어야 한다.
-/// 프레임은 (색, 높이, 방향)별로 미리 축소해 캐시해서 매 프레임 스케일링 비용이 들지 않는다.
+/// 프레임은 (색, 장치 픽셀 높이)별로 미리 축소해 캐시해서 매 프레임 스케일링 비용이 들지 않는다.
+/// 왼쪽을 볼 때는 그릴 때 좌우만 뒤집는다.
 /// </summary>
 public sealed class FrameSprite : IRunnerSprite
 {
     private const int MaxCacheEntries = 64; // 설정 창의 색 칸(20개)과 미리보기를 함께 그려도 넘치지 않게
 
     private readonly FrameMask[] _masks;
-    private readonly Size _crop;
-    private readonly Dictionary<(int Argb, int Height, int Facing), Bitmap[]> _cache = new();
+    private readonly PixelSize _crop;
+    private readonly Dictionary<(uint Argb, int Height), Bitmap[]> _cache = new();
 
     /// <param name="resourcePrefix">임베디드 리소스 이름 앞부분. 뒤에 "{i}.png"가 붙는다.</param>
     public FrameSprite(string id, string displayName, string resourcePrefix, int frameCount)
     {
         Id = id;
         DisplayName = displayName;
-        var raw = Enumerable.Range(0, frameCount).Select(i => LoadArgb($"{resourcePrefix}{i}.png")).ToArray();
+        var raw = Enumerable.Range(0, frameCount).Select(i => AlphaImage.Load($"{resourcePrefix}{i}.png")).ToArray();
 
         // 프레임마다 실루엣 범위가 달라서, 전 프레임 합집합으로 잘라야 발 위치(바닥선)가 흔들리지 않는다.
-        var union = Rectangle.Empty;
+        PixelRect? union = null;
         foreach (var f in raw)
         {
             var b = f.OpaqueBounds();
-            union = union.IsEmpty ? b : Rectangle.Union(union, b);
+            union = union is { } u ? u.Union(b) : b;
         }
-        _crop = union.Size;
-        _masks = raw.Select(f => FrameMask.Build(f, union)).ToArray();
+        var crop = union ?? new PixelRect(0, 0, 1, 1);
+        _crop = crop.Size;
+        _masks = raw.Select(f => FrameMask.Build(f, crop)).ToArray();
     }
 
     public string Id { get; }
     public string DisplayName { get; }
 
-    public SizeF Measure(int heightPx) => new(heightPx * _crop.Width / (float)_crop.Height, heightPx);
+    public Size Measure(double height) => new(height * _crop.Width / _crop.Height, height);
 
-    public void Draw(Graphics g, RectangleF box, RunnerPose pose, Color color)
+    public void Draw(DrawingContext ctx, Rect box, RunnerPose pose, Color color, double renderScaling)
     {
-        int height = Math.Max(4, (int)Math.Round(box.Height));
-        var frames = GetFrames(color, height, pose.Facing < 0 ? -1 : 1);
+        double scale = renderScaling > 0 ? renderScaling : 1;
+        int pixelHeight = Math.Max(4, (int)Math.Round(box.Height * scale));
+        var frames = GetFrames(color, pixelHeight);
         int count = frames.Length;
         int index = (int)(pose.GaitPhase * count) % count;
         if (index < 0) index += count;
         var bmp = frames[index];
 
-        var oldInterp = g.InterpolationMode;
-        g.InterpolationMode = InterpolationMode.NearestNeighbor; // 이미 목표 크기라 1:1로 찍기만 한다
-        g.DrawImage(bmp, (float)Math.Round(box.X), (float)Math.Round(box.Bottom - bmp.Height), bmp.Width, bmp.Height);
-        g.InterpolationMode = oldInterp;
+        // 이미 장치 픽셀 크기로 만들어 둔 그림이라 픽셀 격자에 맞춰 1:1로 찍기만 한다.
+        double w = bmp.PixelSize.Width / scale, h = bmp.PixelSize.Height / scale;
+        double x = Math.Round(box.X * scale) / scale;
+        double y = Math.Round((box.Bottom - h) * scale) / scale;
+        var dest = new Rect(x, y, w, h);
+        var src = new Rect(0, 0, bmp.PixelSize.Width, bmp.PixelSize.Height);
+
+        using var _ = ctx.PushRenderOptions(new RenderOptions { BitmapInterpolationMode = BitmapInterpolationMode.None });
+        if (pose.Facing < 0)
+        {
+            // 원본은 오른쪽을 본다. dest 안에서 좌우만 뒤집는다.
+            using (ctx.PushTransform(Matrix.CreateScale(-1, 1) * Matrix.CreateTranslation(2 * x + w, 0)))
+                ctx.DrawImage(bmp, src, dest);
+        }
+        else
+        {
+            ctx.DrawImage(bmp, src, dest);
+        }
     }
 
-    private Bitmap[] GetFrames(Color color, int height, int facing)
+    private Bitmap[] GetFrames(Color color, int height)
     {
-        var key = (color.ToArgb(), height, facing);
+        var key = (color.ToUInt32(), height);
         if (_cache.TryGetValue(key, out var frames)) return frames;
 
-        if (_cache.Count >= MaxCacheEntries)
-        {
-            foreach (var set in _cache.Values)
-                foreach (var b in set) b.Dispose();
-            _cache.Clear();
-        }
+        // 그리는 중인 화면이 들고 있을 수 있으니 Dispose하지 않고 놓아 주기만 한다.
+        if (_cache.Count >= MaxCacheEntries) _cache.Clear();
 
         int width = Math.Max(1, (int)Math.Round(height * _crop.Width / (double)_crop.Height));
-        frames = _masks.Select(m =>
-        {
-            using var full = m.Tint(color);
-            var scaled = new Bitmap(width, height, PixelFormat.Format32bppPArgb);
-            using (var g = Graphics.FromImage(scaled))
-            using (var attrs = new ImageAttributes())
-            {
-                g.CompositingMode = CompositingMode.SourceCopy;
-                g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-                g.PixelOffsetMode = PixelOffsetMode.HighQuality;
-                attrs.SetWrapMode(WrapMode.TileFlipXY); // 가장자리 픽셀이 반투명하게 번지는 것 방지
-                g.DrawImage(full, new Rectangle(0, 0, width, height), 0, 0, full.Width, full.Height, GraphicsUnit.Pixel, attrs);
-            }
-            if (facing < 0) scaled.RotateFlip(RotateFlipType.RotateNoneFlipX); // 원본은 오른쪽을 본다
-            return scaled;
-        }).ToArray();
-
+        frames = _masks.Select(m => m.Render(color, width, height)).ToArray();
         _cache[key] = frames;
         return frames;
     }
 
-    private static ArgbImage LoadArgb(string resourceName)
-    {
-        using var stream = typeof(FrameSprite).Assembly.GetManifestResourceStream(resourceName)
-                           ?? throw new InvalidOperationException($"리소스 없음: {resourceName}");
-        using var bmp = new Bitmap(stream);
-        return ArgbImage.From(bmp);
-    }
-
-    /// <summary>32bpp ARGB 픽셀 배열 (BGRA 순서, 행 우선).</summary>
-    private sealed class ArgbImage(int width, int height, byte[] bgra)
+    /// <summary>PNG 한 장의 알파 채널(행 우선).</summary>
+    private sealed class AlphaImage(int width, int height, byte[] alpha)
     {
         public int Width { get; } = width;
         public int Height { get; } = height;
-        public byte[] Bgra { get; } = bgra;
 
-        public byte Alpha(int x, int y) => Bgra[(y * Width + x) * 4 + 3];
+        public byte Alpha(int x, int y) => alpha[y * Width + x];
 
-        public Rectangle OpaqueBounds()
+        public PixelRect OpaqueBounds()
         {
             int minX = Width, minY = Height, maxX = -1, maxY = -1;
             for (int y = 0; y < Height; y++)
@@ -117,24 +108,22 @@ public sealed class FrameSprite : IRunnerSprite
                 minX = Math.Min(minX, x); maxX = Math.Max(maxX, x);
                 minY = Math.Min(minY, y); maxY = Math.Max(maxY, y);
             }
-            return maxX < 0 ? new Rectangle(0, 0, Width, Height) : Rectangle.FromLTRB(minX, minY, maxX + 1, maxY + 1);
+            return maxX < 0 ? new PixelRect(0, 0, Width, Height) : new PixelRect(minX, minY, maxX - minX + 1, maxY - minY + 1);
         }
 
-        public static ArgbImage From(Bitmap source)
+        public static AlphaImage Load(string resourceName)
         {
-            using var bmp = source.Clone(new Rectangle(0, 0, source.Width, source.Height), PixelFormat.Format32bppArgb);
-            var data = bmp.LockBits(new Rectangle(0, 0, bmp.Width, bmp.Height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
-            try
-            {
-                var bytes = new byte[bmp.Width * bmp.Height * 4];
-                for (int y = 0; y < bmp.Height; y++)
-                    Marshal.Copy(data.Scan0 + y * data.Stride, bytes, y * bmp.Width * 4, bmp.Width * 4);
-                return new ArgbImage(bmp.Width, bmp.Height, bytes);
-            }
-            finally
-            {
-                bmp.UnlockBits(data);
-            }
+            using var stream = typeof(FrameSprite).Assembly.GetManifestResourceStream(resourceName)
+                               ?? throw new InvalidOperationException($"리소스 없음: {resourceName}");
+            using var codec = SKCodec.Create(stream) ?? throw new InvalidDataException($"PNG를 읽을 수 없음: {resourceName}");
+            var info = new SKImageInfo(codec.Info.Width, codec.Info.Height, SKColorType.Bgra8888, SKAlphaType.Unpremul);
+            using var bmp = SKBitmap.Decode(codec, info);
+            var pixels = bmp.GetPixelSpan();
+            var alpha = new byte[info.Width * info.Height];
+            for (int y = 0; y < info.Height; y++)
+            for (int x = 0; x < info.Width; x++)
+                alpha[y * info.Width + x] = pixels[y * bmp.RowBytes + x * 4 + 3];
+            return new AlphaImage(info.Width, info.Height, alpha);
         }
     }
 
@@ -145,7 +134,7 @@ public sealed class FrameSprite : IRunnerSprite
         private byte[] _bodyAlpha = [];
         private bool[] _eye = [];
 
-        public static FrameMask Build(ArgbImage src, Rectangle crop)
+        public static FrameMask Build(AlphaImage src, PixelRect crop)
         {
             int w = crop.Width, h = crop.Height;
             var alpha = new byte[w * h];
@@ -214,10 +203,21 @@ public sealed class FrameSprite : IRunnerSprite
             }
         }
 
-        public Bitmap Tint(Color color)
+        /// <summary>색을 칠한 원본 크기 프레임을 목표 크기로 줄여 화면에 바로 찍을 수 있는 그림으로 만든다.</summary>
+        public Bitmap Render(Color color, int width, int height)
+        {
+            using var full = new SKBitmap(new SKImageInfo(_width, _height, SKColorType.Bgra8888, SKAlphaType.Unpremul));
+            Marshal.Copy(Tint(color), 0, full.GetPixels(), _width * _height * 4);
+
+            using var scaled = full.Resize(new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul), SKFilterQuality.High);
+            return new Bitmap(PixelFormat.Bgra8888, AlphaFormat.Premul, scaled.GetPixels(),
+                new PixelSize(width, height), new Vector(96, 96), scaled.RowBytes);
+        }
+
+        private byte[] Tint(Color color)
         {
             // 흰 고양이에 흰 눈은 안 보이니 밝은 색이면 눈을 어둡게.
-            Color eyeColor = ColorUtil.Luminance(color) > 0.7 ? Color.FromArgb(255, 45, 42, 48) : Color.White;
+            Color eyeColor = ColorUtil.Luminance(color) > 0.7 ? Color.FromRgb(45, 42, 48) : Colors.White;
             var bytes = new byte[_width * _height * 4];
             for (int i = 0; i < _bodyAlpha.Length; i++)
             {
@@ -240,19 +240,7 @@ public sealed class FrameSprite : IRunnerSprite
                     bytes[o + 3] = (byte)a;
                 }
             }
-
-            var bmp = new Bitmap(_width, _height, PixelFormat.Format32bppArgb);
-            var data = bmp.LockBits(new Rectangle(0, 0, _width, _height), ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
-            try
-            {
-                for (int y = 0; y < _height; y++)
-                    Marshal.Copy(bytes, y * _width * 4, data.Scan0 + y * data.Stride, _width * 4);
-            }
-            finally
-            {
-                bmp.UnlockBits(data);
-            }
-            return bmp;
+            return bytes;
         }
     }
 }

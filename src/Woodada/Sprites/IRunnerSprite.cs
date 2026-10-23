@@ -1,3 +1,6 @@
+using Avalonia;
+using Avalonia.Media;
+
 namespace Woodada.Sprites;
 
 /// <summary>한 프레임을 그리는 데 필요한 러너 자세.</summary>
@@ -15,9 +18,12 @@ public interface IRunnerSprite
     string Id { get; }
     string DisplayName { get; }
 
-    /// <summary>높이가 heightPx일 때 차지하는 박스 크기.</summary>
-    SizeF Measure(int heightPx);
+    /// <summary>높이가 height일 때 차지하는 박스 크기(높이와 같은 단위).</summary>
+    Size Measure(double height);
 
-    /// <summary>box 안에 그린다. 발은 box 아래쪽 선에 닿는다.</summary>
-    void Draw(Graphics g, RectangleF box, RunnerPose pose, Color color);
+    /// <summary>
+    /// box(논리 단위) 안에 그린다. 발은 box 아래쪽 선에 닿는다.
+    /// renderScaling은 논리 단위 1이 장치 픽셀 몇 개인지다. 그 크기로 그림을 만들어야 흐리지 않다.
+    /// </summary>
+    void Draw(DrawingContext ctx, Rect box, RunnerPose pose, Color color, double renderScaling);
 }

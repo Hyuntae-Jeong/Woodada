@@ -1,63 +1,162 @@
-using System.Drawing.Drawing2D;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Media;
 
 namespace Woodada.UI;
 
 /// <summary>둥근 흰 카드. Highlighted면 테두리를 강조색으로 굵게 그린다.</summary>
-internal class CardPanel : Panel
+internal class CardPanel : Border
 {
-    private bool _highlighted;
-
     public CardPanel()
     {
-        SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer |
-                 ControlStyles.UserPaint | ControlStyles.ResizeRedraw, true);
-        BackColor = GameArt.Background;
-        Padding = new Padding(12, 10, 12, 10);
+        Background = GameArt.Brush(GameArt.Card);
+        CornerRadius = new CornerRadius(10);
+        Padding = new Thickness(12, 10);
+        Highlighted = false;
     }
 
-    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
     public bool Highlighted
     {
-        get => _highlighted;
         set
         {
-            if (_highlighted == value) return;
-            _highlighted = value;
-            Invalidate();
+            BorderBrush = GameArt.Brush(value ? GameArt.Accent : GameArt.CardBorder);
+            BorderThickness = new Thickness(value ? 2.5 : 1);
+        }
+    }
+}
+
+/// <summary>
+/// 직접 그리는 칸의 공통 바탕: 마우스를 올렸는지 알고, 눌렀다 뗀 버튼으로 Click·RightClick을 낸다.
+/// 투명한 곳도 눌리도록 전체를 투명하게 한 번 칠한다.
+/// </summary>
+internal abstract class ClickableControl : Control
+{
+    public event EventHandler? Click;
+    public event EventHandler? RightClick;
+
+    protected bool Hover { get; private set; }
+
+    protected override void OnPointerEntered(PointerEventArgs e)
+    {
+        base.OnPointerEntered(e);
+        Hover = true;
+        InvalidateVisual();
+    }
+
+    protected override void OnPointerExited(PointerEventArgs e)
+    {
+        base.OnPointerExited(e);
+        Hover = false;
+        InvalidateVisual();
+    }
+
+    protected override void OnPointerReleased(PointerReleasedEventArgs e)
+    {
+        base.OnPointerReleased(e);
+        if (!new Rect(Bounds.Size).Contains(e.GetPosition(this))) return;
+        if (e.InitialPressMouseButton == MouseButton.Left) Click?.Invoke(this, EventArgs.Empty);
+        else if (e.InitialPressMouseButton == MouseButton.Right) RightClick?.Invoke(this, EventArgs.Empty);
+    }
+
+    public sealed override void Render(DrawingContext ctx)
+    {
+        ctx.FillRectangle(Brushes.Transparent, new Rect(Bounds.Size));
+        Paint(ctx);
+    }
+
+    protected abstract void Paint(DrawingContext ctx);
+
+    protected double RenderScaling => TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
+}
+
+/// <summary>
+/// 게임풍 둥근 버튼. 기본 테마 버튼은 마우스를 올리면 회색으로 바뀌어 강조색 버튼과 어울리지 않아 직접 그린다.
+/// 끄면(IsEnabled = false) 잠긴 칸 색으로 바뀌고 눌리지 않는다.
+/// </summary>
+internal sealed class GameButton : ClickableControl
+{
+    private string _text;
+
+    public GameButton(string text, bool primary = false)
+    {
+        _text = text;
+        Primary = primary;
+        Cursor = new Cursor(StandardCursorType.Hand);
+        Height = 28;
+        MinWidth = 64;
+    }
+
+    public bool Primary { get; }
+
+    public string Text
+    {
+        get => _text;
+        set
+        {
+            if (_text == value) return;
+            _text = value;
+            InvalidateMeasure();
+            InvalidateVisual();
         }
     }
 
-    protected override void OnPaint(PaintEventArgs e)
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
-        var g = e.Graphics;
-        g.SmoothingMode = SmoothingMode.AntiAlias;
-        float s = DeviceDpi / 96f;
-        float inset = 1.5f * s;
-        var r = new RectangleF(inset, inset, Width - inset * 2, Height - inset * 2);
-        GameArt.FillRound(g, r, 10 * s, GameArt.Card,
-            _highlighted ? GameArt.Accent : GameArt.CardBorder, _highlighted ? 2.5f * s : 1f * s);
+        base.OnPropertyChanged(change);
+        if (change.Property == IsEffectivelyEnabledProperty) InvalidateVisual();
+    }
+
+    private FormattedText Label(Color color) =>
+        GameArt.Format(_text, GameArt.FontBody, color, Primary ? FontWeight.Bold : FontWeight.Normal);
+
+    protected override Size MeasureOverride(Size availableSize) =>
+        new(Math.Max(MinWidth, Label(GameArt.Text).Width + 24), Height);
+
+    protected override void Paint(DrawingContext ctx)
+    {
+        var r = new Rect(Bounds.Size).Deflate(0.5);
+        bool enabled = IsEffectivelyEnabled;
+        Color fill, border, text;
+        if (!enabled)
+        {
+            fill = GameArt.Locked;
+            border = GameArt.CardBorder;
+            text = GameArt.SubText;
+        }
+        else if (Primary)
+        {
+            var a = GameArt.Accent;
+            fill = Hover ? Color.FromRgb((byte)(a.R * 0.85), (byte)(a.G * 0.85), (byte)(a.B * 0.85)) : a;
+            border = fill;
+            text = GameArt.OnAccent;
+        }
+        else
+        {
+            fill = Hover ? GameArt.AccentSoft : GameArt.Card;
+            border = GameArt.CardBorder;
+            text = GameArt.Text;
+        }
+        GameArt.FillRound(ctx, r, 6, fill, border);
+        GameArt.DrawCentered(ctx, Label(text), r);
     }
 }
 
 /// <summary>위쪽 탭 대신 쓰는 알약 모양 버튼.</summary>
-internal sealed class NavPill : Control
+internal sealed class NavPill : ClickableControl
 {
+    private readonly string _text;
     private bool _selected;
-    private bool _hover;
 
     public NavPill(string text)
     {
-        Text = text;
-        SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer |
-                 ControlStyles.UserPaint | ControlStyles.ResizeRedraw | ControlStyles.SupportsTransparentBackColor, true);
-        BackColor = Color.Transparent;
-        Cursor = Cursors.Hand;
-        Font = new Font("Segoe UI", 10f, FontStyle.Bold);
-        Size = new Size(96, 32);
-        Margin = new Padding(0, 0, 6, 0);
+        _text = text;
+        Cursor = new Cursor(StandardCursorType.Hand);
+        Width = 96;
+        Height = 32;
+        Margin = new Thickness(0, 0, 6, 0);
     }
 
-    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
     public bool Selected
     {
         get => _selected;
@@ -65,21 +164,15 @@ internal sealed class NavPill : Control
         {
             if (_selected == value) return;
             _selected = value;
-            Invalidate();
+            InvalidateVisual();
         }
     }
 
-    protected override void OnMouseEnter(EventArgs e) { _hover = true; Invalidate(); base.OnMouseEnter(e); }
-    protected override void OnMouseLeave(EventArgs e) { _hover = false; Invalidate(); base.OnMouseLeave(e); }
-
-    protected override void OnPaint(PaintEventArgs e)
+    protected override void Paint(DrawingContext ctx)
     {
-        var g = e.Graphics;
-        g.SmoothingMode = SmoothingMode.AntiAlias;
-        var r = new RectangleF(0.5f, 0.5f, Width - 1, Height - 1);
-        if (_selected) GameArt.FillRound(g, r, Height / 2f, GameArt.Accent);
-        else if (_hover) GameArt.FillRound(g, r, Height / 2f, GameArt.AccentSoft);
-        TextRenderer.DrawText(g, Text, Font, ClientRectangle, _selected ? GameArt.OnAccent : GameArt.Text,
-            TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+        var r = new Rect(Bounds.Size).Deflate(0.5);
+        if (_selected) GameArt.FillRound(ctx, r, r.Height / 2, GameArt.Accent);
+        else if (Hover) GameArt.FillRound(ctx, r, r.Height / 2, GameArt.AccentSoft);
+        GameArt.DrawCentered(ctx, GameArt.Format(_text, GameArt.FontLarge, _selected ? GameArt.OnAccent : GameArt.Text, FontWeight.Bold), r);
     }
 }
