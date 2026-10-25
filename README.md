@@ -116,6 +116,20 @@ build/mac/build-app.sh osx-arm64
 
 `publish/mac-osx-arm64/Woodada.app`과 `Woodada-mac-arm64.dmg`가 만들어집니다. 인텔 맥용은 `osx-x64`를 넘깁니다.
 
+`.dmg`를 열면 나오는 창(배경 그림, 창 크기, 아이콘 자리)은 저장소의 틀 `build/mac/dmg/template.dmg`에 들어 있고, `build-app.sh`는 이 틀에 앱만 넣어 압축합니다.
+배경 그림이나 배치를 바꿀 때만 맥에서 아래 두 단계를 거쳐 틀을 다시 만들고 커밋합니다.
+
+```bash
+python tools/draw_dmg_background.py
+```
+
+```bash
+build/mac/make-dmg-template.sh
+```
+
+DMG 창 배경은 공식 API가 없는 Finder 기능이라, macOS 26(Tahoe)의 Finder는 예전 도구(dmgbuild 등)로 넣은 배경을 보여 주지 않습니다.
+그래서 `make-dmg-template.sh`는 Finder에게 직접 배경을 지정하게 하며, 처음 실행할 때 터미널이 Finder를 제어해도 되는지 macOS가 묻습니다.
+
 ## 🕹️ 사용법
 
 | 동작 | 결과 |
@@ -182,7 +196,8 @@ OS마다 달라야 하는 일(어디서 달릴지, CPU·메모리 읽기, 클릭
 | `UI/SettingsWindow` | 생선 지갑 띠 · 고양이(카드·색 칸 20개) · 옷장(러너 모음) · 기록 · 일반 |
 | `TrayApp` | 트레이·메뉴 막대 아이콘과 메뉴, 설정 창 열기, 업데이트 확인 |
 | `Update/Updater` | 시작 시 최신 릴리즈 확인. Windows: 새 `Woodada.exe`를 임시 폴더에 받아 검증(크기·SHA-256·버전) → 설치 모드로 띄우고 종료 → 설치 위치의 exe를 교체하고 재실행. macOS: 알림만 |
-| `build/mac/build-app.sh` | `Woodada.app` 만들기(Info.plist·아이콘·임시 서명)와 `.dmg` 묶기 |
+| `build/mac/build-app.sh` | `Woodada.app` 만들기(Info.plist·아이콘·임시 서명)와, DMG 틀에 앱을 넣어 `.dmg` 묶기 |
+| `build/mac/make-dmg-template.sh` | DMG 틀(`build/mac/dmg/template.dmg`) 만들기. Finder로 배경 그림·창 크기·아이콘 자리를 설정한다 |
 
 ### 새 러너 추가하기
 
@@ -222,6 +237,7 @@ git push origin v1.0.0
 [RunCat365](https://github.com/runcat-dev/RunCat365) (runcat-dev, Apache License 2.0)에서 가져왔습니다.
 라이선스 전문: `src/Woodada/Assets/RunCat/LICENSE` (빌드 시 `ThirdParty/RunCat365-LICENSE.txt`로 복사)
 macOS 메뉴 막대 아이콘(`src/Woodada/Assets/Icon/MenuBarTemplate.png`)은 이 고양이 프레임을 줄이고 밑줄을 더해 만들었고, `tools/draw_menubar_icon.py`로 다시 만들 수 있습니다.
+macOS 설치 DMG 창의 배경(`build/mac/dmg/background*.png`)도 이 고양이 프레임에 색을 입혀 만들었고, `tools/draw_dmg_background.py`로 다시 만들 수 있습니다.
 
 닥스훈트(`src/Woodada/Assets/Dog/dog_running_*.png`)와 토끼(`src/Woodada/Assets/Rabbit/rabbit_running_*.png`) 이미지는 고양이 그림체에 맞춰 직접 그렸고, `tools/draw_dachshund.py`, `tools/draw_rabbit.py`로 다시 만들 수 있습니다. 소스 코드와 같은 MIT License를 따릅니다.
 

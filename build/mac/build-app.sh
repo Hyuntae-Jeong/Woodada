@@ -70,13 +70,21 @@ EOF
 # 처음 열 때 "확인되지 않은 개발자" 경고가 뜨는 건 이 때문이다(README의 맥 설치 안내 참고).
 codesign --force --deep --sign - "$APP"
 
-# .dmg: 열면 Woodada.app과 응용 프로그램 폴더 바로가기가 보여서 끌어다 놓으면 설치된다.
-STAGE="$OUT/dmg"
-mkdir -p "$STAGE"
-cp -R "$APP" "$STAGE/"
-ln -s /Applications "$STAGE/Applications"
-hdiutil create -volname "Woodada" -srcfolder "$STAGE" -ov -format UDZO "$DMG"
-rm -rf "$STAGE"
+# .dmg: 열면 배경 그림 위에 Woodada.app과 응용 프로그램 폴더 바로가기가 보여서 끌어다 놓으면 설치된다.
+# 배경·창 크기·아이콘 자리는 Finder로 미리 설정해 둔 틀(build/mac/dmg/template.dmg, make-dmg-template.sh)에 있다.
+# 틀을 풀어 앱이 들어갈 만큼 키우고, 자리 표시용 Woodada.app을 진짜 앱으로 바꾼 뒤 다시 압축한다.
+# Finder 없이 hdiutil만 쓰므로 CI에서도 돈다.
+WORK_DMG="$OUT/work.dmg"
+hdiutil convert "$ROOT/build/mac/dmg/template.dmg" -format UDRW -o "$WORK_DMG" -quiet
+APP_MB=$(du -sm "$APP" | cut -f1)
+hdiutil resize -size "$((APP_MB + 40))m" "$WORK_DMG"
+MP="$(hdiutil attach -nobrowse -noautoopen -readwrite "$WORK_DMG" | awk -F'\t' '/\/Volumes\//{print $NF}' | tail -1)"
+rm -rf "$MP/Woodada.app"
+ditto "$APP" "$MP/Woodada.app"
+# 바로 꺼내면 Spotlight 등이 볼륨을 잡고 있어 실패할 때가 있다.
+hdiutil detach "$MP" -quiet || { sleep 3; hdiutil detach "$MP" -force -quiet; }
+hdiutil convert "$WORK_DMG" -format UDZO -o "$DMG" -quiet
+rm -f "$WORK_DMG"
 
 echo "만들었습니다: $APP"
 echo "만들었습니다: $DMG"
