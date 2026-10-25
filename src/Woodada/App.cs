@@ -24,6 +24,9 @@ internal sealed class App : Application
         {
             Source = new Uri("avares://Avalonia.Controls.ColorPicker/Themes/Fluent/Fluent.xaml"),
         });
+        // Windows 트레이 메뉴는 예전 WinForms 메뉴 모양으로 그린다.
+        if (OperatingSystem.IsWindows() && Platform.Windows.ClassicTrayMenu.Create() is { } trayMenu)
+            Styles.Add(trayMenu);
     }
 
     public override void OnFrameworkInitializationCompleted()
