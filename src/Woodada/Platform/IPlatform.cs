@@ -75,6 +75,12 @@ internal interface IPlatform
     bool IsStartupEnabled();
     void SetStartup(bool enabled);
 
+    /// <summary>
+    /// 지금 실행 파일 경로를 자동 실행에 등록해도 되는지. 맥에서 DMG 안이나 임시 격리 위치에서 띄운 앱은
+    /// 곧 사라질 경로라 처음 실행 기본값으로 등록하지 않는다.
+    /// </summary>
+    bool CanRegisterStartupHere { get; }
+
     /// <summary>이름을 바꾸기 전 버전이 남긴 자동 실행 등록을 정리한다.</summary>
     void MigrateLegacyStartup();
 }

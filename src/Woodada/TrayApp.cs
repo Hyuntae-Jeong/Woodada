@@ -32,6 +32,7 @@ internal sealed class TrayApp : IDisposable
     {
         _lifetime = lifetime;
         TryRun(_platform.MigrateLegacyStartup);
+        ApplyStartupDefault();
         _rewards = new RewardStore(_stats);
         _rewards.GrantStartingItems(_store.Current);
         _overlay = new OverlayController(_store, _stats);
@@ -134,6 +135,22 @@ internal sealed class TrayApp : IDisposable
         _settingsWindow.Closed += (_, _) => _settingsWindow = null;
         _settingsWindow.Show();
         _settingsWindow.Activate();
+    }
+
+    /// <summary>
+    /// 처음 설치해서 띄우면 "시작 시 실행"을 켠다. 한 번만 하므로 그 뒤 사용자가 끄면 꺼진 채로 둔다.
+    /// 개발용 빌드는 PC를 켤 때마다 뜨면 귀찮으니 건너뛴다.
+    /// 맥에서 DMG 안에서 바로 띄운 경우처럼 등록할 수 없는 자리면 표시를 남기지 않고 다음 실행 때 다시 해 본다.
+    /// </summary>
+    private void ApplyStartupDefault()
+    {
+        var settings = _store.Current;
+        if (settings.StartupDefaultApplied || AppInfo.IsDev || !_platform.CanRegisterStartupHere) return;
+        try { _platform.SetStartup(true); }
+        catch (Exception) { return; } // 등록이 막혔으면(권한·보안 프로그램) 다음 실행 때 다시 해 본다
+        var updated = settings.Clone();
+        updated.StartupDefaultApplied = true;
+        _store.Update(updated);
     }
 
     private bool SafeIsStartupEnabled()

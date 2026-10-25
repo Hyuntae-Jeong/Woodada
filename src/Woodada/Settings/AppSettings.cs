@@ -26,8 +26,15 @@ public sealed class AppSettings
 
     public List<RunnerConfig> Runners { get; set; } = new();
 
+    /// <summary>
+    /// 처음 설치했을 때 "시작 시 실행"을 기본으로 켜 주는 일을 이미 했는지. 한 번 하고 나면 사용자가 끈 걸 다시 켜지 않는다.
+    /// 이 값이 없는 예전 설정 파일은 이미 쓰던 사용자라 true로 읽혀, 지금 고른 대로 둔다. 새 설치만 CreateDefault의 false로 시작한다.
+    /// </summary>
+    public bool StartupDefaultApplied { get; set; } = true;
+
     public static AppSettings CreateDefault() => new()
     {
+        StartupDefaultApplied = false,
         Runners =
         {
             // 처음부터 갖고 있는 색은 까망·하양뿐이다. 나머지는 생선으로 잠금 해제한다(RewardCatalog).

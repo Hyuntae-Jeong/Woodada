@@ -129,6 +129,8 @@ internal sealed class WindowsPlatform : IPlatform
         return key?.GetValue(AppInfo.StartupName) is string;
     }
 
+    public bool CanRegisterStartupHere => true;
+
     public void SetStartup(bool enabled)
     {
         using var key = Registry.CurrentUser.CreateSubKey(RunKeyPath);

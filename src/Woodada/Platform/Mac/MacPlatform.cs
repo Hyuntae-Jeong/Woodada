@@ -177,6 +177,18 @@ internal sealed class MacPlatform : IPlatform
 
     public bool IsStartupEnabled() => File.Exists(AgentPath);
 
+    /// <summary>DMG에서 바로 띄웠거나(/Volumes) macOS가 격리 실행한 앱(AppTranslocation)은 경로가 곧 사라진다.</summary>
+    public bool CanRegisterStartupHere
+    {
+        get
+        {
+            string exe = Environment.ProcessPath ?? "";
+            return exe.Length > 0
+                   && !exe.StartsWith("/Volumes/", StringComparison.Ordinal)
+                   && !exe.Contains("/AppTranslocation/", StringComparison.Ordinal);
+        }
+    }
+
     /// <summary>로그인하면 launchd가 이 실행 파일을 띄운다. 앱을 옮기면 다시 켜야 새 경로로 바뀐다.</summary>
     public void SetStartup(bool enabled)
     {
