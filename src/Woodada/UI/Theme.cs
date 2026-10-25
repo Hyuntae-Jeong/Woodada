@@ -38,7 +38,7 @@ public sealed class ThemePalette
 
     /// <summary>색 칸·러너 칸의 그림 받침. 고양이 색이 받침과 비슷하면 Alt를 깐다.</summary>
     public Color SwatchBack { get; init; } = Color.FromRgb(238, 241, 245);
-    public Color SwatchBackAlt { get; init; } = Color.FromRgb(201, 208, 218);
+    public Color SwatchBackAlt { get; init; } = Color.FromRgb(34, 37, 43);
     public Color Mystery { get; init; } = Color.FromRgb(227, 231, 237);
 
     /// <summary>고양이 카드의 미리보기(작업표시줄 흉내). 고양이 색이 바탕과 비슷하면 Alt 세트를 쓴다.</summary>
@@ -46,9 +46,10 @@ public sealed class ThemePalette
     public Color PreviewBar { get; init; } = Color.FromRgb(236, 239, 243);
     public Color PreviewLine { get; init; } = Color.FromRgb(213, 218, 225);
     public Color PreviewText { get; init; } = Color.FromRgb(111, 119, 132);
-    public Color PreviewAltBack { get; init; } = Color.FromRgb(210, 216, 224);
-    public Color PreviewAltBar { get; init; } = Color.FromRgb(188, 196, 207);
-    public Color PreviewAltLine { get; init; } = Color.FromRgb(167, 176, 189);
+    public Color PreviewAltBack { get; init; } = Color.FromRgb(22, 24, 28);
+    public Color PreviewAltBar { get; init; } = Color.FromRgb(38, 41, 47);
+    public Color PreviewAltLine { get; init; } = Color.FromRgb(58, 62, 70);
+    public Color PreviewAltText { get; init; } = Color.FromRgb(160, 167, 178);
 }
 
 public static class Theme

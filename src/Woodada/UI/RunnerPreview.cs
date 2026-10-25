@@ -68,7 +68,7 @@ internal sealed class RunnerPreview : Control
         double scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
         Sprite.Draw(ctx, box, new RunnerPose(_state.Direction, _state.GaitPhase, _state.Intensity), RunnerColor, scaling);
 
-        var text = GameArt.Format($"{_usage:0}%  ·  {_state.Speed * UnitsPerDip:0} px/s", GameArt.FontNote, p.PreviewText);
+        var text = GameArt.Format($"{_usage:0}%  ·  {_state.Speed * UnitsPerDip:0} px/s", GameArt.FontNote, alt ? p.PreviewAltText : p.PreviewText);
         ctx.DrawText(text, new Point(8, bar.Y + 6));
     }
 }
