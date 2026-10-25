@@ -15,10 +15,10 @@
 
 <br><br>
 
-<!-- GitHub는 href가 #gh-light-mode-only / #gh-dark-mode-only로 끝나는 링크를 테마에 맞춰 숨긴다. # 뒤는 다운로드에 영향이 없다. -->
-<a href="https://github.com/Hyuntae-Jeong/Woodada/releases/latest/download/Woodada.exe#gh-light-mode-only"><img src="docs/download-light.svg" alt="Woodada 다운로드" height="64"></a><a href="https://github.com/Hyuntae-Jeong/Woodada/releases/latest/download/Woodada.exe#gh-dark-mode-only"><img src="docs/download-dark.svg" alt="Woodada 다운로드" height="64"></a>
+<!-- 앱 아이콘처럼 왼쪽 검정(Windows)·오른쪽 크림(macOS) 반반 버튼. 두 링크 사이에 공백이 없어야 한 알약처럼 붙는다. -->
+<a href="https://github.com/Hyuntae-Jeong/Woodada/releases/latest/download/Woodada.exe"><img src="docs/download-windows.svg" alt="Windows용 다운로드" height="64"></a><a href="https://github.com/Hyuntae-Jeong/Woodada/releases/latest/download/Woodada-mac-arm64.dmg"><img src="docs/download-macos.svg" alt="macOS용 다운로드 (Apple 실리콘)" height="64"></a>
 
-macOS: [애플 실리콘용 .dmg](https://github.com/Hyuntae-Jeong/Woodada/releases/latest/download/Woodada-mac-arm64.dmg) · [인텔 맥용 .dmg](https://github.com/Hyuntae-Jeong/Woodada/releases/latest/download/Woodada-mac-x64.dmg)
+인텔 맥은 [Woodada-mac-x64.dmg](https://github.com/Hyuntae-Jeong/Woodada/releases/latest/download/Woodada-mac-x64.dmg)
 
 </div>
 
