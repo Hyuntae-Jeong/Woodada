@@ -9,6 +9,9 @@ namespace Woodada.Sprites;
 internal static class GhostSkin
 {
     private static readonly (byte R, byte G, byte B) BodyColor = (0xDD, 0xEB, 0xFF);
+
+    /// <summary>유령 몸색. 설정 창 미리보기가 바탕과 대비가 나는지 볼 때 쓴다.</summary>
+    public static Avalonia.Media.Color DisplayColor => Avalonia.Media.Color.FromRgb(BodyColor.R, BodyColor.G, BodyColor.B);
     private const double BodyOpacity = 0.45;
     private const double OutlineOpacity = 0.50;
     /// <summary>발광 번짐(가우시안 표준편차). CSS blur()의 값과 같은 뜻이다.</summary>

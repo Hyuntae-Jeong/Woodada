@@ -47,6 +47,9 @@ internal sealed class ShopTile : ClickableControl
 
     public int Price { get; set; }
 
+    /// <summary>잠긴 칸에서 가격 대신 보여 줄 말(뽑기로만 얻는 스킨의 "뽑기에서 얻어요" 등).</summary>
+    public string? LockedNote { get; set; }
+
     public TileState State
     {
         get => _state;
@@ -138,7 +141,12 @@ internal sealed class ShopTile : ClickableControl
         GameArt.DrawCentered(ctx, GameArt.Format(Caption, GameArt.FontSmall, captionColor,
             _state == TileState.Equipped ? FontWeight.Bold : FontWeight.Normal), captionRect);
 
-        if (showPrice)
+        if (showPrice && LockedNote is { } note)
+        {
+            var noteRect = new Rect(outer.X, captionRect.Bottom, outer.Width, textLine);
+            GameArt.DrawCentered(ctx, GameArt.Format(note, GameArt.FontSmall, GameArt.Accent, FontWeight.Bold), noteRect);
+        }
+        else if (showPrice)
         {
             var weight = _state == TileState.Buyable ? FontWeight.Bold : FontWeight.Normal;
             string price = GameArt.FormatCount(Price);

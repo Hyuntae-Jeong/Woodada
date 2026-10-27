@@ -1,3 +1,4 @@
+using Avalonia.Media;
 using Woodada.Sprites;
 
 namespace Woodada.Rewards;
@@ -7,6 +8,12 @@ public sealed record PresetColor(string Id, string Name, string Hex, int Price)
 {
     public bool IsFree => Price <= 0;
 }
+
+/// <summary>뽑기로 얻는 스페셜 스킨 하나.</summary>
+/// <param name="Weight">뽑기 비율. 가진 스킨을 빼고 남은 것끼리 이 비율대로 나눈다.</param>
+/// <param name="Accent">무대의 빛·별 색.</param>
+/// <param name="Ink">흰 바탕 위 글자(별·등급) 색.</param>
+public sealed record SkinInfo(RunnerSkin Skin, string Name, int Stars, string Tier, int Weight, string Description, Color Accent, Color Ink);
 
 /// <summary>
 /// 생선 보상 규칙과 가격표.
@@ -60,4 +67,29 @@ public static class RewardCatalog
 
     public static PresetColor? FindPreset(string? hex) =>
         Presets.FirstOrDefault(p => string.Equals(p.Hex, hex, StringComparison.OrdinalIgnoreCase));
+
+    // ───────────────────────── 스페셜 스킨 뽑기 (개발용 빌드에서만) ─────────────────────────
+
+    /// <summary>뽑기 한 번 가격.</summary>
+    public const int GachaPrice = 1000;
+
+    /// <summary>도감 순서 그대로. 비율은 60 : 30 : 10이고, 가진 스킨은 빼고 남은 것끼리 나눈다.</summary>
+    public static readonly IReadOnlyList<SkinInfo> Skins = new SkinInfo[]
+    {
+        new(RunnerSkin.Ghost, "유령냥", 2, "레어", 60,
+            "반투명한 몸으로 작업표시줄 위를 둥실둥실 떠다녀요. 고른 색 대신 유령색을 입어요.",
+            Color.FromRgb(0x8E, 0xC5, 0xFF), Color.FromRgb(0x3D, 0x86, 0xD6)),
+        new(RunnerSkin.Flash, "플래시냥", 3, "에픽", 30,
+            "지나온 길에 잔상과 불꽃을 남겨요. 빠를수록 꼬리가 길어져요.",
+            Color.FromRgb(0xFF, 0x8A, 0x1F), Color.FromRgb(0xE0, 0x70, 0x10)),
+        new(RunnerSkin.Glitch, "글리치냥", 4, "전설", 10,
+            "가끔 화면이 고장 난 것처럼 지지직거려요. CPU가 바쁠수록 자주요.",
+            Color.FromRgb(0xC0, 0x7B, 0xFF), Color.FromRgb(0x9A, 0x4F, 0xE0)),
+    };
+
+    public static SkinInfo? FindSkin(RunnerSkin skin) => Skins.FirstOrDefault(s => s.Skin == skin);
+
+    /// <summary>뽑기 무대·도감에서 입힐 몸색. 플래시냥은 달아오른 빨간 고양이(체리)로, 나머지는 하양으로 보여 준다.</summary>
+    public static Color ShowcaseColor(RunnerSkin skin) =>
+        skin == RunnerSkin.Flash ? Color.FromRgb(0xD9, 0x62, 0x6B) : Color.FromRgb(0xEC, 0xE7, 0xDF);
 }

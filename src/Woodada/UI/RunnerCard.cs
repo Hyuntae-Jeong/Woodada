@@ -119,9 +119,12 @@ internal sealed class RunnerCard : CardPanel
         try
         {
             _title.Text = SettingsWindow.RunnerName(r);
+            var skin = RunnerSkins.Parse(r.Skin);
+            // 스킨을 입었으면 색 이름 옆에 스킨 이름을 붙인다.
+            string look = Rewards.RewardCatalog.FindSkin(skin) is { } info ? $"{colorName} · {info.Name}" : colorName;
             _colorName.Text = trialHex is not null ? "입어 보는 중이에요 · 아직 사지 않았어요"
-                : r.Enabled ? $"{colorName} · {SettingsWindow.MetricName(r.Metric)} 사용률로 달려요"
-                : $"{colorName} · 숨겨 둠";
+                : r.Enabled ? $"{look} · {SettingsWindow.MetricName(r.Metric)} 사용률로 달려요"
+                : $"{look} · 숨겨 둠";
             _colorName.Foreground = GameArt.Brush(trialHex is not null ? GameArt.Accent : GameArt.SubText);
             _visible.IsChecked = r.Enabled;
             _size.Value = Math.Clamp(r.Size, AppSettings.MinSize, AppSettings.MaxSize);
@@ -129,6 +132,7 @@ internal sealed class RunnerCard : CardPanel
             _preview.Sprite = SpriteRegistry.Get(r.SpriteId);
             _preview.RunnerColor = ColorUtil.Parse(trialHex ?? r.Color, Colors.Black);
             _preview.RunnerSize = r.Size;
+            _preview.Skin = skin;
         }
         finally
         {

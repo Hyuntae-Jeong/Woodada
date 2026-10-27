@@ -16,8 +16,9 @@ namespace Woodada.Sprites;
 /// </summary>
 public sealed class FrameSprite : IRunnerSprite
 {
-    // 설정 창의 색 칸(20개)과 미리보기, 그리고 플래시 잔상 색(러너마다 8개)을 함께 그려도 넘치지 않게
-    private const int MaxCacheEntries = 96;
+    // 설정 창의 색 칸(20개)과 미리보기, 플래시 잔상 색(러너마다 8개), 그리고 개발용 빌드의 스킨 칸·뽑기 무대까지
+    // 함께 그려도 넘치지 않게. 넘치면 통째로 비우고 다시 칠하므로, 모자라면 매 프레임 그림을 새로 만든다.
+    private const int MaxCacheEntries = 160;
 
     /// <summary>프레임을 어떤 모습으로 칠했는지.</summary>
     private enum FrameLook

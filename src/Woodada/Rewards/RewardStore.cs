@@ -19,6 +19,9 @@ public sealed class Inventory
 
     /// <summary>잠금 해제한 러너(스프라이트 Id). 무료 러너는 넣지 않는다.</summary>
     public List<string> Runners { get; set; } = new();
+
+    /// <summary>뽑기로 얻은 스페셜 스킨 Id("ghost" …). 아직 개발용 빌드에서만 쓴다.</summary>
+    public List<string> Skins { get; set; } = new();
 }
 
 /// <summary>
@@ -134,6 +137,55 @@ public sealed class RewardStore
         return true;
     }
 
+    // ───────────────────────── 스페셜 스킨(뽑기) ─────────────────────────
+
+    /// <summary>스킨 없음(None)은 늘 갖고 있다.</summary>
+    public bool OwnsSkin(RunnerSkin skin) =>
+        skin == RunnerSkin.None || Current.Skins.Contains(RunnerSkins.ToId(skin) ?? "", StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// 한 번 뽑는다. 가진 스킨은 나오지 않고, 남은 것끼리 RewardCatalog의 비율대로 고른다.
+    /// 다 모았거나 생선이 모자라면 null. 뽑은 스킨은 연출을 보기 전에 바로 저장한다(연출 중에 창을 닫아도 남게).
+    /// </summary>
+    /// <param name="forced">개발용: 이 스킨이 남아 있으면 이것을 준다.</param>
+    /// <param name="free">개발용: 생선을 쓰지 않는다.</param>
+    public RunnerSkin? TryPullSkin(RunnerSkin? forced = null, bool free = false)
+    {
+        var pool = RewardCatalog.Skins.Where(s => !OwnsSkin(s.Skin)).ToList();
+        if (pool.Count == 0) return null;
+        if (!free && !Spend(RewardCatalog.GachaPrice)) return null;
+
+        var pick = pool.FirstOrDefault(s => s.Skin == forced) ?? PickWeighted(pool);
+        Current.Skins.Add(RunnerSkins.ToId(pick.Skin)!);
+        Save();
+        return pick.Skin;
+    }
+
+    private static SkinInfo PickWeighted(IReadOnlyList<SkinInfo> pool)
+    {
+        double roll = Random.Shared.NextDouble() * pool.Sum(s => s.Weight);
+        foreach (var s in pool)
+        {
+            roll -= s.Weight;
+            if (roll < 0) return s;
+        }
+        return pool[^1];
+    }
+
+    /// <summary>개발용: 뽑은 스킨을 모두 지운다.</summary>
+    public void DevClearSkins()
+    {
+        Current.Skins.Clear();
+        Save();
+    }
+
+    /// <summary>개발용: 생선을 더 준다. 생선은 기록에서 계산하므로 쓴 생선을 줄이는 식으로 준다.</summary>
+    public void DevAddFish(int amount)
+    {
+        Current.SpentFish -= amount;
+        Save();
+    }
+
     // ───────────────────────── 처음 실행 ─────────────────────────
 
     /// <summary>
@@ -192,6 +244,7 @@ public sealed class RewardStore
                     inv.Colors ??= new();
                     inv.CustomColors ??= new();
                     inv.Runners ??= new();
+                    inv.Skins ??= new();
                     inv.CustomColors = inv.CustomColors
                         .Where(h => ColorUtil.TryParse(h, out _)).Take(RewardCatalog.CustomSlotCount).ToList();
                     return inv;

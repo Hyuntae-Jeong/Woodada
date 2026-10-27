@@ -32,7 +32,14 @@ public sealed class RunnerInstance
     public RunnerState State { get; } = new();
     public double Usage => double.IsNaN(_smoothedUsage) ? 0 : _smoothedUsage;
 
-    public Size BodySize => Sprite.Measure(Config.Size);
+    /// <summary>
+    /// 그릴 키. 보통은 설정의 크기(화면 단위)이고, 설정 창 미리보기처럼 다른 단위로 그릴 때만 HeightOverride로 정한다.
+    /// </summary>
+    public double Height => HeightOverride ?? Config.Size;
+
+    public double? HeightOverride { get; set; }
+
+    public Size BodySize => Sprite.Measure(Height);
 
     public RunnerSkin Skin => RunnerSkins.Parse(Config.Skin);
 
