@@ -101,6 +101,10 @@ public static class ColorUtil
 
     public static Color WithAlpha(Color c, byte alpha) => Color.FromArgb(alpha, c.R, c.G, c.B);
 
+    /// <summary>a에서 b 쪽으로 t(0~1)만큼 섞은 색. 알파는 a를 따른다.</summary>
+    public static Color Mix(Color a, Color b, double t) => Color.FromArgb(a.A,
+        (byte)Math.Round(a.R + (b.R - a.R) * t), (byte)Math.Round(a.G + (b.G - a.G) * t), (byte)Math.Round(a.B + (b.B - a.B) * t));
+
     /// <summary>검정 고양이 눈이 안 보이는 걸 막으려고 밝기를 본다.</summary>
     public static double Luminance(Color c) => (0.299 * c.R + 0.587 * c.G + 0.114 * c.B) / 255.0;
 

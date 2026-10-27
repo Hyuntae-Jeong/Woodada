@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>얼음냥 미리보기</title>
+<style>
+:root{--bg:#f4f5f8;--card:#fff;--text:#1d1f23;--muted:#6b7180;--line:#e2e5ea;--accent:#4a7bd0}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 "Segoe UI","Malgun Gothic",sans-serif}
+main{max-width:780px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:18px;margin:0 0 2px;font-weight:600}
+p.sub{margin:0 0 14px;color:var(--muted);font-size:13px}
+.scene{position:relative;border-radius:10px;overflow:hidden;margin-bottom:10px;border:1px solid var(--line)}
+.scene canvas{display:block;width:100%;height:130px}
+.tag{position:absolute;left:10px;top:8px;font-size:12px;padding:1px 9px;border-radius:99px;background:rgba(0,0,0,.45);color:#fff}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-top:14px}
+.panel h2{font-size:13px;margin:0 0 10px;color:var(--muted);font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px 24px}
+label.row{display:grid;grid-template-columns:96px 1fr 54px;align-items:center;gap:8px;font-size:13px}
+label.row output{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.checks{display:flex;gap:18px;flex-wrap:wrap;margin-top:12px;font-size:13px;align-items:center}
+.checks label{display:flex;gap:6px;align-items:center}
+#zoom{width:100%;height:220px;display:block;border-radius:8px}
+button{font:inherit;font-size:13px;padding:4px 12px;border:1px solid var(--line);background:#fff;border-radius:6px;cursor:pointer}
+#summary{margin:12px 0 0;font-size:13px;color:var(--muted);user-select:all}
+</style>
+</head>
+<body>
+<main>
+  <h1>얼음냥 미리보기</h1>
+  <p class="sub">실제 RunCat 5프레임으로 그렸어요. 크기는 앱과 같은 물리 픽셀 기준이고, 30fps로 움직여요.
+    몸은 얼음빛(위는 밝고 아래로 갈수록 짙은 하늘색)에 등을 따라 흰 서리선이 1px 서 있어요.
+    발이 닿는 곳마다 바닥선에 서리 결정이 찍혔다가 녹아 사라지고, 빠를수록 촘촘하고 오래 남아요.
+    아직 앱에 없는 스킨이라 기본값은 이 미리보기에서 정한 값이에요. 속도와 생선은 바뀌지 않는 겉모습 효과예요.</p>
+
+  <div class="scene"><canvas data-scene="dark"></canvas><span class="tag">어두운 작업표시줄</span></div>
+  <div class="scene"><canvas data-scene="light"></canvas><span class="tag">밝은 작업표시줄</span></div>
+  <div class="scene"><canvas data-scene="busy"></canvas><span class="tag">화려한 배경화면 + 흰 창</span></div>
+
+  <div class="panel">
+    <h2>확대 (어두운 / 밝은 작업표시줄 고양이와 발밑, 픽셀 그대로)</h2>
+    <canvas id="zoom"></canvas>
+  </div>
+
+  <div class="panel">
+    <h2>조절</h2>
+    <div class="grid" id="controls"></div>
+    <div class="checks">
+      <label>몸 <select autocomplete="off" id="body">
+        <option value="ice" selected>얼음빛 (색 고정)</option><option value="frost">고른 색 + 서리</option></select></label>
+      <label>고양이 색 <select autocomplete="off" id="color">
+        <option value="#1E1E22">까망</option><option value="#ECE7DF">하양</option>
+        <option value="#F4A261" selected>치즈</option><option value="#6D8BA8">고등어</option>
+        <option value="#9A9AA0">회색</option><option value="#C9825B">삼색</option>
+        <option value="#7FB8A4">민트</option><option value="#E6C55A">레몬</option>
+        <option value="#AE8FC7">라벤더</option><option value="#D9626B">체리</option></select></label>
+      <label>서리 자국 <select autocomplete="off" id="mark">
+        <option value="crystal" selected>결정 (✳)</option><option value="shard">얼음 조각 (◆)</option><option value="line">서리 선</option></select></label>
+      <label><input type="checkbox" autocomplete="off" id="auto"> 사용률 자동 변동</label>
+      <label><input type="checkbox" autocomplete="off" id="compare" checked> 비교용 일반 고양이</label>
+      <button id="reset">기본값</button>
+    </div>
+    <p id="summary"></p>
+  </div>
+</main>
+<script>
+const FRAMES = __FRAMES__;
+const DEFS = [
+  ['size','크기',16,72,1,28,'px'],
+  ['usage','사용률',0,100,1,30,'%'],
+  ['rim','등 서리선',0,100,1,85,'%'],
+  ['glint','반짝 줄',0,100,1,45,'%'],
+  ['outline','밝은 바탕 테두리',0,100,1,70,'%'],
+  ['markSize','서리 크기',4,40,1,13,'%'],
+  ['lifeMin','느릴 때 남는 시간',0.2,4,0.1,0.9,'s'],
+  ['lifeMax','빠를 때 남는 시간',0.2,6,0.1,1.6,'s'],
+  ['base','느릴 때 세기',0,100,1,40,'%'],
+  ['snow','눈가루 (초당)',0,60,1,30,'개'],
+];
+const FULL_USAGE = 40; // 이 사용률에서 효과가 다 진해진다(플래시와 같은 기준)
+const P = {};
+const $ = id => document.getElementById(id);
+const mk = (w, h) => { const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h)); return c; };
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+
+// ── 컨트롤 ──
+const ctl = $('controls');
+const fmt = (v, step, unit) => (step < 1 ? (+v).toFixed(1) : v) + unit;
+for (const [k, name, min, max, step, def, unit] of DEFS) {
+  P[k] = def;
+  const l = document.createElement('label'); l.className = 'row';
+  l.innerHTML = `<span>${name}</span><input type="range" min="${min}" max="${max}" step="${step}" value="${def}" id="r_${k}"><output id="o_${k}"></output>`;
+  ctl.appendChild(l);
+  const inp = l.querySelector('input'), out = l.querySelector('output');
+  out.textContent = fmt(def, step, unit);
+  inp.addEventListener('input', () => { P[k] = +inp.value; out.textContent = fmt(inp.value, step, unit); invalidate(); });
+}
+P.body = $('body').value; P.color = $('color').value; P.mark = $('mark').value;
+$('body').addEventListener('change', e => { P.body = e.target.value; invalidate(); });
+$('color').addEventListener('change', e => { P.color = e.target.value; invalidate(); });
+$('mark').addEventListener('change', e => { P.mark = e.target.value; updateSummary(); });
+$('reset').addEventListener('click', () => {
+  for (const [k, , , , step, def, unit] of DEFS) { P[k] = def; $('r_' + k).value = def; $('o_' + k).textContent = fmt(def, step, unit); }
+  for (const [id, v] of [['body', 'ice'], ['color', '#F4A261'], ['mark', 'crystal']]) { $(id).value = v; P[id] = v; }
+  $('auto').checked = false; invalidate();
+});
+
+// ── 색 도우미 ──
+function hexRgb(h) { const n = parseInt(h.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
+function rgbHex([r, g, b]) { return '#' + [r, g, b].map(v => Math.round(clamp(v, 0, 255)).toString(16).padStart(2, '0')).join(''); }
+function mix(a, b, t) { const A = hexRgb(a), B = hexRgb(b); return rgbHex(A.map((v, i) => v + (B[i] - v) * t)); }
+function lum(h) { const [r, g, b] = hexRgb(h); return (0.299 * r + 0.587 * g + 0.114 * b) / 255; }
+function rgba(h, a) { const [r, g, b] = hexRgb(h); return `rgba(${r},${g},${b},${clamp(a, 0, 1)})`; }
+const eyeFor = c => lum(c) > 0.7 ? '#2d2a30' : '#ffffff';  // 앱의 FrameMask.Tint와 같은 규칙
+
+// 얼음 색. 어두운 바탕용과 밝은 바탕용을 따로 둔다(밝은 작업표시줄에서 흰 서리는 묻힌다).
+const ICE = {
+  top: '#eef9ff', bottom: '#8fcdf2', eye: '#1d3b57',
+  rimOnDark: '#ffffff', rimOnLight: '#ffffff',
+  outlineOnLight: '#3f86bd',
+  markOnDark: '#dff3ff', markOnLight: '#3f8fc8',
+  snowOnDark: '#ffffff', snowOnLight: '#5aa7da',
+};
+
+/** 느릴 때 세기 ~ 1. 사용률이 FULL_USAGE에 닿으면 1. */
+const strength = u => P.base / 100 + (1 - P.base / 100) * clamp(u / FULL_USAGE, 0, 1);
+
+function updateSummary() {
+  const markName = { crystal: '결정', shard: '얼음 조각', line: '서리 선' }[P.mark];
+  $('summary').textContent = `현재 값: 몸 ${P.body === 'ice' ? '얼음빛' : '고른 색 + 서리'} · 등 서리선 ${P.rim}% · 반짝 줄 ${P.glint}% · 밝은 바탕 테두리 ${P.outline}% · ` +
+    `서리 ${markName} 몸의 ${P.markSize}% · 남는 시간 ${(+P.lifeMin).toFixed(1)}~${(+P.lifeMax).toFixed(1)}s · 느릴 때 세기 ${P.base}% · 눈가루 초당 ${P.snow}개`;
+}
+
+// ── 마스크 (FrameSprite와 같은 방식: 합집합으로 자르고, 머리 쪽 작은 구멍을 눈으로) ──
+let crop, masks;
+function findEyes(alpha, w, h) {
+  const visited = new Uint8Array(w * h), eye = new Uint8Array(w * h);
+  for (let s = 0; s < w * h; s++) {
+    if (visited[s] || alpha[s] >= 128) continue;
+    const comp = [], q = [s]; visited[s] = 1; let border = false;
+    while (q.length) {
+      const i = q.pop(); comp.push(i);
+      const x = i % w, y = (i / w) | 0;
+      if (x === 0 || y === 0 || x === w - 1 || y === h - 1) border = true;
+      for (const [nx, ny] of [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]]) {
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+        const j = ny * w + nx; if (visited[j] || alpha[j] >= 128) continue;
+        visited[j] = 1; q.push(j);
+      }
+    }
+    if (border || comp.length > w * h / 100) continue;
+    const cx = comp.reduce((a, i) => a + i % w, 0) / comp.length;
+    if (cx < w * 0.55) continue;
+    for (const i of comp) eye[i] = 1;
+  }
+  const grown = eye.slice();
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    if (!eye[y * w + x]) continue;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const nx = x + dx, ny = y + dy; if (nx >= 0 && ny >= 0 && nx < w && ny < h) grown[ny * w + nx] = 1;
+    }
+  }
+  return grown;
+}
+async function loadMasks() {
+  const imgs = await Promise.all(FRAMES.map(src => new Promise(r => { const i = new Image(); i.onload = () => r(i); i.src = src; })));
+  const W = imgs[0].width, H = imgs[0].height;
+  const alphas = imgs.map(img => {
+    const c = mk(W, H), x = c.getContext('2d'); x.drawImage(img, 0, 0);
+    const d = x.getImageData(0, 0, W, H).data, a = new Uint8Array(W * H);
+    for (let i = 0; i < W * H; i++) a[i] = d[i * 4 + 3];
+    return a;
+  });
+  let x0 = W, y0 = H, x1 = -1, y1 = -1;
+  for (const a of alphas) for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (a[y * W + x] > 8) {
+    x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+  }
+  const cw = x1 - x0 + 1, ch = y1 - y0 + 1;
+  crop = { w: cw, h: ch };
+  masks = alphas.map(a => {
+    const al = new Uint8Array(cw * ch);
+    for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) al[y * cw + x] = a[(y + y0) * W + x + x0];
+    const eye = findEyes(al, cw, ch);
+    const sil = mk(cw, ch), eyeC = mk(cw, ch);
+    const sd = sil.getContext('2d').createImageData(cw, ch), ed = eyeC.getContext('2d').createImageData(cw, ch);
+    for (let i = 0; i < cw * ch; i++) {
+      sd.data.set([255, 255, 255, eye[i] ? 255 : al[i]], i * 4);
+      ed.data.set([255, 255, 255, eye[i] ? 255 - al[i] : 0], i * 4);
+    }
+    sil.getContext('2d').putImageData(sd, 0, 0); eyeC.getContext('2d').putImageData(ed, 0, 0);
+    return { sil, eye: eyeC };
+  });
+}
+
+// ── 프레임 만들기 (크기·설정·바탕별로 캐시) ──
+function place(src, w, h, pad) {
+  const c = mk(w + pad * 2, h + pad * 2), x = c.getContext('2d');
+  x.imageSmoothingQuality = 'high'; x.drawImage(src, pad, pad, w, h); return c;
+}
+function tint(c, color) {
+  const t = mk(c.width, c.height), x = t.getContext('2d');
+  x.drawImage(c, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = color; x.fillRect(0, 0, t.width, t.height); return t;
+}
+/** 몸 모양으로 잘라 낸다. */
+function clipTo(c, mask) {
+  const x = c.getContext('2d'); x.globalCompositeOperation = 'destination-in'; x.drawImage(mask, 0, 0); x.globalCompositeOperation = 'source-over'; return c;
+}
+/**
+ * 얼음냥 한 프레임. 1px 여백을 둬서 밝은 바탕 테두리가 잘리지 않게 한다.
+ * 1) 밝은 바탕이면 바깥 테두리 2) 얼음빛 몸(위→아래 그라데이션) 3) 등 서리선 4) 사선 반짝 줄 5) 눈
+ */
+function buildIce(m, h, light) {
+  const w = Math.max(1, Math.round(h * crop.w / crop.h)), pad = 1, px = Math.max(1, Math.round(h / 28));
+  const S = place(m.sil, w, h, pad), W = S.width, H = S.height;
+  const out = mk(W, H), o = out.getContext('2d');
+  if (light && P.outline > 0) {
+    const r = mk(W, H), rx = r.getContext('2d'), line = tint(S, ICE.outlineOnLight);
+    for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) rx.drawImage(line, dx, dy);
+    rx.globalCompositeOperation = 'destination-out'; rx.drawImage(S, 0, 0);
+    o.globalAlpha = P.outline / 100; o.drawImage(r, 0, 0); o.globalAlpha = 1;
+  }
+  // 몸
+  const body = mk(W, H), bx = body.getContext('2d');
+  if (P.body === 'ice') {
+    const g = bx.createLinearGradient(0, pad, 0, pad + h);
+    g.addColorStop(0, ICE.top); g.addColorStop(0.55, mix(ICE.top, ICE.bottom, 0.55)); g.addColorStop(1, ICE.bottom);
+    bx.fillStyle = g;
+  } else {
+    bx.fillStyle = mix(P.color, '#cfe9ff', 0.22);   // 고른 색에 얼음빛을 살짝
+  }
+  bx.fillRect(0, 0, W, H);
+  // 사선 반짝 줄: 몸을 가로지르는 가는 흰 줄 두 개(얼음 표면의 결)
+  if (P.glint > 0) {
+    bx.strokeStyle = rgba('#ffffff', P.glint / 100); bx.lineWidth = px;
+    for (const [x0, x1] of [[0.62, 0.42], [0.74, 0.56]]) {
+      bx.beginPath(); bx.moveTo(pad + w * x0, pad); bx.lineTo(pad + w * x1, pad + h); bx.stroke();
+    }
+  }
+  clipTo(body, S);
+  o.drawImage(body, 0, 0);
+  // 등 서리선: 몸 − 한 칸 아래로 민 몸 = 위쪽 가장자리
+  if (P.rim > 0) {
+    const r = tint(S, '#ffffff'), rx = r.getContext('2d');
+    rx.globalCompositeOperation = 'destination-out'; rx.drawImage(S, 0, px);
+    o.globalAlpha = P.rim / 100; o.drawImage(r, 0, 0); o.globalAlpha = 1;
+  }
+  const eye = P.body === 'ice' ? ICE.eye : eyeFor(mix(P.color, '#cfe9ff', 0.22));
+  o.drawImage(tint(place(m.eye, w, h, pad), eye), 0, 0);
+  return { c: out, w, h, pad };
+}
+function buildPlain(m, h, color) {
+  const w = Math.max(1, Math.round(h * crop.w / crop.h));
+  const S = place(m.sil, w, h, 0), out = mk(w, h), o = out.getContext('2d');
+  o.drawImage(tint(S, color), 0, 0); o.drawImage(tint(place(m.eye, w, h, 0), eyeFor(color)), 0, 0);
+  return { c: out, w, h, pad: 0 };
+}
+let cache = new Map();
+function invalidate() { cache = new Map(); updateSummary(); }
+function frames(kind, h, light) {
+  const key = kind + h + light;
+  if (!cache.has(key)) cache.set(key, masks.map(m => kind === 'ice' ? buildIce(m, h, light) : buildPlain(m, h, '#F4A261')));
+  return cache.get(key);
+}
+
+// ── 서리 자국 ──
+// 발이 닿는 순간(걸음 한 바퀴에 두 번) 바닥선에 찍는다. 세기가 낮으면 두 번 중 한 번만.
+function drawMark(ctx, mk_, ground, h, age, light) {
+  const life = mk_.life, p = age / life;
+  if (p >= 1) return;
+  const hold = 0.45; // 이만큼은 그대로 있다가 녹기 시작
+  const melt = p < hold ? 0 : (p - hold) / (1 - hold);
+  const a = 1 - melt * melt, grow = Math.min(1, age / 0.08); // 찍힐 때 0.08초 동안 톡 커진다
+  const col = light ? ICE.markOnLight : ICE.markOnDark;
+  const size = h * P.markSize / 100 * mk_.scale * grow * (1 - 0.6 * melt);
+  const px = Math.max(1, Math.round(h / 28));
+  const x = Math.round(mk_.x), y = ground;
+  // 바닥에 얇게 깔린 서리
+  ctx.fillStyle = rgba(col, 0.55 * a);
+  ctx.fillRect(Math.round(x - size * 0.9), y - px, Math.max(px, Math.round(size * 1.8)), px);
+  if (P.mark === 'crystal') {
+    const r = Math.max(1.5 * px, size), cy = y - px - r * 0.85;
+    ctx.strokeStyle = rgba(col, a); ctx.lineWidth = px; ctx.lineCap = 'round';
+    for (let i = 0; i < 3; i++) {
+      const ang = Math.PI / 2 + i * Math.PI / 3 + mk_.spin;
+      ctx.beginPath(); ctx.moveTo(x - Math.cos(ang) * r, cy - Math.sin(ang) * r); ctx.lineTo(x + Math.cos(ang) * r, cy + Math.sin(ang) * r); ctx.stroke();
+    }
+    ctx.fillStyle = rgba(light ? col : '#ffffff', a); ctx.fillRect(x - px / 2, cy - px / 2, px, px);
+  } else if (P.mark === 'shard') {
+    const r = Math.max(1.5 * px, size), cy = y - px - r;
+    ctx.fillStyle = rgba(col, 0.9 * a);
+    ctx.beginPath(); ctx.moveTo(x, cy - r); ctx.lineTo(x + r * 0.5, cy); ctx.lineTo(x, y - px); ctx.lineTo(x - r * 0.5, cy); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = rgba('#ffffff', 0.8 * a); ctx.fillRect(x - px, cy - r * 0.4, px, Math.max(px, r * 0.5));
+  } else {
+    // 서리 선: 바닥을 따라 더 길게 + 작은 가시 둘
+    ctx.fillStyle = rgba(col, 0.9 * a);
+    ctx.fillRect(Math.round(x - size * 1.6), y - px, Math.max(px, Math.round(size * 3.2)), px);
+    for (const dx of [-0.8, 0.7]) ctx.fillRect(Math.round(x + dx * size), y - px - Math.round(size * 0.7), px, Math.round(size * 0.7));
+  }
+}
+
+// ── 씬 ──
+const SCENES = {
+  dark:  { light: false, desk: '#1a2537', bar: '#202020', edge: 'rgba(255,255,255,.08)', icon: 'rgba(255,255,255,.18)' },
+  light: { light: true,  desk: '#cddbeb', bar: '#f3f3f3', edge: 'rgba(0,0,0,.08)', icon: 'rgba(0,0,0,.14)' },
+  busy:  { light: false, desk: null, bar: '#2a2530', edge: 'rgba(255,255,255,.1)', icon: 'rgba(255,255,255,.2)' },
+};
+const BAR_H = 40;
+const scenes = [...document.querySelectorAll('canvas[data-scene]')].map((cv, si) => ({
+  cv, s: SCENES[cv.dataset.scene],
+  runners: [
+    { kind: 'ice', x: 80 + si * 140, dir: 1, phase: Math.random(), marks: [], snow: [], lastStep: 0, stepCount: 0, snowAcc: 0 },
+    { kind: 'plain', x: 420 - si * 90, dir: -1, phase: Math.random(), usage: 0.6 },
+  ],
+}));
+
+function drawBackground(ctx, W, H, s, dpr) {
+  const ground = H - BAR_H * dpr;
+  if (s.desk) { ctx.fillStyle = s.desk; ctx.fillRect(0, 0, W, ground); }
+  else {
+    const g = ctx.createLinearGradient(0, 0, W, ground);
+    g.addColorStop(0, '#f2994a'); g.addColorStop(0.5, '#c0549b'); g.addColorStop(1, '#3b3f8f');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, ground);
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(W * 0.55, 18 * dpr, W * 0.3, ground - 18 * dpr);   // 흰 창
+    ctx.fillStyle = '#eceff3'; ctx.fillRect(W * 0.55, 18 * dpr, W * 0.3, 18 * dpr);
+  }
+  ctx.fillStyle = s.bar; ctx.fillRect(0, ground, W, H - ground);
+  ctx.fillStyle = s.edge; ctx.fillRect(0, ground, W, Math.max(1, dpr | 0));
+  ctx.fillStyle = s.icon;
+  const n = 6, size = 22 * dpr, gap = 10 * dpr, start = W / 2 - (n * size + (n - 1) * gap) / 2;
+  for (let i = 0; i < n; i++) {
+    ctx.beginPath(); ctx.roundRect(start + i * (size + gap), ground + (BAR_H * dpr - size) / 2, size, size, 5 * dpr); ctx.fill();
+  }
+  return ground;
+}
+
+let t = 0, last = performance.now(), acc = 0;
+const usageNow = () => $('auto').checked ? 50 + 45 * Math.sin(t * 2 * Math.PI / 14) : P.usage;
+function step(dt) {
+  t += dt;
+  const u = usageNow(), st = strength(u);
+  if ($('auto').checked) { $('r_usage').value = Math.round(u); $('o_usage').textContent = Math.round(u) + '%'; }
+  for (const sc of scenes) {
+    const W = sc.cv.width;
+    for (const r of sc.runners) {
+      const h = P.size, w = h * crop.w / crop.h;
+      const uu = r.kind === 'plain' ? r.usage : u / 100;
+      const v = w * (0.4 + (7 - 0.4) * Math.pow(uu, 0.7));  // SpeedProfile과 같은 곡선
+      const moved = v * dt;
+      r.x += moved * r.dir;
+      if (r.x < 0) { r.x = 0; r.dir = 1; }
+      if (r.x > W - w) { r.x = W - w; r.dir = -1; }
+      const before = r.phase, adv = moved / w * 0.8;
+      r.phase = (before + adv) % 1;
+      if (r.kind !== 'ice') continue;
+      // 걸음 반 바퀴마다 발이 닿는다
+      const crossings = Math.floor((before + adv) * 2) - Math.floor(before * 2);
+      for (let c = 0; c < crossings; c++) {
+        r.stepCount++;
+        const every = st > 0.75 ? 1 : 2; // 느리면 두 걸음에 한 번만
+        if (r.stepCount % every === 0) {
+          // 앞발·뒷발 자리에 따로 찍으면 둘씩 뭉쳐 "✳✳"처럼 보인다. 몸 가운데 한 줄로, 살짝만 흔든다.
+          const fx = r.x + w * (0.5 + (Math.random() - 0.5) * 0.12);
+          r.marks.push({ x: fx, born: t, life: lerp(P.lifeMin, P.lifeMax, (st - P.base / 100) / Math.max(0.01, 1 - P.base / 100)),
+            scale: 0.8 + 0.4 * Math.random(), spin: (Math.random() - 0.5) * 0.5 });
+        }
+      }
+      r.marks = r.marks.filter(m => t - m.born < m.life);
+      // 눈가루: 등에서 떨어져 뒤로 흩날린다
+      r.snowAcc += P.snow * st * dt;
+      while (r.snowAcc >= 1) {
+        r.snowAcc--;
+        r.snow.push({ x: r.x + w * (0.25 + 0.5 * Math.random()), y: -h * (0.55 + 0.4 * Math.random()), vx: -r.dir * (6 + 14 * Math.random()) * (h / 28), vy: (2 + 6 * Math.random()) * (h / 28), born: t, life: 0.5 + 0.6 * Math.random() });
+      }
+      for (const s of r.snow) { s.x += s.vx * dt; s.y += s.vy * dt; }
+      r.snow = r.snow.filter(s => t - s.born < s.life && s.y < 0);
+    }
+  }
+}
+function drawIceRunner(ctx, r, ground, light, h) {
+  const px = Math.max(1, Math.round(h / 28));
+  for (const m of r.marks) drawMark(ctx, m, ground, h, t - m.born, light);
+  for (const s of r.snow) {
+    const a = 1 - (t - s.born) / s.life;
+    ctx.fillStyle = rgba(light ? ICE.snowOnLight : ICE.snowOnDark, a);
+    ctx.fillRect(Math.round(s.x), Math.round(ground + s.y), px, px);
+  }
+  const fs = frames('ice', h, light), f = fs[Math.floor(r.phase * fs.length) % fs.length];
+  drawFrame(ctx, f, r.x, ground, r.dir);
+}
+function drawFrame(ctx, f, x0, ground, dir) {
+  const x = Math.round(x0) - f.pad, y = Math.round(ground - f.h) - f.pad;
+  ctx.save();
+  if (dir < 0) { ctx.translate(x * 2 + f.c.width, 0); ctx.scale(-1, 1); }
+  ctx.drawImage(f.c, x, y);
+  ctx.restore();
+}
+function render() {
+  const dpr = window.devicePixelRatio || 1;
+  for (const sc of scenes) {
+    const cv = sc.cv, W = Math.round(cv.clientWidth * dpr), H = Math.round(cv.clientHeight * dpr);
+    if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+    const ctx = cv.getContext('2d');
+    const ground = drawBackground(ctx, W, H, sc.s, dpr);
+    for (const r of sc.runners) {
+      if (r.kind === 'plain') {
+        if (!$('compare').checked) continue;
+        const fs = frames('plain', P.size, false);
+        drawFrame(ctx, fs[Math.floor(r.phase * fs.length) % fs.length], r.x, ground, r.dir);
+      } else drawIceRunner(ctx, r, ground, sc.s.light, P.size);
+    }
+  }
+  renderZoom();
+}
+/** 확대: 각 씬의 얼음냥 주변(몸 뒤쪽 서리 자국 포함)을 잘라 정수배로 키운다. */
+function renderZoom() {
+  const dpr = window.devicePixelRatio || 1;
+  const cv = $('zoom'), W = Math.round(cv.clientWidth * dpr), H = Math.round(cv.clientHeight * dpr);
+  if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+  const ctx = cv.getContext('2d'); ctx.imageSmoothingEnabled = false;
+  const h = P.size, w = Math.round(h * crop.w / crop.h);
+  const cw = Math.round(w * 3.2), ch = Math.round(h * 1.5);
+  for (const [i, sc] of [[0, scenes[0]], [1, scenes[1]]]) {
+    const r = sc.runners[0], s = sc.s;
+    const off = mk(cw, ch), o = off.getContext('2d');
+    o.fillStyle = s.light ? '#cddbeb' : '#1a2537'; o.fillRect(0, 0, cw, ch);
+    const ground = ch - Math.round(h * 0.2);
+    o.fillStyle = s.bar; o.fillRect(0, ground, cw, ch - ground);
+    // 고양이가 오른쪽 끝 근처에 오도록 옮겨 그린다(뒤로 남은 서리가 보이게)
+    const shift = r.dir > 0 ? cw - w * 1.25 - r.x : w * 0.25 - r.x;
+    o.save(); o.translate(Math.round(shift), 0); drawIceRunner(o, r, ground, s.light, h); o.restore();
+    const scale = Math.max(1, Math.floor(Math.min((W / 2 - 16) / cw, (H - 16) / ch)));
+    const dw = cw * scale, dh = ch * scale;
+    ctx.fillStyle = s.light ? '#f3f3f3' : '#202020'; ctx.fillRect(i * W / 2, 0, W / 2, H);
+    ctx.drawImage(off, Math.round(i * W / 2 + (W / 2 - dw) / 2), Math.round((H - dh) / 2), dw, dh);
+  }
+}
+function loop(now) {
+  const dt = Math.min(0.25, (now - last) / 1000); last = now; acc += dt;
+  if (acc >= 1 / 30) { step(acc); acc = 0; render(); }   // 앱 기본값처럼 30fps
+  requestAnimationFrame(loop);
+}
+loadMasks().then(() => { updateSummary(); render(); requestAnimationFrame(loop); });
+</script>
+</body>
+</html>

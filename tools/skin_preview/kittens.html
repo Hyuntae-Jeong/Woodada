@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>줄줄이냥 미리보기</title>
+<style>
+:root{--bg:#f4f5f8;--card:#fff;--text:#1d1f23;--muted:#6b7180;--line:#e2e5ea;--accent:#4a7bd0}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 "Segoe UI","Malgun Gothic",sans-serif}
+main{max-width:780px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:18px;margin:0 0 2px;font-weight:600}
+p.sub{margin:0 0 14px;color:var(--muted);font-size:13px}
+.scene{position:relative;border-radius:10px;overflow:hidden;margin-bottom:10px;border:1px solid var(--line)}
+.scene canvas{display:block;width:100%;height:130px}
+.tag{position:absolute;left:10px;top:8px;font-size:12px;padding:1px 9px;border-radius:99px;background:rgba(0,0,0,.45);color:#fff}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-top:14px}
+.panel h2{font-size:13px;margin:0 0 10px;color:var(--muted);font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px 24px}
+label.row{display:grid;grid-template-columns:96px 1fr 54px;align-items:center;gap:8px;font-size:13px}
+label.row output{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.checks{display:flex;gap:18px;flex-wrap:wrap;margin-top:12px;font-size:13px;align-items:center}
+.checks label{display:flex;gap:6px;align-items:center}
+#zoom{width:100%;height:200px;display:block;border-radius:8px}
+button{font:inherit;font-size:13px;padding:4px 12px;border:1px solid var(--line);background:#fff;border-radius:6px;cursor:pointer}
+#summary{margin:12px 0 0;font-size:13px;color:var(--muted);user-select:all}
+</style>
+</head>
+<body>
+<main>
+  <h1>줄줄이냥 미리보기</h1>
+  <p class="sub">실제 RunCat 5프레임으로 그렸어요. 크기는 앱과 같은 물리 픽셀 기준이고, 30fps로 움직여요.
+    엄마 고양이 뒤로 새끼들이 엄마가 지나간 길을 그대로 밟으며 따라와요. 화면 끝에서 엄마가 돌아서면 새끼들도 그 자리까지 가서 돌아서요.
+    사용률이 오르면 새끼가 한 마리씩 뒤에서 뛰어와 합류하고, 내려가면 맨 끝 새끼가 처져서 사라져요.
+    아직 앱에 없는 스킨이라 기본값은 이 미리보기에서 정한 값이에요. 속도와 생선은 바뀌지 않는 겉모습 효과예요.</p>
+
+  <div class="scene"><canvas data-scene="dark"></canvas><span class="tag">어두운 작업표시줄</span></div>
+  <div class="scene"><canvas data-scene="light"></canvas><span class="tag">밝은 작업표시줄</span></div>
+  <div class="scene"><canvas data-scene="busy"></canvas><span class="tag">화려한 배경화면 + 흰 창</span></div>
+
+  <div class="panel">
+    <h2>확대 (밝은 작업표시줄 줄줄이, 픽셀 그대로)</h2>
+    <canvas id="zoom"></canvas>
+  </div>
+
+  <div class="panel">
+    <h2>조절</h2>
+    <div class="grid" id="controls"></div>
+    <div class="checks">
+      <label>엄마 색 <select autocomplete="off" id="color">
+        <option value="#1E1E22">까망</option><option value="#ECE7DF">하양</option>
+        <option value="#F4A261" selected>치즈</option><option value="#6D8BA8">고등어</option>
+        <option value="#9A9AA0">회색</option><option value="#C9825B">삼색</option>
+        <option value="#7FB8A4">민트</option><option value="#E6C55A">레몬</option>
+        <option value="#AE8FC7">라벤더</option><option value="#D9626B">체리</option></select></label>
+      <label>새끼 색 <select autocomplete="off" id="kitColor">
+        <option value="same">엄마와 같은 색</option><option value="shade" selected>조금씩 다른 색</option><option value="mixed">알록달록</option></select></label>
+      <label><input type="checkbox" autocomplete="off" id="auto" checked> 사용률 자동 변동</label>
+      <button id="reset">기본값</button>
+    </div>
+    <p id="summary"></p>
+  </div>
+</main>
+<script>
+const FRAMES = __FRAMES__;
+const DEFS = [
+  ['size','크기',16,72,1,28,'px'],
+  ['usage','사용률',0,100,1,30,'%'],
+  ['kitScale','새끼 크기',30,90,1,55,'%'],
+  ['max','최대 새끼 수',1,5,1,4,'마리'],
+  ['per','한 마리 느는 간격',5,50,1,20,'%'],
+  ['gap','몸 사이 간격',0,100,1,25,'%'],
+  ['hop','빠를 때 깡총 높이',0,30,1,8,'%'],
+  ['cadence','새끼 걸음 빠르기',100,200,5,125,'%'],
+  ['join','합류 시간',0.1,2,0.1,0.5,'s'],
+  ['joinDelay','합류까지 버티기',0,3,0.1,1.0,'s'],
+  ['leaveDelay','떠나기까지 버티기',0,8,0.5,4.0,'s'],
+];
+const P = {};
+const $ = id => document.getElementById(id);
+const mk = (w, h) => { const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h)); return c; };
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+
+// ── 컨트롤 ──
+const ctl = $('controls');
+const fmt = (v, step, unit) => (step < 1 ? (+v).toFixed(1) : v) + unit;
+for (const [k, name, min, max, step, def, unit] of DEFS) {
+  P[k] = def;
+  const l = document.createElement('label'); l.className = 'row';
+  l.innerHTML = `<span>${name}</span><input type="range" min="${min}" max="${max}" step="${step}" value="${def}" id="r_${k}"><output id="o_${k}"></output>`;
+  ctl.appendChild(l);
+  const inp = l.querySelector('input'), out = l.querySelector('output');
+  out.textContent = fmt(def, step, unit);
+  inp.addEventListener('input', () => { P[k] = +inp.value; out.textContent = fmt(inp.value, step, unit); updateSummary(); });
+}
+P.color = $('color').value; P.kitColor = $('kitColor').value;
+$('color').addEventListener('change', e => { P.color = e.target.value; updateSummary(); });
+$('kitColor').addEventListener('change', e => { P.kitColor = e.target.value; updateSummary(); });
+$('reset').addEventListener('click', () => {
+  for (const [k, , , , step, def, unit] of DEFS) { P[k] = def; $('r_' + k).value = def; $('o_' + k).textContent = fmt(def, step, unit); }
+  for (const [id, v] of [['color', '#F4A261'], ['kitColor', 'shade']]) { $(id).value = v; P[id] = v; }
+  $('auto').checked = true; shown = 1; upSince = downSince = null; updateSummary();
+});
+
+// ── 색 도우미 ──
+function hexRgb(h) { const n = parseInt(h.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
+function rgbHex([r, g, b]) { return '#' + [r, g, b].map(v => Math.round(clamp(v, 0, 255)).toString(16).padStart(2, '0')).join(''); }
+function mix(a, b, t) { const A = hexRgb(a), B = hexRgb(b); return rgbHex(A.map((v, i) => v + (B[i] - v) * t)); }
+function lum(h) { const [r, g, b] = hexRgb(h); return (0.299 * r + 0.587 * g + 0.114 * b) / 255; }
+const eyeFor = c => lum(c) > 0.7 ? '#2d2a30' : '#ffffff';  // 앱의 FrameMask.Tint와 같은 규칙
+
+/** 새끼 i의 색. "조금씩 다른 색"은 엄마 색을 번갈아 밝게·어둡게 해서 작아도 엄마와 구분되게 한다. */
+const MIXED = ['#ECE7DF', '#1E1E22', '#9A9AA0', '#E6C55A', '#6D8BA8'];
+function kittenColor(i) {
+  const m = P.color;
+  if (P.kitColor === 'same') return m;
+  if (P.kitColor === 'mixed') return MIXED.filter(c => Math.abs(lum(c) - lum(m)) > 0.12)[i % 4];
+  const lighter = lum(m) < 0.25 || (lum(m) < 0.8 && i % 2 === 0);  // 까망은 어둡게 할 수 없으니 늘 밝게
+  return mix(m, lighter ? '#ffffff' : '#000000', lighter ? 0.22 + 0.06 * i : 0.16 + 0.04 * i);
+}
+
+/** 사용률에 따른 새끼 수. 0~per%: 1마리, per~2per%: 2마리 … 최대 max. */
+const kittenCount = u => Math.min(P.max, 1 + Math.floor(u / P.per));
+/**
+ * 문턱 여유(%). 늘 때는 문턱을 넘으면 바로, 줄 때는 문턱보다 이만큼 더 내려가야 준다.
+ * CPU는 늘 출렁여서, 여유가 없으면 20% 언저리에서 새끼가 붙었다 떨어졌다를 되풀이한다.
+ */
+const HYSTERESIS = 5;
+let shown = 1, upSince = null, downSince = null;
+/** 문턱을 joinDelay초 동안 넘어 있어야 한 마리 늘고, 문턱−여유 아래로 leaveDelay초 동안 있어야 한 마리 준다. */
+function updateCount(u) {
+  const up = kittenCount(u), down = kittenCount(u + HYSTERESIS);
+  if (up > shown) { upSince ??= t; if (t - upSince >= P.joinDelay) { shown++; upSince = t; } } else upSince = null;
+  if (down < shown) { downSince ??= t; if (t - downSince >= P.leaveDelay) { shown--; downSince = t; } } else downSince = null;
+  return shown;
+}
+
+function updateSummary() {
+  const names = { same: '엄마와 같은 색', shade: '조금씩 다른 색', mixed: '알록달록' };
+  $('summary').textContent = `현재 값: 새끼 크기 엄마의 ${P.kitScale}% · 최대 ${P.max}마리 · 사용률 ${P.per}%마다 한 마리(줄 때는 ${HYSTERESIS}% 여유) · ` +
+    `합류까지 ${(+P.joinDelay).toFixed(1)}s · 떠나기까지 ${(+P.leaveDelay).toFixed(1)}s · 몸 사이 간격 ${P.gap}% · 빠를 때 깡총 ${P.hop}% · 새끼 걸음 엄마의 ${P.cadence}% · 합류 ${(+P.join).toFixed(1)}s · 새끼 색 ${names[P.kitColor]}`;
+}
+
+// ── 마스크 (FrameSprite와 같은 방식: 합집합으로 자르고, 머리 쪽 작은 구멍을 눈으로) ──
+let crop, masks;
+function findEyes(alpha, w, h) {
+  const visited = new Uint8Array(w * h), eye = new Uint8Array(w * h);
+  for (let s = 0; s < w * h; s++) {
+    if (visited[s] || alpha[s] >= 128) continue;
+    const comp = [], q = [s]; visited[s] = 1; let border = false;
+    while (q.length) {
+      const i = q.pop(); comp.push(i);
+      const x = i % w, y = (i / w) | 0;
+      if (x === 0 || y === 0 || x === w - 1 || y === h - 1) border = true;
+      for (const [nx, ny] of [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]]) {
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+        const j = ny * w + nx; if (visited[j] || alpha[j] >= 128) continue;
+        visited[j] = 1; q.push(j);
+      }
+    }
+    if (border || comp.length > w * h / 100) continue;
+    const cx = comp.reduce((a, i) => a + i % w, 0) / comp.length;
+    if (cx < w * 0.55) continue;
+    for (const i of comp) eye[i] = 1;
+  }
+  const grown = eye.slice();
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    if (!eye[y * w + x]) continue;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const nx = x + dx, ny = y + dy; if (nx >= 0 && ny >= 0 && nx < w && ny < h) grown[ny * w + nx] = 1;
+    }
+  }
+  return grown;
+}
+async function loadMasks() {
+  const imgs = await Promise.all(FRAMES.map(src => new Promise(r => { const i = new Image(); i.onload = () => r(i); i.src = src; })));
+  const W = imgs[0].width, H = imgs[0].height;
+  const alphas = imgs.map(img => {
+    const c = mk(W, H), x = c.getContext('2d'); x.drawImage(img, 0, 0);
+    const d = x.getImageData(0, 0, W, H).data, a = new Uint8Array(W * H);
+    for (let i = 0; i < W * H; i++) a[i] = d[i * 4 + 3];
+    return a;
+  });
+  let x0 = W, y0 = H, x1 = -1, y1 = -1;
+  for (const a of alphas) for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (a[y * W + x] > 8) {
+    x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+  }
+  const cw = x1 - x0 + 1, ch = y1 - y0 + 1;
+  crop = { w: cw, h: ch };
+  masks = alphas.map(a => {
+    const al = new Uint8Array(cw * ch);
+    for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) al[y * cw + x] = a[(y + y0) * W + x + x0];
+    const eye = findEyes(al, cw, ch);
+    const sil = mk(cw, ch), eyeC = mk(cw, ch);
+    const sd = sil.getContext('2d').createImageData(cw, ch), ed = eyeC.getContext('2d').createImageData(cw, ch);
+    for (let i = 0; i < cw * ch; i++) {
+      sd.data.set([255, 255, 255, eye[i] ? 255 : al[i]], i * 4);
+      ed.data.set([255, 255, 255, eye[i] ? 255 - al[i] : 0], i * 4);
+    }
+    sil.getContext('2d').putImageData(sd, 0, 0); eyeC.getContext('2d').putImageData(ed, 0, 0);
+    return { sil, eye: eyeC };
+  });
+}
+
+// ── 프레임 만들기 (크기·색별로 캐시) ──
+function place(src, w, h) {
+  const c = mk(w, h), x = c.getContext('2d');
+  x.imageSmoothingQuality = 'high'; x.drawImage(src, 0, 0, w, h); return c;
+}
+function tint(c, color) {
+  const t = mk(c.width, c.height), x = t.getContext('2d');
+  x.drawImage(c, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = color; x.fillRect(0, 0, t.width, t.height); return t;
+}
+const cache = new Map();
+function frames(h, color) {
+  h = Math.max(4, Math.round(h));
+  const key = h + color;
+  if (!cache.has(key)) cache.set(key, masks.map(m => {
+    const w = Math.max(1, Math.round(h * crop.w / crop.h)), S = place(m.sil, w, h), out = mk(w, h), o = out.getContext('2d');
+    o.drawImage(tint(S, color), 0, 0); o.drawImage(tint(place(m.eye, w, h), eyeFor(color)), 0, 0);
+    return { c: out, w, h };
+  }));
+  return cache.get(key);
+}
+
+// ── 씬 ──
+const SCENES = {
+  dark:  { desk: '#1a2537', bar: '#202020', edge: 'rgba(255,255,255,.08)', icon: 'rgba(255,255,255,.18)' },
+  light: { desk: '#cddbeb', bar: '#f3f3f3', edge: 'rgba(0,0,0,.08)', icon: 'rgba(0,0,0,.14)' },
+  busy:  { desk: null, bar: '#2a2530', edge: 'rgba(255,255,255,.1)', icon: 'rgba(255,255,255,.2)' },
+};
+const BAR_H = 40;
+const MAX_SLOTS = 5;
+const scenes = [...document.querySelectorAll('canvas[data-scene]')].map((cv, si) => ({
+  cv, s: SCENES[cv.dataset.scene],
+  // 엄마: 위치·방향, 지금까지 달린 거리(path), 지나온 자리 기록(trail). 새끼: 자리(slot)마다 합류 정도(presence)와 걸음.
+  mom: { x: 60 + si * 150, dir: 1, phase: Math.random(), path: 0, trail: [] },
+  kits: Array.from({ length: MAX_SLOTS }, (_, i) => ({ presence: i === 0 ? 1 : 0, phase: Math.random(), lastS: null, hopSeed: Math.random() * 6 })),
+}));
+
+function drawBackground(ctx, W, H, s, dpr) {
+  const ground = H - BAR_H * dpr;
+  if (s.desk) { ctx.fillStyle = s.desk; ctx.fillRect(0, 0, W, ground); }
+  else {
+    const g = ctx.createLinearGradient(0, 0, W, ground);
+    g.addColorStop(0, '#f2994a'); g.addColorStop(0.5, '#c0549b'); g.addColorStop(1, '#3b3f8f');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, ground);
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(W * 0.55, 18 * dpr, W * 0.3, ground - 18 * dpr);   // 흰 창
+    ctx.fillStyle = '#eceff3'; ctx.fillRect(W * 0.55, 18 * dpr, W * 0.3, 18 * dpr);
+  }
+  ctx.fillStyle = s.bar; ctx.fillRect(0, ground, W, H - ground);
+  ctx.fillStyle = s.edge; ctx.fillRect(0, ground, W, Math.max(1, dpr | 0));
+  ctx.fillStyle = s.icon;
+  const n = 6, size = 22 * dpr, gap = 10 * dpr, start = W / 2 - (n * size + (n - 1) * gap) / 2;
+  for (let i = 0; i < n; i++) {
+    ctx.beginPath(); ctx.roundRect(start + i * (size + gap), ground + (BAR_H * dpr - size) / 2, size, size, 5 * dpr); ctx.fill();
+  }
+  return ground;
+}
+
+/**
+ * 엄마가 지나온 자리 중 path가 s인 곳. 기록 사이는 선형으로 잇는다.
+ * 기록보다 앞(아직 기록이 없는 곳)이면 맨 처음 자리.
+ */
+function trailAt(trail, s) {
+  if (!trail.length) return null;
+  if (s <= trail[0].s) return trail[0];
+  for (let i = trail.length - 1; i > 0; i--) {
+    const a = trail[i - 1], b = trail[i];
+    if (s >= a.s) {
+      const q = b.s > a.s ? (s - a.s) / (b.s - a.s) : 0;
+      return { x: lerp(a.x, b.x, q), dir: q < 0.5 ? a.dir : b.dir, s };
+    }
+  }
+  return trail[trail.length - 1];
+}
+/** 새끼 i가 엄마 뒤 얼마나 떨어져 있는지(path 거리). 합류하는 동안·처지는 동안은 더 멀다. */
+function kitDistance(i, presence, momW, kitW) {
+  const gap = P.gap / 100;
+  const base = momW * (0.5 + gap) + kitW * (0.5 + i * (1 + gap));
+  return base + (1 - presence) * kitW * 3;
+}
+
+let t = 0, last = performance.now(), acc = 0;
+let noise = 0;
+function usageNow(dt) {
+  if (!$('auto').checked) return P.usage;
+  noise = clamp(noise * Math.exp(-dt * 1.2) + (Math.random() - 0.5) * 60 * dt, -9, 9);   // 실제 CPU처럼 자잘하게 출렁인다
+  return clamp(45 + 42 * Math.sin(t * 2 * Math.PI / 16) + noise, 0, 100);
+}
+let speedNow = 0;   // 0~1. 깡총 높이에 쓴다
+function step(dt) {
+  t += dt;
+  const u = usageNow(dt), want = updateCount(u);
+  speedNow = clamp(u / 60, 0, 1);
+  if ($('auto').checked) { $('r_usage').value = Math.round(u); $('o_usage').textContent = Math.round(u) + '%'; }
+  const h = P.size, w = h * crop.w / crop.h, kh = h * P.kitScale / 100, kw = kh * crop.w / crop.h;
+  for (const sc of scenes) {
+    const W = sc.cv.width, m = sc.mom;
+    const v = w * (0.4 + (7 - 0.4) * Math.pow(u / 100, 0.7));  // SpeedProfile과 같은 곡선
+    const moved = v * dt;
+    m.x += moved * m.dir;
+    if (m.x < 0) { m.x = 0; m.dir = 1; }
+    if (m.x > W - w) { m.x = W - w; m.dir = -1; }
+    m.phase = (m.phase + moved / w * 0.8) % 1;
+    m.path += moved;
+    m.trail.push({ s: m.path, x: m.x + w / 2, dir: m.dir });   // 몸 가운데 자리
+    const keep = m.path - kitDistance(MAX_SLOTS, 0, w, kw) - w * 2;
+    while (m.trail.length > 2 && m.trail[1].s < keep) m.trail.shift();
+    sc.kits.forEach((k, i) => {
+      const target = i < want ? 1 : 0, speed = 1 / Math.max(0.05, target ? P.join : P.join * 1.6);
+      k.presence = clamp(k.presence + Math.sign(target - k.presence) * dt * speed, 0, 1);
+      // 걸음: 따라간 거리만큼. 작은 몸 비율대로 놀리면(약 1.8배) 종종거리며 촐싹대 보여서 엄마의 cadence%로 맞춘다.
+      const s = m.path - kitDistance(i, k.presence, w, kw);
+      if (k.lastS !== null) k.phase = (k.phase + Math.abs(s - k.lastS) / w * 0.8 * P.cadence / 100) % 1;
+      k.lastS = s;
+    });
+  }
+}
+function drawFrame(ctx, f, cx, ground, dir, alpha = 1, lift = 0) {
+  const x = Math.round(cx - f.w / 2), y = Math.round(ground - f.h - lift);
+  ctx.save(); ctx.globalAlpha = alpha;
+  if (dir < 0) { ctx.translate(x * 2 + f.w, 0); ctx.scale(-1, 1); }
+  ctx.drawImage(f.c, x, y);
+  ctx.restore();
+}
+function drawLine(ctx, sc, ground, offsetX = 0) {
+  const h = P.size, w = h * crop.w / crop.h, kh = h * P.kitScale / 100, kw = kh * crop.w / crop.h, m = sc.mom;
+  // 맨 끝 새끼부터 그려서 앞쪽이 위에 오게
+  for (let i = MAX_SLOTS - 1; i >= 0; i--) {
+    const k = sc.kits[i];
+    if (k.presence <= 0.01) continue;
+    const at = trailAt(m.trail, m.path - kitDistance(i, k.presence, w, kw));
+    if (!at) continue;
+    const fs = frames(kh, kittenColor(i)), f = fs[Math.floor(k.phase * fs.length) % fs.length];
+    // 깡총: 걸음 한 바퀴에 한 번. 느릴 때 제자리에서 통통 튀면 촐싹대 보여서 빠를수록만 높게 뛴다.
+    const lift = kh * P.hop / 100 * speedNow * Math.max(0, Math.sin(k.phase * Math.PI * 2 + k.hopSeed));
+    drawFrame(ctx, f, at.x + offsetX, ground, at.dir, Math.min(1, k.presence * 1.4), lift);
+  }
+  const fs = frames(h, P.color), f = fs[Math.floor(m.phase * fs.length) % fs.length];
+  drawFrame(ctx, f, m.x + w / 2 + offsetX, ground, m.dir);
+}
+function render() {
+  const dpr = window.devicePixelRatio || 1;
+  for (const sc of scenes) {
+    const cv = sc.cv, W = Math.round(cv.clientWidth * dpr), H = Math.round(cv.clientHeight * dpr);
+    if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+    const ctx = cv.getContext('2d');
+    const ground = drawBackground(ctx, W, H, sc.s, dpr);
+    drawLine(ctx, sc, ground);
+  }
+  renderZoom();
+}
+/** 확대: 밝은 작업표시줄의 엄마와 새끼들 둘레를 잘라 정수배로 키운다. */
+function renderZoom() {
+  const dpr = window.devicePixelRatio || 1;
+  const cv = $('zoom'), W = Math.round(cv.clientWidth * dpr), H = Math.round(cv.clientHeight * dpr);
+  if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+  const ctx = cv.getContext('2d'); ctx.imageSmoothingEnabled = false;
+  const sc = scenes[1], h = P.size, w = h * crop.w / crop.h;
+  const cw = Math.round(w * 5.2), ch = Math.round(h * 1.5);
+  const off = mk(cw, ch), o = off.getContext('2d');
+  o.fillStyle = '#cddbeb'; o.fillRect(0, 0, cw, ch);
+  const ground = ch - Math.round(h * 0.2);
+  o.fillStyle = '#f3f3f3'; o.fillRect(0, ground, cw, ch - ground);
+  // 엄마가 앞쪽(진행 방향)에 오도록 옮겨 그린다
+  const momCx = sc.mom.x + w / 2, shift = sc.mom.dir > 0 ? cw - w * 0.8 - momCx : w * 0.8 - momCx;
+  drawLine(o, sc, ground, Math.round(shift));
+  const scale = Math.max(1, Math.floor(Math.min((W - 20) / cw, (H - 16) / ch)));
+  ctx.fillStyle = '#f3f3f3'; ctx.fillRect(0, 0, W, H);
+  ctx.drawImage(off, Math.round((W - cw * scale) / 2), Math.round((H - ch * scale) / 2), cw * scale, ch * scale);
+}
+function loop(now) {
+  const dt = Math.min(0.25, (now - last) / 1000); last = now; acc += dt;
+  if (acc >= 1 / 30) { step(acc); acc = 0; render(); }   // 앱 기본값처럼 30fps
+  requestAnimationFrame(loop);
+}
+loadMasks().then(() => {
+  updateSummary();
+  for (let i = 0; i < 90; i++) step(1 / 30);   // 처음부터 줄이 늘어서 있게 3초 미리 달려 둔다
+  render(); requestAnimationFrame(loop);
+});
+</script>
+</body>
+</html>

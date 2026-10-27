@@ -616,14 +616,19 @@ internal sealed class SettingsWindow : Window
 
     // ───────── 고양이 탭: 스페셜 스킨 줄 (개발용 빌드에서만) ─────────
 
-    /// <summary>기본 모습 + 스킨 3개. 가진 칸은 고른 고양이 색으로 제자리 달리기를 하고, 없는 칸은 실루엣과 물음표다.</summary>
+    /// <summary>
+    /// 기본 모습 + 스킨들. 가진 칸은 고른 고양이 색으로 제자리 달리기를 하고, 없는 칸은 실루엣과 물음표다.
+    /// 스킨이 늘어도 한 줄에 들어오게 칸 너비를 나눠 갖는다.
+    /// </summary>
     private Control BuildSkinRow()
     {
-        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-        foreach (var skin in RewardCatalog.Skins.Select(s => s.Skin).Prepend(RunnerSkin.None))
+        var skins = RewardCatalog.Skins.Select(s => s.Skin).Prepend(RunnerSkin.None).ToList();
+        var row = new Grid { ColumnDefinitions = new ColumnDefinitions(string.Join(",8,", skins.Select(_ => "*"))) };
+        foreach (var (skin, column) in skins.Select((s, i) => (s, i * 2)))
         {
             var runner = new TreadmillRunner();
-            var tile = new ShopTile { Width = 120, Height = 84 };
+            var tile = new ShopTile { Height = 84 };
+            Grid.SetColumn(tile, column);
             tile.Art = (ctx, box, scaling) => DrawSkinTileArt(ctx, box, skin, runner, scaling);
             tile.Click += (_, _) => OnSkinClicked(skin);
             // 나갈 때 안내를 되돌리지 않는다. 없는 칸의 "뽑기로 가기" 버튼을 누르러 마우스를 옮겨도 남아 있게.
@@ -648,11 +653,16 @@ internal sealed class SettingsWindow : Window
         }
         var color = ColorUtil.Parse(Selected?.Color, Colors.Black);
         // 색 칸처럼 몸이 바탕에 묻히면 반대 톤 바탕을 깐다(까망 고양이는 밝게, 하양·유령은 어둡게).
-        var look = skin == RunnerSkin.Ghost ? GhostSkin.DisplayColor : color;
+        var look = RunnerSkins.LookColor(skin, color);
         bool light = !GameArt.LowContrast(look, UI.Theme.Current.SwatchBack);
         SkinRunnerView.DrawStage(ctx, box, 6, light, floorInset: 8);
-        // 플래시는 잔상이 뒤로 길게 끌려서, 몸을 조금 앞에 두어야 꼬리까지 칸 안에 들어온다.
-        double cx = box.Center.X + (skin == RunnerSkin.Flash ? height * 0.4 : 0);
+        // 플래시 잔상·얼음 서리·줄줄이 새끼는 뒤로 길게 끌려서, 몸을 앞에 두어야 칸 안에 들어온다.
+        double cx = box.Center.X + skin switch
+        {
+            RunnerSkin.Flash or RunnerSkin.Ice => height * 0.4,
+            RunnerSkin.Kittens => height * 1.1,
+            _ => 0,
+        };
         using (ctx.PushClip(box)) runner.Draw(ctx, cx, floor, height, skin, color, 30, scaling);
     }
 

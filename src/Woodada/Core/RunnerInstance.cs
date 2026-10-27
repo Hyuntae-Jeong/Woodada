@@ -11,8 +11,13 @@ public readonly record struct TrailSample(double Odometer, double X, int Directi
 /// <summary>설정 + 스프라이트 + 상태를 묶은 실행 중인 러너 한 마리.</summary>
 public sealed class RunnerInstance
 {
-    /// <summary>지나온 길을 몇 프레임 남길지. 30fps에서 약 2초로, 가장 긴 잔상 꼬리보다 넉넉하다.</summary>
-    private const int MaxTrail = 64;
+    /// <summary>
+    /// 지나온 길을 몸 길이 몇 개만큼 남길지. 플래시 잔상 꼬리(몸 길이 0.9개)와 줄줄이 새끼 줄(합류 중일 때 최대 약 5개)보다 넉넉하다.
+    /// 프레임 수로 세면 느리게 걸을 때(초당 몸 길이 0.4개) 2초에 몸 길이 1개도 안 돼서 새끼들이 따라올 길이 모자란다.
+    /// </summary>
+    private const double TrailBodyLengths = 8;
+    /// <summary>아주 느리거나 높은 fps에서도 기록이 끝없이 늘지 않게 하는 상한.</summary>
+    private const int MaxTrailSamples = 2048;
 
     private readonly List<TrailSample> _trail = new();
     private bool _placed;
@@ -49,6 +54,15 @@ public sealed class RunnerInstance
     /// <summary>글리치 스킨이 언제 터졌고 지금 어떤 모양인지.</summary>
     public GlitchState Glitch { get; } = new();
 
+    /// <summary>얼음 스킨이 바닥에 남긴 서리와 흩날리는 눈가루.</summary>
+    public IceState Ice { get; } = new();
+
+    /// <summary>줄줄이 스킨이 데리고 다니는 새끼들.</summary>
+    public KittenState Kittens { get; } = new();
+
+    /// <summary>지금까지 달린 거리. 지나온 길 기록(Behind)과 같은 기준이다.</summary>
+    public double Odometer => _odometer;
+
     /// <returns>이번에 실제로 달린 거리(px). 다른 모니터로 옮겨져 새 자리에서 출발한 순간이동은 세지 않는다.</returns>
     public double Update(double dt, double rawUsage, Runway runway)
     {
@@ -65,12 +79,19 @@ public sealed class RunnerInstance
             State.X = track.MinX + Random.Shared.NextDouble() * Math.Max(0, track.Width);
             _placed = true;
             _trail.Clear(); // 순간이동한 자리 사이에 잔상이 이어지면 안 된다
+            // 이미 그 방향으로 달려온 것처럼 뒤쪽 길을 깔아 둔다. 없으면 새끼들이 출발점에 멈춰 서서 길이 생기기를 기다린다.
+            double back = TrailBodyLengths * size.Width;
+            _trail.Add(new TrailSample(_odometer - back, State.X - State.Direction * back, State.Direction, State.GaitPhase));
+            Ice.Clear();
+            Kittens.Reset();
         }
         double moved = State.Advance(dt, _smoothedUsage, track, SpeedProfile.ForBodyWidth(size.Width));
 
         _odometer += moved;
         _trail.Add(new TrailSample(_odometer, State.X, State.Direction, State.GaitPhase));
-        if (_trail.Count > MaxTrail) _trail.RemoveAt(0);
+        // 맨 앞 하나는 keep보다 뒤에 남겨야 keep 바로 그 자리도 사이를 이어 찾을 수 있다.
+        double keep = _odometer - TrailBodyLengths * size.Width;
+        while (_trail.Count > 2 && (_trail[1].Odometer <= keep || _trail.Count > MaxTrailSamples)) _trail.RemoveAt(0);
         return moved;
     }
 

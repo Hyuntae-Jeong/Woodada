@@ -60,7 +60,7 @@ internal sealed class GachaStage : Control
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromMilliseconds(33) };
     private readonly Stopwatch _clock = Stopwatch.StartNew();
     private readonly TreadmillRunner _showcase = new();
-    private readonly TreadmillRunner[] _trio = { new(), new(), new() };
+    private readonly TreadmillRunner[] _parade = RewardCatalog.Skins.Select(_ => new TreadmillRunner()).ToArray();
     private readonly List<Particle> _particles = new();
     private Mode _mode = Mode.Idle;
     private RunnerSkin _result;
@@ -189,14 +189,16 @@ internal sealed class GachaStage : Control
             TextAt(ctx, "?", 54, Color.FromArgb(46, 255, 255, 255), FontWeight.Bold, width / 2, 208 + 4 * Math.Sin(t * 2));
             return;
         }
-        // 다 모았으면 세 마리가 나란히 달린다.
+        // 다 모았으면 모든 스킨이 나란히 달린다. 많아지면 간격을 좁혀 무대 안에 넣는다.
         DrawDesk(ctx, width, null);
         ctx.DrawEllipse(GoldGlow, null, new Point(width / 2, 230), 220, 220);
         DrawTwinkles(ctx, width, t, GoldBrush);
-        for (int i = 0; i < RewardCatalog.Skins.Count && i < _trio.Length; i++)
+        int count = _parade.Length;
+        double spacing = count > 1 ? Math.Min(90, (width - 120) / (count - 1)) : 0;
+        for (int i = 0; i < count; i++)
         {
             var skin = RewardCatalog.Skins[i].Skin;
-            _trio[i].Draw(ctx, width / 2 + (i - 1) * 90, BarTop, 46, skin, RewardCatalog.ShowcaseColor(skin), 35, scaling);
+            _parade[i].Draw(ctx, width / 2 + (i - (count - 1) / 2.0) * spacing, BarTop, 46, skin, RewardCatalog.ShowcaseColor(skin), 35, scaling);
         }
         TextAt(ctx, "도감 완성!", 24, Colors.White, FontWeight.Bold, width / 2, 54);
         TextAt(ctx, "새 스킨이 나오면 뽑기가 다시 열려요", 13, Color.FromArgb(166, 255, 255, 255), FontWeight.Medium, width / 2, 84);

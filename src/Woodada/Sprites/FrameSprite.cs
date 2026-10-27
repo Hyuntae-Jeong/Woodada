@@ -16,7 +16,7 @@ namespace Woodada.Sprites;
 /// </summary>
 public sealed class FrameSprite : IRunnerSprite
 {
-    // 설정 창의 색 칸(20개)과 미리보기, 플래시 잔상 색(러너마다 8개), 그리고 개발용 빌드의 스킨 칸·뽑기 무대까지
+    // 설정 창의 색 칸(20개)과 미리보기, 플래시 잔상 색(러너마다 8개), 줄줄이 새끼 색(러너마다 4개), 그리고 개발용 빌드의 스킨 칸·뽑기 무대까지
     // 함께 그려도 넘치지 않게. 넘치면 통째로 비우고 다시 칠하므로, 모자라면 매 프레임 그림을 새로 만든다.
     private const int MaxCacheEntries = 160;
 
@@ -27,6 +27,8 @@ public sealed class FrameSprite : IRunnerSprite
         Tinted,
         /// <summary>유령 스킨(색 고정, 사방에 발광 여백).</summary>
         Ghost,
+        /// <summary>얼음 스킨(색 고정, 밝은 바탕이면 바깥 테두리 여백).</summary>
+        Ice,
         /// <summary>눈 없이 한 색으로 칠한 몸 모양. 잔상에 쓴다.</summary>
         Silhouette,
     }
@@ -71,11 +73,20 @@ public sealed class FrameSprite : IRunnerSprite
         // 스킨 효과(외곽선 굵기·발광 번짐)는 화면 단위로 정해 둔 값이다. Windows는 화면 단위가 장치 픽셀이고,
         // macOS는 포인트라 레티나에서 장치 픽셀 2개가 된다.
         double unitPixels = OperatingSystem.IsMacOS() ? scale : 1;
-        var key = skin == RunnerSkin.Ghost
-            ? new FrameKey(FrameLook.Ghost, 0, pixelHeight, lightBackground, unitPixels) // 유령은 색이 고정이다
-            : new FrameKey(FrameLook.Tinted, color.ToUInt32(), pixelHeight, false, 1);
-        // 스킨 프레임은 발광이 번질 자리만큼 사방이 크다. 몸이 box에 오도록 그만큼 당겨 찍는다.
-        double pad = skin == RunnerSkin.Ghost ? GhostSkin.PaddingPixels(unitPixels) / scale : 0;
+        var key = skin switch
+        {
+            // 유령·얼음은 색이 고정이다
+            RunnerSkin.Ghost => new FrameKey(FrameLook.Ghost, 0, pixelHeight, lightBackground, unitPixels),
+            RunnerSkin.Ice => new FrameKey(FrameLook.Ice, 0, pixelHeight, lightBackground, unitPixels),
+            _ => new FrameKey(FrameLook.Tinted, color.ToUInt32(), pixelHeight, false, 1),
+        };
+        // 스킨 프레임은 발광·테두리가 번질 자리만큼 사방이 크다. 몸이 box에 오도록 그만큼 당겨 찍는다.
+        double pad = skin switch
+        {
+            RunnerSkin.Ghost => GhostSkin.PaddingPixels(unitPixels) / scale,
+            RunnerSkin.Ice => IceSkin.PaddingPixels(unitPixels) / scale,
+            _ => 0,
+        };
         Blit(ctx, PickFrame(GetFrames(key), pose), box, pose.Facing, scale, pad);
     }
 
@@ -229,6 +240,7 @@ public sealed class FrameSprite : IRunnerSprite
         frames = _masks.Select(m => key.Look switch
         {
             FrameLook.Ghost => m.RenderGhost(width, height, key.LightBack, key.UnitPixels),
+            FrameLook.Ice => m.RenderIce(width, height, key.LightBack, key.UnitPixels),
             FrameLook.Silhouette => m.RenderSilhouette(color, width, height),
             _ => m.Render(color, width, height),
         }).ToArray();
@@ -384,6 +396,20 @@ public sealed class FrameSprite : IRunnerSprite
             var silhouette = ScaledAlpha(i => _eye[i] ? (byte)255 : _bodyAlpha[i], width, height);
             var eyes = ScaledAlpha(i => _eye[i] ? (byte)(255 - _bodyAlpha[i]) : (byte)0, width, height);
             var bytes = GhostSkin.Compose(silhouette, eyes, width, height, lightBackground, unitPixels, out int w, out int h);
+            return FromPremultiplied(bytes, w, h);
+        }
+
+        /// <summary>얼음 스킨 프레임. 유령처럼 먼저 목표 크기로 줄여야 서리선·테두리가 늘 1픽셀로 또렷하다.</summary>
+        public Bitmap RenderIce(int width, int height, bool lightBackground, double unitPixels)
+        {
+            var silhouette = ScaledAlpha(i => _eye[i] ? (byte)255 : _bodyAlpha[i], width, height);
+            var eyes = ScaledAlpha(i => _eye[i] ? (byte)(255 - _bodyAlpha[i]) : (byte)0, width, height);
+            var bytes = IceSkin.Compose(silhouette, eyes, width, height, lightBackground, unitPixels, out int w, out int h);
+            return FromPremultiplied(bytes, w, h);
+        }
+
+        private static Bitmap FromPremultiplied(byte[] bytes, int w, int h)
+        {
             var handle = GCHandle.Alloc(bytes, GCHandleType.Pinned);
             try
             {

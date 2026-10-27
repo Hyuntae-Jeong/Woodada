@@ -62,7 +62,7 @@ internal sealed class RunnerPreview : Control
         var p = UI.Theme.Current;
         var all = new Rect(Bounds.Size);
         // 몸이 바탕과 비슷하면(밝은 테마의 하양 고양이·유령, 어두운 테마의 까망 고양이) 대비가 나는 바탕을 깐다.
-        var look = Skin == RunnerSkin.Ghost ? GhostSkin.DisplayColor : RunnerColor;
+        var look = RunnerSkins.LookColor(Skin, RunnerColor);
         bool alt = GameArt.LowContrast(look, p.PreviewBack);
         ctx.FillRectangle(GameArt.Brush(alt ? p.PreviewAltBack : p.PreviewBack), all);
 
