@@ -4,11 +4,20 @@ using Woodada.Sprites;
 
 namespace Woodada.Core;
 
+/// <summary>지나온 길의 한 지점. 잔상은 그때의 자리·방향·다리 자세를 그대로 그린다.</summary>
+/// <param name="Odometer">이 러너가 지금까지 달린 거리. 잔상 간격을 시간이 아니라 거리로 재는 데 쓴다.</param>
+public readonly record struct TrailSample(double Odometer, double X, int Direction, double GaitPhase);
+
 /// <summary>설정 + 스프라이트 + 상태를 묶은 실행 중인 러너 한 마리.</summary>
 public sealed class RunnerInstance
 {
+    /// <summary>지나온 길을 몇 프레임 남길지. 30fps에서 약 2초로, 가장 긴 잔상 꼬리보다 넉넉하다.</summary>
+    private const int MaxTrail = 64;
+
+    private readonly List<TrailSample> _trail = new();
     private bool _placed;
     private double _smoothedUsage = double.NaN;
+    private double _odometer;
 
     public RunnerInstance(RunnerConfig config, IRunnerSprite sprite)
     {
@@ -27,8 +36,8 @@ public sealed class RunnerInstance
 
     public RunnerSkin Skin => RunnerSkins.Parse(Config.Skin);
 
-    /// <summary>둥실 효과의 시작 위상. 두 마리가 같은 스킨이어도 똑같이 오르내리지 않게 한다.</summary>
-    public double BobPhase { get; } = Random.Shared.NextDouble() * 2 * Math.PI;
+    /// <summary>스킨 효과(둥실 흔들림, 불꽃 일렁임)의 시작 위상. 두 마리가 같은 스킨이어도 똑같이 움직이지 않게 한다.</summary>
+    public double EffectPhase { get; } = Random.Shared.NextDouble() * 2 * Math.PI;
 
     /// <returns>이번에 실제로 달린 거리(px). 다른 모니터로 옮겨져 새 자리에서 출발한 순간이동은 세지 않는다.</returns>
     public double Update(double dt, double rawUsage, Runway runway)
@@ -45,7 +54,34 @@ public sealed class RunnerInstance
         {
             State.X = track.MinX + Random.Shared.NextDouble() * Math.Max(0, track.Width);
             _placed = true;
+            _trail.Clear(); // 순간이동한 자리 사이에 잔상이 이어지면 안 된다
         }
-        return State.Advance(dt, _smoothedUsage, track, SpeedProfile.ForBodyWidth(size.Width));
+        double moved = State.Advance(dt, _smoothedUsage, track, SpeedProfile.ForBodyWidth(size.Width));
+
+        _odometer += moved;
+        _trail.Add(new TrailSample(_odometer, State.X, State.Direction, State.GaitPhase));
+        if (_trail.Count > MaxTrail) _trail.RemoveAt(0);
+        return moved;
+    }
+
+    /// <summary>
+    /// 지금 자리에서 지나온 길을 따라 distance만큼 뒤의 지점. 기록 사이는 선형으로 이어서
+    /// 프레임 간격보다 촘촘한 잔상도 부드럽게 놓인다. 기록이 없으면 null.
+    /// </summary>
+    public TrailSample? Behind(double distance)
+    {
+        if (_trail.Count == 0) return null;
+        double target = _odometer - distance;
+        for (int i = _trail.Count - 1; i > 0; i--)
+        {
+            var a = _trail[i - 1];
+            var b = _trail[i];
+            if (a.Odometer > target) continue;
+            double k = b.Odometer > a.Odometer ? (target - a.Odometer) / (b.Odometer - a.Odometer) : 0;
+            // 벽에서 돌아선 구간은 섞지 않고 가까운 쪽을 쓴다. 섞으면 벽 앞에서 옆걸음치는 잔상이 생긴다.
+            if (a.Direction != b.Direction) return k < 0.5 ? a : b;
+            return b with { Odometer = target, X = a.X + (b.X - a.X) * k };
+        }
+        return _trail[0];
     }
 }

@@ -16,11 +16,25 @@ namespace Woodada.Sprites;
 /// </summary>
 public sealed class FrameSprite : IRunnerSprite
 {
-    private const int MaxCacheEntries = 64; // 설정 창의 색 칸(20개)과 미리보기를 함께 그려도 넘치지 않게
+    // 설정 창의 색 칸(20개)과 미리보기, 그리고 플래시 잔상 색(러너마다 8개)을 함께 그려도 넘치지 않게
+    private const int MaxCacheEntries = 96;
+
+    /// <summary>프레임을 어떤 모습으로 칠했는지.</summary>
+    private enum FrameLook
+    {
+        /// <summary>러너 색 + 눈.</summary>
+        Tinted,
+        /// <summary>유령 스킨(색 고정, 사방에 발광 여백).</summary>
+        Ghost,
+        /// <summary>눈 없이 한 색으로 칠한 몸 모양. 잔상에 쓴다.</summary>
+        Silhouette,
+    }
+
+    private readonly record struct FrameKey(FrameLook Look, uint Argb, int Height, bool LightBack, double UnitPixels);
 
     private readonly FrameMask[] _masks;
     private readonly PixelSize _crop;
-    private readonly Dictionary<(uint Argb, int Height, RunnerSkin Skin, bool LightBack, double UnitPixels), Bitmap[]> _cache = new();
+    private readonly Dictionary<FrameKey, Bitmap[]> _cache = new();
 
     /// <param name="resourcePrefix">임베디드 리소스 이름 앞부분. 뒤에 "{i}.png"가 붙는다.</param>
     public FrameSprite(string id, string displayName, string resourcePrefix, int frameCount)
@@ -56,14 +70,36 @@ public sealed class FrameSprite : IRunnerSprite
         // 스킨 효과(외곽선 굵기·발광 번짐)는 화면 단위로 정해 둔 값이다. Windows는 화면 단위가 장치 픽셀이고,
         // macOS는 포인트라 레티나에서 장치 픽셀 2개가 된다.
         double unitPixels = OperatingSystem.IsMacOS() ? scale : 1;
-        var frames = GetFrames(color, pixelHeight, skin, lightBackground, unitPixels);
+        var key = skin == RunnerSkin.Ghost
+            ? new FrameKey(FrameLook.Ghost, 0, pixelHeight, lightBackground, unitPixels) // 유령은 색이 고정이다
+            : new FrameKey(FrameLook.Tinted, color.ToUInt32(), pixelHeight, false, 1);
+        // 스킨 프레임은 발광이 번질 자리만큼 사방이 크다. 몸이 box에 오도록 그만큼 당겨 찍는다.
+        double pad = skin == RunnerSkin.Ghost ? GhostSkin.PaddingPixels(unitPixels) / scale : 0;
+        Blit(ctx, PickFrame(GetFrames(key), pose), box, pose.Facing, scale, pad);
+    }
+
+    /// <summary>눈 없이 한 색으로 칠한 몸 모양을 opacity만큼 비치게 그린다. 플래시 스킨의 잔상이다.</summary>
+    public void DrawSilhouette(DrawingContext ctx, Rect box, RunnerPose pose, Color color, double opacity, double renderScaling)
+    {
+        if (opacity <= 0) return;
+        double scale = renderScaling > 0 ? renderScaling : 1;
+        int pixelHeight = Math.Max(4, (int)Math.Round(box.Height * scale));
+        var bmp = PickFrame(GetFrames(new FrameKey(FrameLook.Silhouette, color.ToUInt32(), pixelHeight, false, 1)), pose);
+        using var _ = ctx.PushOpacity(Math.Min(1, opacity));
+        Blit(ctx, bmp, box, pose.Facing, scale, 0);
+    }
+
+    private static Bitmap PickFrame(Bitmap[] frames, RunnerPose pose)
+    {
         int count = frames.Length;
         int index = (int)(pose.GaitPhase * count) % count;
         if (index < 0) index += count;
-        var bmp = frames[index];
-        // 스킨 프레임은 발광이 번질 자리만큼 사방이 크다. 몸이 box에 오도록 그만큼 당겨 찍는다.
-        double pad = skin == RunnerSkin.Ghost ? GhostSkin.PaddingPixels(unitPixels) / scale : 0;
+        return frames[index];
+    }
 
+    /// <param name="pad">그림이 몸보다 사방으로 큰 만큼(논리 단위).</param>
+    private static void Blit(DrawingContext ctx, Bitmap bmp, Rect box, int facing, double scale, double pad)
+    {
         // 이미 장치 픽셀 크기로 만들어 둔 그림이라 픽셀 격자에 맞춰 1:1로 찍기만 한다.
         double w = bmp.PixelSize.Width / scale, h = bmp.PixelSize.Height / scale;
         double x = Math.Round(box.X * scale) / scale - pad;
@@ -72,7 +108,7 @@ public sealed class FrameSprite : IRunnerSprite
         var src = new Rect(0, 0, bmp.PixelSize.Width, bmp.PixelSize.Height);
 
         using var _ = ctx.PushRenderOptions(new RenderOptions { BitmapInterpolationMode = BitmapInterpolationMode.None });
-        if (pose.Facing < 0)
+        if (facing < 0)
         {
             // 원본은 오른쪽을 본다. dest 안에서 좌우만 뒤집는다.
             using (ctx.PushTransform(Matrix.CreateScale(-1, 1) * Matrix.CreateTranslation(2 * x + w, 0)))
@@ -84,21 +120,22 @@ public sealed class FrameSprite : IRunnerSprite
         }
     }
 
-    private Bitmap[] GetFrames(Color color, int height, RunnerSkin skin, bool lightBackground, double unitPixels)
+    private Bitmap[] GetFrames(FrameKey key)
     {
-        // 유령은 색이 고정이라 러너 색과 상관없이 같은 프레임을 쓰고, 일반 프레임은 배경 톤·단위와 상관없다.
-        var key = skin == RunnerSkin.Ghost
-            ? (0u, height, skin, lightBackground, unitPixels)
-            : (color.ToUInt32(), height, RunnerSkin.None, false, 1.0);
         if (_cache.TryGetValue(key, out var frames)) return frames;
 
         // 그리는 중인 화면이 들고 있을 수 있으니 Dispose하지 않고 놓아 주기만 한다.
         if (_cache.Count >= MaxCacheEntries) _cache.Clear();
 
+        int height = key.Height;
         int width = Math.Max(1, (int)Math.Round(height * _crop.Width / (double)_crop.Height));
-        frames = _masks.Select(m => skin == RunnerSkin.Ghost
-            ? m.RenderGhost(width, height, lightBackground, unitPixels)
-            : m.Render(color, width, height)).ToArray();
+        var color = Color.FromUInt32(key.Argb);
+        frames = _masks.Select(m => key.Look switch
+        {
+            FrameLook.Ghost => m.RenderGhost(width, height, key.LightBack, key.UnitPixels),
+            FrameLook.Silhouette => m.RenderSilhouette(color, width, height),
+            _ => m.Render(color, width, height),
+        }).ToArray();
         _cache[key] = frames;
         return frames;
     }
@@ -217,10 +254,28 @@ public sealed class FrameSprite : IRunnerSprite
         }
 
         /// <summary>색을 칠한 원본 크기 프레임을 목표 크기로 줄여 화면에 바로 찍을 수 있는 그림으로 만든다.</summary>
-        public Bitmap Render(Color color, int width, int height)
+        public Bitmap Render(Color color, int width, int height) => Scale(Tint(color), width, height);
+
+        /// <summary>눈 구멍까지 메운 몸 모양을 한 색으로 칠한다. 잔상은 눈이 비치면 지저분해서 모양만 남긴다.</summary>
+        public Bitmap RenderSilhouette(Color color, int width, int height)
+        {
+            var bytes = new byte[_width * _height * 4];
+            for (int i = 0; i < _bodyAlpha.Length; i++)
+            {
+                int o = i * 4;
+                bytes[o] = color.B;
+                bytes[o + 1] = color.G;
+                bytes[o + 2] = color.R;
+                bytes[o + 3] = _eye[i] ? (byte)255 : _bodyAlpha[i];
+            }
+            return Scale(bytes, width, height);
+        }
+
+        /// <summary>원본 크기 BGRA(premultiply 전)를 목표 크기로 줄여 화면에 바로 찍을 수 있는 그림으로 만든다.</summary>
+        private Bitmap Scale(byte[] bgra, int width, int height)
         {
             using var full = new SKBitmap(new SKImageInfo(_width, _height, SKColorType.Bgra8888, SKAlphaType.Unpremul));
-            Marshal.Copy(Tint(color), 0, full.GetPixels(), _width * _height * 4);
+            Marshal.Copy(bgra, 0, full.GetPixels(), _width * _height * 4);
 
             using var scaled = full.Resize(new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul), SKFilterQuality.High);
             return new Bitmap(PixelFormat.Bgra8888, AlphaFormat.Premul, scaled.GetPixels(),

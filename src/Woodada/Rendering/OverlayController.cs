@@ -146,17 +146,51 @@ internal sealed class OverlayController : IDisposable
         var strip = _runway.GetStrip(stripHeight);
         double seconds = _clock.Elapsed.TotalSeconds;
 
-        var frames = _runners.Select(r =>
+        var frames = new List<RunnerFrame>();
+        foreach (var r in _runners)
         {
             var size = r.BodySize;
             var skin = r.Skin;
-            double lift = RunnerSkins.Lift(skin, r.Config.Size, seconds, r.BobPhase);
+            var color = ColorUtil.Parse(r.Config.Color, Colors.Orange);
+            double lift = RunnerSkins.Lift(skin, r.Config.Size, seconds, r.EffectPhase);
             var box = new Rect(r.State.X - strip.X, strip.Height - size.Height - lift, size.Width, size.Height);
             var pose = new RunnerPose(r.State.Direction, r.State.GaitPhase, r.State.Intensity);
-            return new RunnerFrame(r.Sprite, box, pose, ColorUtil.Parse(r.Config.Color, Colors.Orange), skin, _lightBar);
-        }).ToList();
+            if (skin == RunnerSkin.Flash)
+            {
+                // 아주 빠르면 몸이 달아오른다. 잔상의 몸 쪽 색도 이 색에서 이어지게 같은 색을 넘긴다.
+                color = FlashSkin.BodyColor(color, r.Usage);
+                // 플래시 효과는 몸 아래에 깔려야 하니 몸보다 먼저 넣는다.
+                AddFlashTrail(frames, r, strip, box, pose, color, seconds);
+            }
+            frames.Add(new RunnerFrame(r.Sprite, box, pose, color, skin, _lightBar));
+        }
 
         _window.Present(strip, frames, _runway.HangBelow);
+    }
+
+    /// <summary>
+    /// 플래시 스킨: 불꽃 줄기 → 잔상(꼬리 끝부터 몸 쪽으로) 순서로 넣는다. 잔상은 지나온 길을 따라 놓여서
+    /// 벽에서 돌아서면 꼬리도 그 길을 따라 꺾인다.
+    /// </summary>
+    private static void AddFlashTrail(List<RunnerFrame> frames, RunnerInstance r, PixelRect strip, Rect box, RunnerPose pose,
+        Color color, double seconds)
+    {
+        double usage = r.Usage;
+        if (FlashSkin.Strength(usage) <= 0) return;
+
+        frames.Add(new RunnerFrame(r.Sprite, box, pose, color, RunnerSkin.Flash,
+            Layer: FrameLayer.FlashWisps, Usage: usage, Seconds: seconds, Phase: r.EffectPhase));
+
+        double tail = FlashSkin.TailLength(box.Width, usage);
+        for (int i = FlashSkin.AfterimageCount; i >= 1; i--)
+        {
+            double q = i / (double)FlashSkin.AfterimageCount;
+            if (r.Behind(tail * q) is not { } s) continue;
+            var ghostBox = new Rect(s.X - strip.X, box.Y, box.Width, box.Height);
+            var ghostPose = new RunnerPose(s.Direction, s.GaitPhase, pose.Intensity);
+            frames.Add(new RunnerFrame(r.Sprite, ghostBox, ghostPose, FlashSkin.TrailColor(q, color), RunnerSkin.Flash,
+                Layer: FrameLayer.Afterimage, Opacity: FlashSkin.AfterimageOpacity(i, usage)));
+        }
     }
 
     /// <summary>테마를 못 읽어도(레지스트리 권한 등) 러너는 계속 달려야 하니 어두운 막대로 본다.</summary>

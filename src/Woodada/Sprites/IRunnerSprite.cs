@@ -34,4 +34,11 @@ public interface IRunnerSprite
     /// <param name="lightBackground">밝은 작업표시줄·독 위인지. 스킨이 배경에 묻히지 않게 외곽선 톤을 고르는 데 쓴다.</param>
     void Draw(DrawingContext ctx, Rect box, RunnerPose pose, Color color, double renderScaling, RunnerSkin skin, bool lightBackground) =>
         Draw(ctx, box, pose, color, renderScaling);
+
+    /// <summary>눈 없이 한 색으로 칠한 몸 모양을 opacity만큼 비치게 그린다. 플래시 스킨의 잔상이다.</summary>
+    void DrawSilhouette(DrawingContext ctx, Rect box, RunnerPose pose, Color color, double opacity, double renderScaling)
+    {
+        using var _ = ctx.PushOpacity(opacity);
+        Draw(ctx, box, pose, color, renderScaling);
+    }
 }

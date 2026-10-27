@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>플래시냥 미리보기</title>
+<style>
+:root{--bg:#f4f5f8;--card:#fff;--text:#1d1f23;--muted:#6b7180;--line:#e2e5ea;--accent:#4a7bd0}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 "Segoe UI","Malgun Gothic",sans-serif}
+main{max-width:780px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:18px;margin:0 0 2px;font-weight:600}
+p.sub{margin:0 0 14px;color:var(--muted);font-size:13px}
+.scene{position:relative;border-radius:10px;overflow:hidden;margin-bottom:10px;border:1px solid var(--line)}
+.scene canvas{display:block;width:100%;height:130px}
+.tag{position:absolute;left:10px;top:8px;font-size:12px;padding:1px 9px;border-radius:99px;background:rgba(0,0,0,.45);color:#fff}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-top:14px}
+.panel h2{font-size:13px;margin:0 0 10px;color:var(--muted);font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px 24px}
+label.row{display:grid;grid-template-columns:96px 1fr 54px;align-items:center;gap:8px;font-size:13px}
+label.row output{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.checks{display:flex;gap:18px;flex-wrap:wrap;margin-top:12px;font-size:13px;align-items:center}
+.checks label{display:flex;gap:6px;align-items:center}
+button,select{font:inherit;font-size:13px;padding:3px 8px;border:1px solid var(--line);background:#fff;border-radius:6px}
+button{cursor:pointer;padding:4px 12px}
+#zoom{width:100%;height:200px;display:block;border-radius:8px;image-rendering:pixelated}
+#summary{margin:12px 0 0;font-size:13px;color:var(--muted);user-select:all}
+</style>
+</head>
+<body>
+<main>
+  <h1>플래시냥 미리보기</h1>
+  <p class="sub">실제 RunCat 5프레임으로 그렸어요. 크기는 앱과 같은 물리 픽셀 기준이고, 30fps로 움직여요.
+    잔상은 고양이가 실제로 지나온 자리와 자세를 촘촘히 겹쳐 남기고, 빠를수록 꼬리가 길어져요.
+    아주 빠르면(기본 60% 이상) 몸이 빨갛게 달아올라요. 기본값은 지금 앱에 들어간 값(src/Woodada/Sprites/FlashSkin.cs)이에요.
+    속도와 생선은 바뀌지 않는 겉모습 효과예요.</p>
+
+  <div class="scene"><canvas data-scene="light"></canvas><span class="tag">밝은 작업표시줄</span></div>
+  <div class="scene"><canvas data-scene="dark"></canvas><span class="tag">어두운 작업표시줄</span></div>
+  <div class="scene"><canvas data-scene="busy"></canvas><span class="tag">화려한 배경화면 + 흰 창</span></div>
+
+  <div class="panel">
+    <h2>확대 (밝은 작업표시줄 고양이, 픽셀 그대로)</h2>
+    <canvas id="zoom"></canvas>
+  </div>
+
+  <div class="panel">
+    <h2>조절</h2>
+    <div class="grid" id="controls"></div>
+    <div class="checks">
+      <label>고양이 색 <select autocomplete="off" id="color">
+        <option value="#1E1E22" selected>까망</option><option value="#D9626B">체리</option>
+        <option value="#F4A261">치즈</option><option value="#ECE7DF">하양</option>
+        <option value="#6D8BA8">고등어</option></select></label>
+      <label>잔상 색 <select autocomplete="off" id="trail">
+        <option value="fire" selected>불꽃 (빨강→주황→노랑)</option><option value="bolt">번개 (노랑→흰)</option>
+        <option value="sky">하늘 (파랑→흰)</option><option value="cat">고양이 색</option></select></label>
+      <label><input type="checkbox" autocomplete="off" id="auto"> 사용률 자동 변동</label>
+      <button id="reset">기본값</button>
+    </div>
+    <p id="summary"></p>
+  </div>
+</main>
+<script>
+const FRAMES = __FRAMES__;
+const DEFS = [
+  ['size','크기',16,72,1,28,'px'],
+  ['usage','사용률',0,100,1,70,'%'],
+  ['count','잔상 개수',0,12,1,8,'개'],
+  ['length','잔상 길이',20,200,5,90,'%'],
+  ['alpha','첫 잔상 진하기',10,100,1,60,'%'],
+  ['base','느릴 때 세기',0,100,1,35,'%'],
+  ['wisps','불꽃 줄기',0,8,1,4,'개'],
+  ['wispLen','줄기 길이',40,250,5,130,'%'],
+  ['heatAt','빨개지는 사용률',30,100,1,60,'%'],
+];
+const TRAILS = {
+  fire: { name: '불꽃', stops: ['#FF4D2E', '#FF8A3D', '#FFC24A', '#FFE9A0'] },
+  bolt: { name: '번개', stops: ['#FFD23A', '#FFE98A', '#FFF8D8', '#FFFFFF'] },
+  sky:  { name: '하늘', stops: ['#4FB6FF', '#8FD3FF', '#CDEEFF', '#FFFFFF'] },
+  cat:  { name: '고양이 색', stops: null },
+};
+const P = {};
+const $ = id => document.getElementById(id);
+const mk = (w, h) => { const c = document.createElement('canvas'); c.width = Math.max(1, w); c.height = Math.max(1, h); return c; };
+
+const ctl = $('controls');
+for (const [k, name, min, max, step, def, unit] of DEFS) {
+  P[k] = def;
+  const l = document.createElement('label'); l.className = 'row';
+  l.innerHTML = `<span>${name}</span><input type="range" min="${min}" max="${max}" step="${step}" value="${def}" id="r_${k}"><output id="o_${k}"></output>`;
+  ctl.appendChild(l);
+  const inp = l.querySelector('input'), out = l.querySelector('output');
+  const show = () => out.textContent = inp.value + unit;
+  show();
+  inp.addEventListener('input', () => { P[k] = +inp.value; show(); invalidate(); });
+}
+P.color = $('color').value; P.trail = $('trail').value;
+$('color').addEventListener('change', e => { P.color = e.target.value; invalidate(); });
+$('trail').addEventListener('change', e => { P.trail = e.target.value; invalidate(); });
+$('reset').addEventListener('click', () => {
+  for (const [k, , , , , def, unit] of DEFS) { P[k] = def; $('r_' + k).value = def; $('o_' + k).textContent = def + unit; }
+  $('color').value = '#1E1E22'; P.color = '#1E1E22'; $('trail').value = 'fire'; P.trail = 'fire';
+  $('auto').checked = false; invalidate();
+});
+function updateSummary() {
+  $('summary').textContent = `현재 값: 잔상 ${P.count}개 · 잔상 길이 몸의 ${P.length}% · 첫 잔상 ${P.alpha}% · 느릴 때 세기 ${P.base}% · 빨개지는 사용률 ${P.heatAt}% · 불꽃 줄기 ${P.wisps}개 · 줄기 길이 몸의 ${P.wispLen}% · 잔상 색 ${TRAILS[P.trail].name}`;
+}
+
+function hexRgb(h) { const n = parseInt(h.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
+function rgbHex([r, g, b]) { return '#' + [r, g, b].map(v => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')).join(''); }
+function mix(a, b, t) { const A = hexRgb(a), B = hexRgb(b); return rgbHex(A.map((v, i) => v + (B[i] - v) * t)); }
+function lum(h) { const [r, g, b] = hexRgb(h); return (0.299 * r + 0.587 * g + 0.114 * b) / 255; }
+const eyeFor = c => lum(c) > 0.7 ? '#2d2a30' : '#ffffff';  // 앱의 FrameSprite 색칠과 같은 규칙
+
+// 꼬리 쪽으로 갈수록(t: 0 → 1) 색이 바뀐다. 몸에 붙은 쪽은 지금 몸 색과 섞어 몸에서 자연스럽게 이어지게 한다.
+function trailColor(t, body) {
+  const stops = TRAILS[P.trail].stops;
+  if (!stops) return body;
+  const x = t * (stops.length - 1), i = Math.min(stops.length - 2, Math.floor(x));
+  const c = mix(stops[i], stops[i + 1], x - i);
+  return t < 0.2 ? mix(body, c, 0.5 + t * 2.5) : c;
+}
+// 앱의 FlashSkin.BodyColor: '빨개지는 사용률' 10%p 전부터 달아올라 그 사용률에서 완전히 빨개진다. 5단계로 끊는다.
+const HEAT_COLOR = '#D9626B';
+function bodyColor() {
+  let heat = Math.max(0, Math.min(1, (usageNow - (P.heatAt - 10)) / 10));
+  heat = Math.round(heat * 5) / 5;
+  return heat <= 0 ? P.color : mix(P.color, HEAT_COLOR, heat);
+}
+
+// ── 마스크 (FrameSprite와 같은 방식: 합집합으로 자르고, 머리 쪽 작은 구멍을 눈으로) ──
+let crop, masks;
+function findEyes(alpha, w, h) {
+  const visited = new Uint8Array(w * h), eye = new Uint8Array(w * h);
+  for (let s = 0; s < w * h; s++) {
+    if (visited[s] || alpha[s] >= 128) continue;
+    const comp = [], q = [s]; visited[s] = 1; let border = false;
+    while (q.length) {
+      const i = q.pop(); comp.push(i);
+      const x = i % w, y = (i / w) | 0;
+      if (x === 0 || y === 0 || x === w - 1 || y === h - 1) border = true;
+      for (const [nx, ny] of [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]]) {
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+        const j = ny * w + nx; if (visited[j] || alpha[j] >= 128) continue;
+        visited[j] = 1; q.push(j);
+      }
+    }
+    if (border || comp.length > w * h / 100) continue;
+    const cx = comp.reduce((a, i) => a + i % w, 0) / comp.length;
+    if (cx < w * 0.55) continue;
+    for (const i of comp) eye[i] = 1;
+  }
+  const grown = eye.slice();
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    if (!eye[y * w + x]) continue;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const nx = x + dx, ny = y + dy; if (nx >= 0 && ny >= 0 && nx < w && ny < h) grown[ny * w + nx] = 1;
+    }
+  }
+  return grown;
+}
+async function loadMasks() {
+  const imgs = await Promise.all(FRAMES.map(src => new Promise(r => { const i = new Image(); i.onload = () => r(i); i.src = src; })));
+  const W = imgs[0].width, H = imgs[0].height;
+  const alphas = imgs.map(img => {
+    const c = mk(W, H), x = c.getContext('2d'); x.drawImage(img, 0, 0);
+    const d = x.getImageData(0, 0, W, H).data, a = new Uint8Array(W * H);
+    for (let i = 0; i < W * H; i++) a[i] = d[i * 4 + 3];
+    return a;
+  });
+  let x0 = W, y0 = H, x1 = -1, y1 = -1;
+  for (const a of alphas) for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (a[y * W + x] > 8) {
+    x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+  }
+  const cw = x1 - x0 + 1, ch = y1 - y0 + 1;
+  crop = { w: cw, h: ch };
+  masks = alphas.map(a => {
+    const al = new Uint8Array(cw * ch);
+    for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) al[y * cw + x] = a[(y + y0) * W + x + x0];
+    const eye = findEyes(al, cw, ch);
+    const sil = mk(cw, ch), eyeC = mk(cw, ch);
+    const sd = sil.getContext('2d').createImageData(cw, ch), ed = eyeC.getContext('2d').createImageData(cw, ch);
+    for (let i = 0; i < cw * ch; i++) {
+      sd.data.set([255, 255, 255, eye[i] ? 255 : al[i]], i * 4);
+      ed.data.set([255, 255, 255, eye[i] ? 255 - al[i] : 0], i * 4);
+    }
+    sil.getContext('2d').putImageData(sd, 0, 0); eyeC.getContext('2d').putImageData(ed, 0, 0);
+    return { sil, eye: eyeC };
+  });
+}
+
+function place(src, w, h) {
+  const c = mk(w, h), x = c.getContext('2d');
+  x.imageSmoothingQuality = 'high'; x.drawImage(src, 0, 0, w, h); return c;
+}
+function tint(c, color) {
+  const t = mk(c.width, c.height), x = t.getContext('2d');
+  x.drawImage(c, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = color; x.fillRect(0, 0, t.width, t.height); return t;
+}
+let cache = new Map();
+function invalidate() { cache = new Map(); updateSummary(); }
+function frames(h, color) {
+  const key = 'f' + h + color;
+  if (!cache.has(key)) {
+    const w = Math.max(1, Math.round(h * crop.w / crop.h));
+    cache.set(key, masks.map(m => {
+      const S = place(m.sil, w, h);
+      const body = mk(w, h), o = body.getContext('2d');
+      o.drawImage(tint(S, color), 0, 0); o.drawImage(tint(place(m.eye, w, h), eyeFor(color)), 0, 0);
+      return { body, sil: S, w, h, tinted: new Map() };
+    }));
+  }
+  return cache.get(key);
+}
+// 잔상은 눈 없이 실루엣만, 색별로 한 번만 칠해 둔다.
+function ghostOf(f, color) {
+  if (!f.tinted.has(color)) f.tinted.set(color, tint(f.sil, color));
+  return f.tinted.get(color);
+}
+
+// ── 씬 ──
+const SCENES = {
+  dark:  { desk: '#1a2537', bar: '#202020', edge: 'rgba(255,255,255,.08)', icon: 'rgba(255,255,255,.18)' },
+  light: { desk: '#e6e9ee', bar: '#f3f3f3', edge: 'rgba(0,0,0,.08)', icon: 'rgba(0,0,0,.14)' },
+  busy:  { desk: null, bar: '#2a2530', edge: 'rgba(255,255,255,.1)', icon: 'rgba(255,255,255,.2)' },
+};
+const BAR_H = 40;
+const scenes = [...document.querySelectorAll('canvas[data-scene]')].map((cv, si) => ({
+  cv, s: SCENES[cv.dataset.scene],
+  r: { x: 60 + si * 180, dir: si % 2 ? -1 : 1, phase: Math.random(), odo: 0, hist: [], seed: Math.random() * 1000 },
+}));
+
+function drawBackground(ctx, W, H, s, dpr) {
+  const ground = H - BAR_H * dpr;
+  if (s.desk) { ctx.fillStyle = s.desk; ctx.fillRect(0, 0, W, ground); }
+  else {
+    const g = ctx.createLinearGradient(0, 0, W, ground);
+    g.addColorStop(0, '#f2994a'); g.addColorStop(0.5, '#c0549b'); g.addColorStop(1, '#3b3f8f');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, ground);
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(W * 0.55, 18 * dpr, W * 0.3, ground - 18 * dpr);
+    ctx.fillStyle = '#eceff3'; ctx.fillRect(W * 0.55, 18 * dpr, W * 0.3, 18 * dpr);
+  }
+  ctx.fillStyle = s.bar; ctx.fillRect(0, ground, W, H - ground);
+  ctx.fillStyle = s.edge; ctx.fillRect(0, ground, W, Math.max(1, dpr | 0));
+  ctx.fillStyle = s.icon;
+  const n = 6, size = 22 * dpr, gap = 10 * dpr, start = W / 2 - (n * size + (n - 1) * gap) / 2;
+  for (let i = 0; i < n; i++) {
+    ctx.beginPath(); ctx.roundRect(start + i * (size + gap), ground + (BAR_H * dpr - size) / 2, size, size, 5 * dpr); ctx.fill();
+  }
+  return ground;
+}
+
+let t = 0, last = performance.now(), acc = 0, usageNow = P.usage;
+function step(dt) {
+  t += dt;
+  usageNow = $('auto').checked ? 50 + 48 * Math.sin(t * 0.6) : P.usage;
+  for (const sc of scenes) {
+    const r = sc.r, W = sc.cv.width;
+    const h = P.size, w = h * crop.w / crop.h, u = usageNow / 100;
+    const v = w * (0.4 + (7 - 0.4) * Math.pow(u, 0.7));  // 앱의 SpeedProfile과 같은 곡선
+    let x = r.x + v * dt * r.dir;
+    if (x > W - w) { x = 2 * (W - w) - x; r.dir = -1; }
+    if (x < 0) { x = -x; r.dir = 1; }
+    r.x = x;
+    r.odo += v * dt;
+    r.phase = (r.phase + v * dt / w * 0.8) % 1;
+    r.hist.push({ odo: r.odo, x: r.x, dir: r.dir, phase: r.phase });
+    while (r.hist.length > 120) r.hist.shift();
+  }
+}
+// 달린 거리로 dist만큼 뒤의 기록. 벽에서 돌아섰으면 돌아서기 전 자리·방향이 나와 꼬리도 길을 따라 꺾인다.
+// 기록 사이는 선형으로 이어서, 프레임 간격보다 촘촘한 잔상도 부드럽게 놓인다.
+function behind(r, dist) {
+  const target = r.odo - dist, h = r.hist;
+  for (let i = h.length - 1; i > 0; i--) {
+    const a = h[i - 1], b = h[i];
+    if (a.odo <= target) {
+      const k = b.odo > a.odo ? (target - a.odo) / (b.odo - a.odo) : 0;
+      // 벽에서 꺾인 구간은 보간하지 않고 가까운 쪽을 쓴다.
+      if (a.dir !== b.dir) return k < 0.5 ? a : b;
+      return { x: a.x + (b.x - a.x) * k, dir: b.dir, phase: b.phase };
+    }
+  }
+  return h[0] ?? null;
+}
+// 앱의 FlashSkin.Strength: 느릴 때도 '느릴 때 세기'만큼은 보이고, 사용률 40%까지 오르며 다 진해진다.
+const strength = () => P.base / 100 + (1 - P.base / 100) * Math.max(0, Math.min(1, usageNow / 40));
+
+function drawRunner(ctx, r, ground, dpr) {
+  const body = bodyColor(), fs = frames(P.size, body), k = strength(), f0 = fs[0], u = usageNow / 100;
+  // 빠를수록 꼬리가 길다. 가장 빠를 때 '잔상 길이'만큼.
+  const tail = f0.w * P.length / 100 * k * (0.35 + 0.65 * u);
+
+  // 불꽃 줄기: 등·옆구리에서 뒤로 흩날리는 가는 줄. 끝으로 갈수록 가늘고 옅어지며 살짝 일렁인다.
+  if (P.wisps > 0 && k > 0) {
+    const back = Math.round(r.x) + (r.dir > 0 ? f0.w * 0.35 : f0.w * 0.65);
+    for (let j = 0; j < P.wisps; j++) {
+      const rnd = 0.5 + 0.5 * Math.sin(j * 12.9898 + r.seed);
+      const len = f0.w * P.wispLen / 100 * k * (0.35 + 0.65 * u) * (0.55 + 0.45 * rnd);
+      const yFrac = P.wisps === 1 ? 0.45 : 0.12 + 0.6 * j / (P.wisps - 1);
+      const y0 = ground - f0.h * (1 - yFrac);
+      const N = 14;
+      for (let s = 0; s < N; s++) {
+        const a = s / N, b = (s + 1) / N;
+        const wave = (q) => Math.sin(q * 4.5 - t * 14 + j * 1.7) * f0.h * 0.07 * q;
+        ctx.strokeStyle = trailColor(a, body);
+        ctx.globalAlpha = 0.75 * k * (1 - a);
+        ctx.lineWidth = Math.max(0.6, (1 - a) * Math.max(1.5, f0.h * 0.07));
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(back - r.dir * len * a, y0 + wave(a) - f0.h * 0.08 * a);
+        ctx.lineTo(back - r.dir * len * b, y0 + wave(b) - f0.h * 0.08 * b);
+        ctx.stroke();
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // 잔상: 꼬리 끝(오래된 것)부터 그려서 몸에 가까운 잔상이 위에 오게 한다.
+  if (k > 0 && tail > 0) {
+    for (let i = P.count; i >= 1; i--) {
+      const q = i / P.count;
+      const s = behind(r, tail * q); if (!s) continue;
+      const f = fs[Math.floor(s.phase * fs.length) % fs.length];
+      ctx.globalAlpha = P.alpha / 100 * k * Math.pow(1 - (i - 1) / P.count, 1.3);
+      drawFrame(ctx, ghostOf(f, trailColor(q, body)), Math.round(s.x), ground - f.h, s.dir);
+    }
+    ctx.globalAlpha = 1;
+  }
+  const f = fs[Math.floor(r.phase * fs.length) % fs.length];
+  drawFrame(ctx, f.body, Math.round(r.x), ground - f.h, r.dir);
+}
+
+function render() {
+  const dpr = window.devicePixelRatio || 1;
+  for (const sc of scenes) {
+    const cv = sc.cv, W = Math.round(cv.clientWidth * dpr), H = Math.round(cv.clientHeight * dpr);
+    if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+    const ctx = cv.getContext('2d');
+    const ground = drawBackground(ctx, W, H, sc.s, dpr);
+    drawRunner(ctx, sc.r, ground, dpr);
+  }
+  renderZoom();
+}
+// 첫 번째 씬에서 고양이 주변만 잘라 크게 보여 준다.
+function renderZoom() {
+  const dpr = window.devicePixelRatio || 1, cv = $('zoom');
+  const W = Math.round(cv.clientWidth * dpr), H = Math.round(cv.clientHeight * dpr);
+  if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+  const src = scenes[0].cv, r = scenes[0].r, f0 = frames(P.size, P.color)[0];
+  // 고양이 키의 약 2배 높이가 확대 칸에 차도록 배율을 고르고, 바닥선은 아래쪽에 조금만 보이게 둔다.
+  const scale = Math.max(2, Math.floor(H / (f0.h * 2)));
+  const sw = Math.floor(W / scale), sh = Math.floor(H / scale);
+  const ground = src.height - BAR_H * dpr;
+  const cx = Math.round(r.x + f0.w / 2 - r.dir * f0.w * 0.6);
+  const sx = Math.max(0, Math.min(src.width - sw, cx - (sw >> 1)));
+  const sy = Math.max(0, Math.min(src.height - sh, Math.round(ground + sh * 0.15 - sh)));
+  const ctx = cv.getContext('2d'); ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(src, sx, sy, sw, sh, 0, 0, sw * scale, sh * scale);
+}
+function drawFrame(ctx, img, x, y, dir) {
+  ctx.save();
+  if (dir < 0) { ctx.translate(x * 2 + img.width, 0); ctx.scale(-1, 1); }
+  ctx.drawImage(img, x, y);
+  ctx.restore();
+}
+function loop(now) {
+  const dt = Math.min(0.25, (now - last) / 1000); last = now; acc += dt;
+  if (acc >= 1 / 30) { step(acc); acc = 0; render(); }   // 앱 기본값처럼 30fps
+  requestAnimationFrame(loop);
+}
+loadMasks().then(() => { updateSummary(); render(); requestAnimationFrame(loop); });
+</script>
+</body>
+</html>

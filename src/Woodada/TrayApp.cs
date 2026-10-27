@@ -161,25 +161,29 @@ internal sealed class TrayApp : IDisposable
     /// </summary>
     private void AddDevSkinItems()
     {
-        _menu.Items.Add(new NativeMenuItemSeparator());
-        var items = new List<(string Id, NativeMenuItem Item)>();
+        // 러너마다 스킨 한 줄씩. 한 러너는 스킨을 하나만 입으니 다른 스킨을 고르면 바꿔 입는다.
+        var items = new List<(string Id, RunnerSkin Skin, NativeMenuItem Item)>();
         foreach (var r in _store.Current.Runners)
         {
+            _menu.Items.Add(new NativeMenuItemSeparator());
             string id = r.Id;
-            var item = new NativeMenuItem($"[개발용] {SettingsWindow.RunnerName(r)} 유령 스킨")
+            foreach (var skin in RunnerSkins.All)
             {
-                ToggleType = NativeMenuItemToggleType.CheckBox,
-            };
-            item.Click += (_, _) => ToggleSkin(id, RunnerSkin.Ghost);
-            _menu.Items.Add(item);
-            items.Add((id, item));
+                var item = new NativeMenuItem($"[개발용] {SettingsWindow.RunnerName(r)} {RunnerSkins.DisplayName(skin)} 스킨")
+                {
+                    ToggleType = NativeMenuItemToggleType.CheckBox,
+                };
+                item.Click += (_, _) => ToggleSkin(id, skin);
+                _menu.Items.Add(item);
+                items.Add((id, skin, item));
+            }
         }
         _menu.Items.Add(new NativeMenuItemSeparator());
 
         void Sync()
         {
-            foreach (var (id, item) in items)
-                item.IsChecked = RunnerSkins.Parse(_store.Current.Runners.FirstOrDefault(x => x.Id == id)?.Skin) == RunnerSkin.Ghost;
+            foreach (var (id, skin, item) in items)
+                item.IsChecked = RunnerSkins.Parse(_store.Current.Runners.FirstOrDefault(x => x.Id == id)?.Skin) == skin;
         }
         Sync();
         _store.Changed += (_, _) => Sync();

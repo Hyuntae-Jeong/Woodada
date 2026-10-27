@@ -6,10 +6,25 @@ using Woodada.Sprites;
 
 namespace Woodada.Rendering;
 
-/// <summary>오버레이에 그릴 러너 한 마리.</summary>
+/// <summary>오버레이에 한 번 그릴 것이 무엇인지.</summary>
+internal enum FrameLayer
+{
+    /// <summary>러너 몸(스킨 포함).</summary>
+    Body,
+    /// <summary>플래시 스킨 잔상: 한 색 실루엣을 Opacity만큼.</summary>
+    Afterimage,
+    /// <summary>플래시 스킨 불꽃 줄기. Box는 몸 자리다.</summary>
+    FlashWisps,
+}
+
+/// <summary>오버레이에 그릴 것 하나. 대부분 러너 몸이고, 플래시 스킨은 잔상·불꽃 줄기가 앞에 더 붙는다.</summary>
 /// <param name="LightBackground">밝은 작업표시줄·독 위인지. 스킨이 외곽선 톤을 고르는 데 쓴다.</param>
+/// <param name="Usage">사용률(%). 불꽃 줄기 길이·진하기를 정한다.</param>
+/// <param name="Seconds">불꽃이 일렁이는 시계.</param>
+/// <param name="Phase">러너마다 다른 효과 위상.</param>
 internal readonly record struct RunnerFrame(IRunnerSprite Sprite, Rect Box, RunnerPose Pose, Color Color,
-    RunnerSkin Skin = RunnerSkin.None, bool LightBackground = false);
+    RunnerSkin Skin = RunnerSkin.None, bool LightBackground = false,
+    FrameLayer Layer = FrameLayer.Body, double Opacity = 1, double Usage = 0, double Seconds = 0, double Phase = 0);
 
 /// <summary>
 /// 작업표시줄·독 위에 깔리는 투명 띠 창. 클릭 통과·포커스 안 뺏기 같은 OS별 설정은 IPlatform이 한다.
@@ -108,7 +123,21 @@ internal sealed class OverlayWindow : Window
 
         private void DrawAll(DrawingContext ctx, double scaling)
         {
-            foreach (var f in _frames) f.Sprite.Draw(ctx, f.Box, f.Pose, f.Color, scaling, f.Skin, f.LightBackground);
+            foreach (var f in _frames)
+            {
+                switch (f.Layer)
+                {
+                    case FrameLayer.Afterimage:
+                        f.Sprite.DrawSilhouette(ctx, f.Box, f.Pose, f.Color, f.Opacity, scaling);
+                        break;
+                    case FrameLayer.FlashWisps:
+                        FlashSkin.DrawWisps(ctx, f.Box, f.Pose.Facing, f.Usage, f.Seconds, f.Phase, f.Color, scaling);
+                        break;
+                    default:
+                        f.Sprite.Draw(ctx, f.Box, f.Pose, f.Color, scaling, f.Skin, f.LightBackground);
+                        break;
+                }
+            }
         }
     }
 }

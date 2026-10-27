@@ -5,20 +5,31 @@ public enum RunnerSkin
 {
     None,
     Ghost,
+    Flash,
 }
 
 public static class RunnerSkins
 {
     /// <summary>settings.json에 저장하는 Id. enum을 그대로 저장하면 나중에 스킨을 빼거나 이름을 바꿨을 때
     /// 옛 파일을 읽다가 설정 전체가 기본값으로 날아가므로, 모르는 Id는 그냥 무시하는 문자열로 둔다.</summary>
-    public const string GhostId = "ghost";
+    private static readonly (RunnerSkin Skin, string Id, string Name)[] Known =
+    {
+        (RunnerSkin.Ghost, "ghost", "유령"),
+        (RunnerSkin.Flash, "flash", "플래시"),
+    };
+
+    /// <summary>스킨이 있는 것들만(None 제외).</summary>
+    public static IEnumerable<RunnerSkin> All => Known.Select(k => k.Skin);
 
     public static RunnerSkin Parse(string? id) =>
-        string.Equals(id, GhostId, StringComparison.OrdinalIgnoreCase) ? RunnerSkin.Ghost : RunnerSkin.None;
+        Known.FirstOrDefault(k => string.Equals(k.Id, id, StringComparison.OrdinalIgnoreCase)).Skin;
 
-    public static string? ToId(RunnerSkin skin) => skin == RunnerSkin.Ghost ? GhostId : null;
+    public static string? ToId(RunnerSkin skin) => Known.FirstOrDefault(k => k.Skin == skin).Id;
 
-    /// <summary>오버레이 띠에서 몸 위로 남겨 둘 여유(화면 단위). 출렁임·둥실 효과와 몸 밖으로 번지는 발광이 잘리지 않게.</summary>
+    public static string DisplayName(RunnerSkin skin) => Known.FirstOrDefault(k => k.Skin == skin).Name ?? "";
+
+    /// <summary>오버레이 띠에서 몸 위로 남겨 둘 여유(화면 단위). 출렁임·둥실 효과와 몸 밖으로 번지는 발광이 잘리지 않게.
+    /// 플래시의 불꽃 줄기는 몸 높이 안에서 살짝만 들려서 기본 여유로 충분하다.</summary>
     public static int Headroom(RunnerSkin skin, int height)
     {
         int basic = Math.Max(4, height / 8); // 몸이 위아래로 출렁이는 여유분
