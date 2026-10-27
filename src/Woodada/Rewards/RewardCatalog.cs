@@ -96,6 +96,13 @@ public static class RewardCatalog
             Color.FromRgb(0xFF, 0x9E, 0xC4), Color.FromRgb(0xE0, 0x5A, 0x95)),
     };
 
+    /// <summary>
+    /// 다음 릴리즈에 공개할 스킨(유령냥·플래시냥·글리치냥). 일반 버전의 냥뽑기 예고 화면은 이것만 보여 준다.
+    /// 나머지 스킨은 개발용 빌드에서만 보인다. Skins보다 아래에 있어야 초기화 순서가 맞는다.
+    /// </summary>
+    public static readonly IReadOnlyList<SkinInfo> UpcomingSkins =
+        Skins.Where(s => s.Skin is RunnerSkin.Ghost or RunnerSkin.Flash or RunnerSkin.Glitch).ToList();
+
     public static SkinInfo? FindSkin(RunnerSkin skin) => Skins.FirstOrDefault(s => s.Skin == skin);
 
     /// <summary>뽑기 무대·도감에서 입힐 몸색. 플래시냥은 달아오른 빨간 고양이(체리)로, 나머지는 하양으로 보여 준다.</summary>

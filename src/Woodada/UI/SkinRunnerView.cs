@@ -10,6 +10,7 @@ namespace Woodada.UI;
 
 /// <summary>
 /// 어두운 작은 무대에서 스킨 하나가 제자리 달리기를 한다(도감 칸). 아직 없는 스킨은 회색 실루엣과 물음표.
+/// Teaser(일반 버전 예고)면 마우스를 올렸을 때 정체는 숨긴 채 검은 실루엣이 등급 색으로 빛나며 달린다.
 /// 스킨 칸 그림도 같은 모양을 쓰도록 그리는 부분은 정적 메서드로 뺐다.
 /// </summary>
 internal sealed class SkinRunnerView : Control
@@ -26,7 +27,7 @@ internal sealed class SkinRunnerView : Control
     {
         _timer.Tick += (_, _) =>
         {
-            if (IsEffectivelyVisible && Owned) InvalidateVisual();
+            if (IsEffectivelyVisible && (Owned || _hot)) InvalidateVisual();
         };
         AttachedToVisualTree += (_, _) => _timer.Start();
         DetachedFromVisualTree += (_, _) => _timer.Stop();
@@ -35,6 +36,24 @@ internal sealed class SkinRunnerView : Control
     public RunnerSkin Skin { get; set; }
 
     public bool Owned { get; set; }
+
+    public bool Teaser { get; set; }
+
+    private bool _hot;
+
+    protected override void OnPointerEntered(Avalonia.Input.PointerEventArgs e)
+    {
+        base.OnPointerEntered(e);
+        _hot = Teaser;
+        InvalidateVisual();
+    }
+
+    protected override void OnPointerExited(Avalonia.Input.PointerEventArgs e)
+    {
+        base.OnPointerExited(e);
+        _hot = false;
+        InvalidateVisual();
+    }
 
     public override void Render(DrawingContext ctx)
     {
@@ -46,6 +65,7 @@ internal sealed class SkinRunnerView : Control
         using (ctx.PushClip(box))
         {
             if (Owned) _runner.Draw(ctx, box.Center.X, floor, height, Skin, RewardCatalog.ShowcaseColor(Skin), 30, scaling);
+            else if (_hot && RewardCatalog.FindSkin(Skin) is { } info) DrawTeaserRunner(ctx, box.Center.X, floor, height, info.Accent, scaling);
             else DrawMystery(ctx, box.Center.X, floor, height, scaling);
         }
     }
@@ -71,6 +91,22 @@ internal sealed class SkinRunnerView : Control
         }
     }
     private static readonly IImmutableBrush LightFloor = new ImmutableSolidColorBrush(Color.FromRgb(0xD5, 0xDA, 0xE1));
+
+    private static readonly Color Shadow = Color.FromRgb(0x0B, 0x0F, 0x16);
+
+    /// <summary>예고: 검은 실루엣이 등급 색 테두리로 두근두근 빛나며 제자리에서 달린다.</summary>
+    private static void DrawTeaserRunner(DrawingContext ctx, double centerX, double floorY, double height, Color accent, double scaling)
+    {
+        var sprite = SpriteRegistry.Get("cat");
+        var size = sprite.Measure(height);
+        var box = new Rect(centerX - size.Width / 2, floorY - size.Height, size.Width, size.Height);
+        double seconds = Environment.TickCount64 / 1000.0;
+        var pose = new RunnerPose(1, seconds * 2.4 % 1, 0.6);
+        double glow = 0.75 + 0.25 * Math.Sin(seconds * 8);
+        foreach (var (dx, dy) in new[] { (1.5, 0.0), (-1.5, 0.0), (0.0, 1.5), (0.0, -1.5) })
+            sprite.DrawSilhouette(ctx, box.Translate(new Vector(dx, dy)), pose, accent, glow, scaling);
+        sprite.DrawSilhouette(ctx, box, pose, Shadow, 1, scaling);
+    }
 
     /// <summary>아직 없는 스킨: 회색 실루엣 위에 물음표.</summary>
     public static void DrawMystery(DrawingContext ctx, double centerX, double floorY, double height, double scaling)

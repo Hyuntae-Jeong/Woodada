@@ -26,6 +26,22 @@ internal class CardPanel : Border
     }
 }
 
+/// <summary>강조색 점선 테두리 카드. 아직 열리지 않은 칸(곧 만나요)에 쓴다. 옷장의 COMING SOON 칸과 같은 테두리다.</summary>
+internal sealed class DashedCard : Decorator
+{
+    public DashedCard()
+    {
+        Padding = new Thickness(6);
+    }
+
+    public override void Render(DrawingContext ctx)
+    {
+        var r = new Rect(Bounds.Size).Deflate(0.7);
+        var dash = new Pen(GameArt.Brush(GameArt.Accent), 1.4, new DashStyle(new double[] { 4, 3 }, 0));
+        ctx.DrawRectangle(GameArt.Brush(GameArt.Card), dash, r, 10, 10);
+    }
+}
+
 /// <summary>
 /// 직접 그리는 칸의 공통 바탕: 마우스를 올렸는지 알고, 눌렀다 뗀 버튼으로 Click·RightClick을 낸다.
 /// 투명한 곳도 눌리도록 전체를 투명하게 한 번 칠한다.
@@ -142,11 +158,13 @@ internal sealed class GameButton : ClickableControl
     }
 }
 
-/// <summary>위쪽 탭 대신 쓰는 알약 모양 버튼.</summary>
+/// <summary>위쪽 탭 대신 쓰는 알약 모양 버튼. Locked면 글자 옆에 작은 자물쇠를 붙인다(아직 열리지 않은 탭).</summary>
 internal sealed class NavPill : ClickableControl
 {
     private readonly string _text;
     private bool _selected;
+
+    public bool Locked { get; init; }
 
     public NavPill(string text)
     {
@@ -173,6 +191,17 @@ internal sealed class NavPill : ClickableControl
         var r = new Rect(Bounds.Size).Deflate(0.5);
         if (_selected) GameArt.FillRound(ctx, r, r.Height / 2, GameArt.Accent);
         else if (Hover) GameArt.FillRound(ctx, r, r.Height / 2, GameArt.AccentSoft);
-        GameArt.DrawCentered(ctx, GameArt.Format(_text, GameArt.FontLarge, _selected ? GameArt.OnAccent : GameArt.Text, FontWeight.Bold), r);
+        var label = GameArt.Format(_text, GameArt.FontLarge, _selected ? GameArt.OnAccent : GameArt.Text, FontWeight.Bold);
+        if (!Locked)
+        {
+            GameArt.DrawCentered(ctx, label, r);
+            return;
+        }
+        // 글자 + 자물쇠를 한 덩어리로 가운데에 놓는다.
+        const double lockW = 8, lockH = 10, gap = 5;
+        double x = r.X + (r.Width - label.Width - gap - lockW) / 2;
+        ctx.DrawText(label, new Point(x, r.Y + (r.Height - label.Height) / 2));
+        GameArt.DrawLock(ctx, new Rect(x + label.Width + gap, r.Y + (r.Height - lockH) / 2, lockW, lockH),
+            _selected ? GameArt.OnAccent : GameArt.SubText);
     }
 }

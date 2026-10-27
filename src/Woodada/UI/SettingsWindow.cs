@@ -17,7 +17,8 @@ namespace Woodada.UI;
 /// 맨 위: 가진 생선 · 다음 생선까지 진행 막대.
 /// 고양이 — CPU·메모리 고양이 카드(표시 · 미리보기 · 크기)와 색 칸 20개(기본 10 + 나만의 색 10).
 /// 옷장 — 러너 모음. 기록 — 달린 거리. 일반 — 모니터 · 전체 화면.
-/// 개발용 빌드에서만: 고양이 탭 맨 아래 스페셜 스킨 줄, 그리고 맨 뒤 뽑기 탭.
+/// 냥뽑기 — 개발용 빌드는 스페셜 스킨 뽑기, 일반 버전은 자물쇠를 단 예고 화면(COMING SOON).
+/// 개발용 빌드에서만: 고양이 탭 맨 아래 스페셜 스킨 줄.
 /// 바꾸는 즉시 오버레이에 반영하고 저장한다.
 /// </summary>
 internal sealed class SettingsWindow : Window
@@ -62,7 +63,7 @@ internal sealed class SettingsWindow : Window
     private readonly List<(RunnerSkin Skin, ShopTile Tile)> _skinTiles = new();
     // 스킨 칸 고양이가 제자리 달리기를 하도록 다시 그리는 타이머. 고양이 탭을 볼 때만 일한다.
     private readonly DispatcherTimer _skinTimer = new() { Interval = TimeSpan.FromMilliseconds(33) };
-    private readonly GameButton _gotoGacha = new("뽑기로 가기") { IsVisible = false, Margin = new Thickness(0, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center };
+    private readonly GameButton _gotoGacha = new("냥뽑기로 가기") { IsVisible = false, Margin = new Thickness(0, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center };
 
     // 뽑기 탭 (개발용 빌드에서만)
     private readonly GachaStage _stage = new() { Height = 210 };
@@ -84,6 +85,8 @@ internal sealed class SettingsWindow : Window
     private readonly CheckBox _devFree = new() { Content = "생선 안 쓰고 뽑기" };
     /// <summary>방금 뽑아 연출 중이거나 결과를 보여 주는 스킨.</summary>
     private RunnerSkin _pulled;
+    // 냥뽑기 예고 (일반 버전)
+    private readonly TextBlock _teaserSub = new();
 
     // 옷장 탭
     private readonly WrapPanel _runnerTiles = new() { Orientation = Orientation.Horizontal };
@@ -209,8 +212,8 @@ internal sealed class SettingsWindow : Window
         AddPage(nav, Page.Closet, "옷장", BuildClosetPage());
         AddPage(nav, Page.Profile, "기록", BuildProfilePage());
         AddPage(nav, Page.General, "일반", BuildGeneralPage());
-        // 스페셜 스킨은 아직 출시 전이라 뽑기 탭은 개발용 빌드에만 만든다. 출시 빌드에는 흔적이 없다.
-        if (AppInfo.IsDev) AddPage(nav, Page.Gacha, "뽑기", BuildGachaPage());
+        // 스페셜 스킨은 아직 출시 전이라 일반 버전은 자물쇠를 단 예고 화면만 보여 준다. 뽑기는 개발용 빌드에서만 된다.
+        AddPage(nav, Page.Gacha, "냥뽑기", AppInfo.IsDev ? BuildGachaPage() : BuildGachaTeaserPage(), locked: !AppInfo.IsDev);
 
         var close = new GameButton("닫기") { MinWidth = 80, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(12, 6, 12, 12) };
         close.Click += (_, _) => Close();
@@ -218,9 +221,9 @@ internal sealed class SettingsWindow : Window
         root.Children.Add(close);
     }
 
-    private void AddPage(StackPanel nav, Page page, string title, Control view)
+    private void AddPage(StackPanel nav, Page page, string title, Control view, bool locked = false)
     {
-        var pill = new NavPill(title);
+        var pill = new NavPill(title) { Locked = locked };
         pill.Click += (_, _) => ShowPage(page);
         nav.Children.Add(pill);
         view.IsVisible = false;
@@ -842,7 +845,11 @@ internal sealed class SettingsWindow : Window
 
     private void RefreshGacha()
     {
-        if (!AppInfo.IsDev) return;
+        if (!AppInfo.IsDev)
+        {
+            RefreshTeaser();
+            return;
+        }
         var left = RewardCatalog.Skins.Where(s => !Revealed(s.Skin)).ToList();
         bool done = left.Count == 0;
         bool free = _devFree.IsChecked == true;
@@ -931,6 +938,86 @@ internal sealed class SettingsWindow : Window
             };
             _wearButtons.Children.Add(button);
         }
+    }
+
+    // ───────────────────────── 냥뽑기 예고 (일반 버전) ─────────────────────────
+
+    /// <summary>
+    /// 출시 전 예고 화면. 무대는 마우스를 올리면 실루엣이 달려와 "?"까지만 보여 주고, 버튼은 잠겨 있다.
+    /// 도감 3칸은 이름·모습을 숨기고 등급만 보여 준다. 다음 릴리즈에 공개할 스킨(UpcomingSkins)만 다룬다.
+    /// </summary>
+    private Control BuildGachaTeaserPage()
+    {
+        var page = new StackPanel { Margin = new Thickness(0, 6, 0, 0) };
+        _stage.Teaser = true;
+        page.Children.Add(new Border { CornerRadius = new CornerRadius(10), ClipToBounds = true, Child = _stage });
+
+        var title = Label("스페셜 스킨 뽑기", GameArt.FontTitle, GameArt.Text, FontWeight.Bold);
+        title.VerticalAlignment = VerticalAlignment.Center;
+        var titleLine = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { title, SoonPill("곧 열려요") } };
+        _teaserSub.FontSize = GameArt.FontBody;
+        _teaserSub.Foreground = GameArt.Brush(GameArt.SubText);
+        var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+        row.Children.Add(new StackPanel { VerticalAlignment = VerticalAlignment.Center, Children = { titleLine, _teaserSub } });
+        _gachaPrice.Margin = new Thickness(0, 0, 10, 0);
+        _gachaPrice.VerticalAlignment = VerticalAlignment.Center;
+        var soon = new GameButton("곧 만나요!", primary: true) { MinWidth = 96, IsEnabled = false, VerticalAlignment = VerticalAlignment.Center };
+        var right = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Children = { _gachaPrice, soon } };
+        Grid.SetColumn(right, 1);
+        row.Children.Add(right);
+        page.Children.Add(new CardPanel { Margin = new Thickness(0, 10, 0, 0), MinHeight = 64, Child = row });
+
+        page.Children.Add(SectionHeader("도감", "어떤 고양이가 들어올지는 열리면 알 수 있어요"));
+        var skins = RewardCatalog.UpcomingSkins;
+        var dex = new Grid { ColumnDefinitions = new ColumnDefinitions(string.Join(",8,", skins.Select(_ => "*"))) };
+        for (int i = 0; i < skins.Count; i++)
+        {
+            var info = skins[i];
+            var view = new SkinRunnerView { Skin = info.Skin, Owned = false, Teaser = true, Height = 54 };
+            TextBlock Line(string text, double size, Color color, FontWeight weight) => new()
+            {
+                Text = text, FontSize = size, Foreground = GameArt.Brush(color), FontWeight = weight, HorizontalAlignment = HorizontalAlignment.Center,
+            };
+            var name = Line("???", GameArt.FontBody, GameArt.Text, FontWeight.Bold);
+            name.Margin = new Thickness(0, 5, 0, 0);
+            var slot = new DashedCard
+            {
+                Child = new StackPanel
+                {
+                    Children =
+                    {
+                        view, name,
+                        Line($"{new string('★', info.Stars)} {info.Tier}", GameArt.FontSmall, info.Ink, FontWeight.Normal),
+                        Line("곧 만나요!", GameArt.FontSmall, GameArt.Accent, FontWeight.Bold),
+                    },
+                },
+            };
+            Grid.SetColumn(slot, i * 2);
+            dex.Children.Add(slot);
+        }
+        page.Children.Add(dex);
+        RefreshTeaser();
+        return page;
+    }
+
+    /// <summary>강조색 바탕의 작은 알약 글자(곧 열려요).</summary>
+    private static Border SoonPill(string text) => new()
+    {
+        Background = GameArt.Brush(GameArt.Accent), CornerRadius = new CornerRadius(9), Padding = new Thickness(8, 1),
+        VerticalAlignment = VerticalAlignment.Center,
+        Child = new TextBlock { Text = text, FontSize = 10, FontWeight = FontWeight.Bold, Foreground = GameArt.Brush(GameArt.OnAccent) },
+    };
+
+    /// <summary>생선이 모이면 문구가 바뀐다. 열리기 전에 한 번 뽑을 만큼 모아 두라는 목표를 준다.</summary>
+    private void RefreshTeaser()
+    {
+        int count = RewardCatalog.UpcomingSkins.Count;
+        long fish = _rewards.Fish, price = RewardCatalog.GachaPrice;
+        bool enough = fish >= price;
+        _teaserSub.Text = enough
+            ? $"스페셜 스킨 {count}종 · 생선은 이미 넉넉해요. 열리면 바로 뽑을 수 있어요"
+            : $"스페셜 스킨 {count}종 · 열리기 전에 생선 {GameArt.FormatCount(price - fish)}개를 더 모아 두세요";
+        _gachaPrice.Affordable = enough;
     }
 
     /// <summary>개발용: 뽑은 스킨을 다 지우고, 입고 있던 스킨도 벗긴다. 없는 스킨을 입은 채로 남지 않게.</summary>
