@@ -983,10 +983,12 @@ internal sealed class SettingsWindow : Window
 
     private void OnStoreChanged(object? sender, EventArgs e)
     {
-        // 내가 방금 저장한 값이면 화면과 같으므로 표시 여부만 비교해서 다를 때만 다시 읽는다.
+        // 내가 방금 저장한 값이면 화면과 같으므로, 창 밖에서 바뀔 수 있는 값(표시 여부, 개발용 트레이의 스킨)만
+        // 비교해서 다를 때만 다시 읽는다. 다시 읽지 않으면 이 창이 들고 있던 옛 값으로 다음 저장 때 덮어쓴다.
         var current = _store.Current;
         bool differs = current.Runners.Count != _working.Runners.Count ||
-                       current.Runners.Zip(_working.Runners).Any(p => p.First.Enabled != p.Second.Enabled);
+                       current.Runners.Zip(_working.Runners).Any(p =>
+                           p.First.Enabled != p.Second.Enabled || p.First.Skin != p.Second.Skin);
         if (!differs) return;
         _working = current.Clone();
         LoadAll();

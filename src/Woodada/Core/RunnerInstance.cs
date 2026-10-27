@@ -25,6 +25,11 @@ public sealed class RunnerInstance
 
     public Size BodySize => Sprite.Measure(Config.Size);
 
+    public RunnerSkin Skin => RunnerSkins.Parse(Config.Skin);
+
+    /// <summary>둥실 효과의 시작 위상. 두 마리가 같은 스킨이어도 똑같이 오르내리지 않게 한다.</summary>
+    public double BobPhase { get; } = Random.Shared.NextDouble() * 2 * Math.PI;
+
     /// <returns>이번에 실제로 달린 거리(px). 다른 모니터로 옮겨져 새 자리에서 출발한 순간이동은 세지 않는다.</returns>
     public double Update(double dt, double rawUsage, Runway runway)
     {

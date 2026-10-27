@@ -124,6 +124,10 @@ internal sealed class MacPlatform : IPlatform
 
     public bool IsFullScreenAppActive() => false;
 
+    /// <summary>독은 시스템 화면 모드(라이트/다크)를 따른다. Avalonia가 읽어 둔 OS 테마를 그대로 쓴다.</summary>
+    public bool IsBarLight() =>
+        Avalonia.Application.Current?.PlatformSettings?.GetColorValues().ThemeVariant == PlatformThemeVariant.Light;
+
     // ───────── 오버레이 창 ─────────
 
     /// <summary>

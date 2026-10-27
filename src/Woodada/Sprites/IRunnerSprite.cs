@@ -26,4 +26,12 @@ public interface IRunnerSprite
     /// renderScaling은 논리 단위 1이 장치 픽셀 몇 개인지다. 그 크기로 그림을 만들어야 흐리지 않다.
     /// </summary>
     void Draw(DrawingContext ctx, Rect box, RunnerPose pose, Color color, double renderScaling);
+
+    /// <summary>
+    /// 스페셜 스킨을 입혀 그린다. 발광처럼 몸 밖으로 번지는 효과는 box 밖에도 그린다.
+    /// 스킨을 지원하지 않는 스프라이트는 색만 칠한다.
+    /// </summary>
+    /// <param name="lightBackground">밝은 작업표시줄·독 위인지. 스킨이 배경에 묻히지 않게 외곽선 톤을 고르는 데 쓴다.</param>
+    void Draw(DrawingContext ctx, Rect box, RunnerPose pose, Color color, double renderScaling, RunnerSkin skin, bool lightBackground) =>
+        Draw(ctx, box, pose, color, renderScaling);
 }

@@ -20,7 +20,7 @@ public sealed class FrameSprite : IRunnerSprite
 
     private readonly FrameMask[] _masks;
     private readonly PixelSize _crop;
-    private readonly Dictionary<(uint Argb, int Height), Bitmap[]> _cache = new();
+    private readonly Dictionary<(uint Argb, int Height, RunnerSkin Skin, bool LightBack, double UnitPixels), Bitmap[]> _cache = new();
 
     /// <param name="resourcePrefix">임베디드 리소스 이름 앞부분. 뒤에 "{i}.png"가 붙는다.</param>
     public FrameSprite(string id, string displayName, string resourcePrefix, int frameCount)
@@ -46,20 +46,28 @@ public sealed class FrameSprite : IRunnerSprite
 
     public Size Measure(double height) => new(height * _crop.Width / _crop.Height, height);
 
-    public void Draw(DrawingContext ctx, Rect box, RunnerPose pose, Color color, double renderScaling)
+    public void Draw(DrawingContext ctx, Rect box, RunnerPose pose, Color color, double renderScaling) =>
+        Draw(ctx, box, pose, color, renderScaling, RunnerSkin.None, lightBackground: false);
+
+    public void Draw(DrawingContext ctx, Rect box, RunnerPose pose, Color color, double renderScaling, RunnerSkin skin, bool lightBackground)
     {
         double scale = renderScaling > 0 ? renderScaling : 1;
         int pixelHeight = Math.Max(4, (int)Math.Round(box.Height * scale));
-        var frames = GetFrames(color, pixelHeight);
+        // 스킨 효과(외곽선 굵기·발광 번짐)는 화면 단위로 정해 둔 값이다. Windows는 화면 단위가 장치 픽셀이고,
+        // macOS는 포인트라 레티나에서 장치 픽셀 2개가 된다.
+        double unitPixels = OperatingSystem.IsMacOS() ? scale : 1;
+        var frames = GetFrames(color, pixelHeight, skin, lightBackground, unitPixels);
         int count = frames.Length;
         int index = (int)(pose.GaitPhase * count) % count;
         if (index < 0) index += count;
         var bmp = frames[index];
+        // 스킨 프레임은 발광이 번질 자리만큼 사방이 크다. 몸이 box에 오도록 그만큼 당겨 찍는다.
+        double pad = skin == RunnerSkin.Ghost ? GhostSkin.PaddingPixels(unitPixels) / scale : 0;
 
         // 이미 장치 픽셀 크기로 만들어 둔 그림이라 픽셀 격자에 맞춰 1:1로 찍기만 한다.
         double w = bmp.PixelSize.Width / scale, h = bmp.PixelSize.Height / scale;
-        double x = Math.Round(box.X * scale) / scale;
-        double y = Math.Round((box.Bottom - h) * scale) / scale;
+        double x = Math.Round(box.X * scale) / scale - pad;
+        double y = Math.Round((box.Bottom + pad - h) * scale) / scale;
         var dest = new Rect(x, y, w, h);
         var src = new Rect(0, 0, bmp.PixelSize.Width, bmp.PixelSize.Height);
 
@@ -76,16 +84,21 @@ public sealed class FrameSprite : IRunnerSprite
         }
     }
 
-    private Bitmap[] GetFrames(Color color, int height)
+    private Bitmap[] GetFrames(Color color, int height, RunnerSkin skin, bool lightBackground, double unitPixels)
     {
-        var key = (color.ToUInt32(), height);
+        // 유령은 색이 고정이라 러너 색과 상관없이 같은 프레임을 쓰고, 일반 프레임은 배경 톤·단위와 상관없다.
+        var key = skin == RunnerSkin.Ghost
+            ? (0u, height, skin, lightBackground, unitPixels)
+            : (color.ToUInt32(), height, RunnerSkin.None, false, 1.0);
         if (_cache.TryGetValue(key, out var frames)) return frames;
 
         // 그리는 중인 화면이 들고 있을 수 있으니 Dispose하지 않고 놓아 주기만 한다.
         if (_cache.Count >= MaxCacheEntries) _cache.Clear();
 
         int width = Math.Max(1, (int)Math.Round(height * _crop.Width / (double)_crop.Height));
-        frames = _masks.Select(m => m.Render(color, width, height)).ToArray();
+        frames = _masks.Select(m => skin == RunnerSkin.Ghost
+            ? m.RenderGhost(width, height, lightBackground, unitPixels)
+            : m.Render(color, width, height)).ToArray();
         _cache[key] = frames;
         return frames;
     }
@@ -212,6 +225,45 @@ public sealed class FrameSprite : IRunnerSprite
             using var scaled = full.Resize(new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul), SKFilterQuality.High);
             return new Bitmap(PixelFormat.Bgra8888, AlphaFormat.Premul, scaled.GetPixels(),
                 new PixelSize(width, height), new Vector(96, 96), scaled.RowBytes);
+        }
+
+        /// <summary>유령 스킨 프레임. 몸 모양과 눈 구멍을 먼저 목표 크기로 줄여야 외곽선이 화면에서 늘 같은 굵기가 된다.</summary>
+        public Bitmap RenderGhost(int width, int height, bool lightBackground, double unitPixels)
+        {
+            var silhouette = ScaledAlpha(i => _eye[i] ? (byte)255 : _bodyAlpha[i], width, height);
+            var eyes = ScaledAlpha(i => _eye[i] ? (byte)(255 - _bodyAlpha[i]) : (byte)0, width, height);
+            var bytes = GhostSkin.Compose(silhouette, eyes, width, height, lightBackground, unitPixels, out int w, out int h);
+            var handle = GCHandle.Alloc(bytes, GCHandleType.Pinned);
+            try
+            {
+                return new Bitmap(PixelFormat.Bgra8888, AlphaFormat.Premul, handle.AddrOfPinnedObject(),
+                    new PixelSize(w, h), new Vector(96, 96), w * 4);
+            }
+            finally
+            {
+                handle.Free();
+            }
+        }
+
+        /// <summary>알파만 있는 흰 그림을 원본 크기로 만들어 목표 크기로 줄인 뒤 알파만 읽는다.</summary>
+        private byte[] ScaledAlpha(Func<int, byte> alpha, int width, int height)
+        {
+            var bytes = new byte[_width * _height * 4];
+            for (int i = 0; i < _bodyAlpha.Length; i++)
+            {
+                int o = i * 4;
+                bytes[o] = bytes[o + 1] = bytes[o + 2] = 255;
+                bytes[o + 3] = alpha(i);
+            }
+            using var full = new SKBitmap(new SKImageInfo(_width, _height, SKColorType.Bgra8888, SKAlphaType.Unpremul));
+            Marshal.Copy(bytes, 0, full.GetPixels(), bytes.Length);
+            using var scaled = full.Resize(new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul), SKFilterQuality.High);
+            var pixels = scaled.GetPixelSpan();
+            var result = new byte[width * height];
+            for (int y = 0; y < height; y++)
+            for (int x = 0; x < width; x++)
+                result[y * width + x] = pixels[y * scaled.RowBytes + x * 4 + 3];
+            return result;
         }
 
         private byte[] Tint(Color color)

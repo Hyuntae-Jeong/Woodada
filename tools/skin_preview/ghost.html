@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>유령 고양이 미리보기</title>
+<style>
+:root{--bg:#f4f5f8;--card:#fff;--text:#1d1f23;--muted:#6b7180;--line:#e2e5ea;--accent:#4a7bd0}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 "Segoe UI","Malgun Gothic",sans-serif}
+main{max-width:780px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:18px;margin:0 0 2px;font-weight:600}
+p.sub{margin:0 0 14px;color:var(--muted);font-size:13px}
+.scene{position:relative;border-radius:10px;overflow:hidden;margin-bottom:10px;border:1px solid var(--line)}
+.scene canvas{display:block;width:100%;height:130px}
+.tag{position:absolute;left:10px;top:8px;font-size:12px;padding:1px 9px;border-radius:99px;background:rgba(0,0,0,.45);color:#fff}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-top:14px}
+.panel h2{font-size:13px;margin:0 0 10px;color:var(--muted);font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px 24px}
+label.row{display:grid;grid-template-columns:84px 1fr 54px;align-items:center;gap:8px;font-size:13px}
+label.row output{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.checks{display:flex;gap:18px;flex-wrap:wrap;margin-top:12px;font-size:13px;align-items:center}
+.checks label{display:flex;gap:6px;align-items:center}
+#zoom{width:100%;height:220px;display:block;border-radius:8px}
+button{font:inherit;font-size:13px;padding:4px 12px;border:1px solid var(--line);background:#fff;border-radius:6px;cursor:pointer}
+</style>
+</head>
+<body>
+<main>
+  <h1>유령 고양이 미리보기</h1>
+  <p class="sub">실제 RunCat 5프레임으로 그렸어요. 크기는 앱과 같은 물리 픽셀 기준이고, 30fps로 움직여요. 기본값은 지금 앱에 들어간 값(src/Woodada/Sprites/GhostSkin.cs)이에요. 앱 값을 바꾸면 아래 DEFS 기본값도 같이 맞춰 주세요.</p>
+
+  <div class="scene"><canvas data-scene="dark"></canvas><span class="tag">어두운 작업표시줄</span></div>
+  <div class="scene"><canvas data-scene="light"></canvas><span class="tag">밝은 작업표시줄</span></div>
+  <div class="scene"><canvas data-scene="busy"></canvas><span class="tag">화려한 배경화면 + 흰 창</span></div>
+
+  <div class="panel">
+    <h2>확대 (현재 프레임, 픽셀 그대로)</h2>
+    <canvas id="zoom"></canvas>
+  </div>
+
+  <div class="panel">
+    <h2>조절</h2>
+    <div class="grid" id="controls"></div>
+    <div class="checks">
+      <label>유령 색 <input type="color" id="color" value="#ddebff"></label>
+      <label>외곽선 색 <select id="tone"><option value="auto" selected>작업표시줄 따라</option><option value="light">항상 밝게</option><option value="dark">항상 어둡게</option></select></label>
+      <label><input type="checkbox" id="compare" checked> 비교용 일반 고양이(치즈)</label>
+      <button id="reset">앱 값으로 되돌리기</button>
+    </div>
+    <p id="summary" style="margin:12px 0 0;font-size:13px;color:var(--muted);user-select:all"></p>
+  </div>
+</main>
+<script>
+const FRAMES = __FRAMES__;
+const DEFS = [
+  ['size','크기',16,72,1,28,'px'],
+  ['usage','사용률',0,100,1,30,'%'],
+  ['body','몸 불투명도',20,100,1,45,'%'],
+  ['outline','외곽선',0,100,1,50,'%'],
+  ['glowR','발광 크기',0,10,0.5,7,'px'],
+  ['glowA','발광 세기',0,100,1,55,'%'],
+  ['floatH','뜬 높이',0,50,1,25,'%'],
+  ['bobA','흔들림 폭',0,30,1,10,'%'],
+  ['period','흔들림 주기',0.6,4,0.1,1.7,'s'],
+];
+const P = {};
+const $ = id => document.getElementById(id);
+const mk = (w, h) => { const c = document.createElement('canvas'); c.width = Math.max(1, w); c.height = Math.max(1, h); return c; };
+
+// 컨트롤
+const ctl = $('controls');
+for (const [k, name, min, max, step, def, unit] of DEFS) {
+  P[k] = def;
+  const l = document.createElement('label'); l.className = 'row';
+  l.innerHTML = `<span>${name}</span><input type="range" min="${min}" max="${max}" step="${step}" value="${def}" id="r_${k}"><output id="o_${k}"></output>`;
+  ctl.appendChild(l);
+  const inp = l.querySelector('input'), out = l.querySelector('output');
+  const show = () => out.textContent = (step < 1 ? (+inp.value).toFixed(1) : inp.value) + unit;
+  show();
+  inp.addEventListener('input', () => { P[k] = +inp.value; show(); invalidate(); });
+}
+P.color = $('color').value;
+$('color').addEventListener('input', e => { P.color = e.target.value; invalidate(); });
+P.tone = 'auto';
+$('tone').addEventListener('change', e => { P.tone = e.target.value; updateSummary(); });
+$('reset').addEventListener('click', () => {
+  for (const [k, , , , step, def, unit] of DEFS) { P[k] = def; $('r_' + k).value = def; $('o_' + k).textContent = (step < 1 ? def.toFixed(1) : def) + unit; }
+  $('color').value = '#ddebff'; P.color = '#ddebff'; P.tone = 'auto'; $('tone').value = 'auto'; invalidate();
+});
+
+// ── 색 도우미 ──
+function hexRgb(h) { const n = parseInt(h.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
+function rgbHex([r, g, b]) { return '#' + [r, g, b].map(v => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')).join(''); }
+function mix(a, b, t) { const A = hexRgb(a), B = hexRgb(b); return rgbHex(A.map((v, i) => v + (B[i] - v) * t)); }
+function lum(h) { const [r, g, b] = hexRgb(h); return (0.299 * r + 0.587 * g + 0.114 * b) / 255; }
+const eyeFor = c => lum(c) > 0.7 ? '#2d2a30' : '#ffffff';  // 앱의 FrameMask.Tint와 같은 규칙
+
+// ── 마스크 (FrameSprite와 같은 방식: 합집합으로 자르고, 머리 쪽 작은 구멍을 눈으로) ──
+let crop, masks;
+function findEyes(alpha, w, h) {
+  const visited = new Uint8Array(w * h), eye = new Uint8Array(w * h);
+  for (let s = 0; s < w * h; s++) {
+    if (visited[s] || alpha[s] >= 128) continue;
+    const comp = [], q = [s]; visited[s] = 1; let border = false;
+    while (q.length) {
+      const i = q.pop(); comp.push(i);
+      const x = i % w, y = (i / w) | 0;
+      if (x === 0 || y === 0 || x === w - 1 || y === h - 1) border = true;
+      for (const [nx, ny] of [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]]) {
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+        const j = ny * w + nx; if (visited[j] || alpha[j] >= 128) continue;
+        visited[j] = 1; q.push(j);
+      }
+    }
+    if (border || comp.length > w * h / 100) continue;
+    const cx = comp.reduce((a, i) => a + i % w, 0) / comp.length;
+    if (cx < w * 0.55) continue;
+    for (const i of comp) eye[i] = 1;
+  }
+  const grown = eye.slice();
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    if (!eye[y * w + x]) continue;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const nx = x + dx, ny = y + dy; if (nx >= 0 && ny >= 0 && nx < w && ny < h) grown[ny * w + nx] = 1;
+    }
+  }
+  return grown;
+}
+async function loadMasks() {
+  const imgs = await Promise.all(FRAMES.map(src => new Promise(r => { const i = new Image(); i.onload = () => r(i); i.src = src; })));
+  const W = imgs[0].width, H = imgs[0].height;
+  const alphas = imgs.map(img => {
+    const c = mk(W, H), x = c.getContext('2d'); x.drawImage(img, 0, 0);
+    const d = x.getImageData(0, 0, W, H).data, a = new Uint8Array(W * H);
+    for (let i = 0; i < W * H; i++) a[i] = d[i * 4 + 3];
+    return a;
+  });
+  let x0 = W, y0 = H, x1 = -1, y1 = -1;
+  for (const a of alphas) for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (a[y * W + x] > 8) {
+    x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+  }
+  const cw = x1 - x0 + 1, ch = y1 - y0 + 1;
+  crop = { w: cw, h: ch };
+  masks = alphas.map(a => {
+    const al = new Uint8Array(cw * ch);
+    for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) al[y * cw + x] = a[(y + y0) * W + x + x0];
+    const eye = findEyes(al, cw, ch);
+    // 실루엣: 눈 구멍까지 채운 몸 모양. 눈: 구멍 부분만.
+    const sil = mk(cw, ch), eyeC = mk(cw, ch);
+    const sd = sil.getContext('2d').createImageData(cw, ch), ed = eyeC.getContext('2d').createImageData(cw, ch);
+    for (let i = 0; i < cw * ch; i++) {
+      sd.data.set([255, 255, 255, eye[i] ? 255 : al[i]], i * 4);
+      ed.data.set([255, 255, 255, eye[i] ? 255 - al[i] : 0], i * 4);
+    }
+    sil.getContext('2d').putImageData(sd, 0, 0); eyeC.getContext('2d').putImageData(ed, 0, 0);
+    return { sil, eye: eyeC };
+  });
+}
+
+// ── 프레임 만들기 (크기·설정별로 캐시) ──
+function place(src, w, h, pad) {
+  const c = mk(w + pad * 2, h + pad * 2), x = c.getContext('2d');
+  x.imageSmoothingQuality = 'high'; x.drawImage(src, pad, pad, w, h); return c;
+}
+function tint(c, color) {
+  const t = mk(c.width, c.height), x = t.getContext('2d');
+  x.drawImage(c, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = color; x.fillRect(0, 0, t.width, t.height); return t;
+}
+// 밝은 톤: 몸보다 밝은 외곽선(어두운 배경용). 어두운 톤: 푸르스름하게 어두운 외곽선(밝은 배경용).
+const lineColor = tone => tone === 'dark' ? mix(P.color, '#3c4a66', 0.65) : mix(P.color, '#ffffff', 0.5);
+const glowColor = tone => tone === 'dark' ? mix(P.color, '#6f8fd0', 0.55) : P.color;
+function buildGhost(m, h, tone) {
+  const w = Math.max(1, Math.round(h * crop.w / crop.h));
+  const pad = Math.ceil(P.glowR * 2) + 2;
+  const S = place(m.sil, w, h, pad);
+  const out = mk(S.width, S.height), o = out.getContext('2d');
+  // 1) 발광: 몸 색을 흐리게 번지게 한 뒤, 몸 안쪽은 지워서 바깥으로만 남긴다
+  if (P.glowA > 0 && P.glowR > 0) {
+    const g = mk(S.width, S.height), gx = g.getContext('2d');
+    gx.filter = `blur(${P.glowR}px)`; gx.drawImage(tint(S, glowColor(tone)), 0, 0); gx.drawImage(tint(S, glowColor(tone)), 0, 0);
+    gx.filter = 'none'; gx.globalCompositeOperation = 'destination-out'; gx.drawImage(S, 0, 0);
+    o.globalAlpha = P.glowA / 100; o.drawImage(g, 0, 0);
+  }
+  // 2) 외곽선: 몸을 1px씩 8방향으로 민 모양 − 몸 = 바깥 테두리 1px
+  if (P.outline > 0) {
+    const r = mk(S.width, S.height), rx = r.getContext('2d'), line = tint(S, lineColor(tone));
+    for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, 1], [-1, 1], [1, -1]]) rx.drawImage(line, dx, dy);
+    rx.globalCompositeOperation = 'destination-out'; rx.drawImage(S, 0, 0);
+    o.globalAlpha = P.outline / 100; o.drawImage(r, 0, 0);
+  }
+  // 3) 반투명 몸
+  o.globalAlpha = P.body / 100; o.drawImage(tint(S, P.color), 0, 0);
+  // 4) 눈은 불투명하게
+  o.globalAlpha = 1; o.drawImage(tint(place(m.eye, w, h, pad), eyeFor(P.color)), 0, 0);
+  return { c: out, pad, w, h };
+}
+function buildPlain(m, h, color) {
+  const w = Math.max(1, Math.round(h * crop.w / crop.h));
+  const S = place(m.sil, w, h, 0), out = mk(w, h), o = out.getContext('2d');
+  o.drawImage(tint(S, color), 0, 0); o.drawImage(tint(place(m.eye, w, h, 0), eyeFor(color)), 0, 0);
+  return { c: out, pad: 0, w, h };
+}
+let cache = new Map();
+function invalidate() { cache = new Map(); updateSummary(); }
+function updateSummary() {
+  const el = $('summary'); if (!el) return;
+  const tone = { auto: '작업표시줄 따라', light: '항상 밝게', dark: '항상 어둡게' }[P.tone || 'auto'];
+  el.textContent = `현재 값: 몸 ${P.body}% · 외곽선 ${P.outline}% · 발광 ${(+P.glowR).toFixed(1)}px/${P.glowA}% · 뜬 높이 ${P.floatH}% · 흔들림 ±${P.bobA}% · 주기 ${(+P.period).toFixed(1)}s · 외곽선 색 ${tone} · 유령 색 ${P.color}`;
+}
+function frames(kind, h, tone) {
+  const key = kind + h + tone;
+  if (!cache.has(key)) cache.set(key, masks.map(m => kind === 'ghost' ? buildGhost(m, h, tone) : buildPlain(m, h, '#F4A261')));
+  return cache.get(key);
+}
+
+// ── 씬 ──
+const SCENES = {
+  dark:  { tone: 'light', desk: '#1a2537', bar: '#202020', edge: 'rgba(255,255,255,.08)', icon: 'rgba(255,255,255,.18)' },
+  light: { tone: 'dark', desk: '#cddbeb', bar: '#f3f3f3', edge: 'rgba(0,0,0,.08)', icon: 'rgba(0,0,0,.14)' },
+  busy:  { tone: 'light', desk: null, bar: '#2a2530', edge: 'rgba(255,255,255,.1)', icon: 'rgba(255,255,255,.2)' },
+};
+const BAR_H = 40;
+const scenes = [...document.querySelectorAll('canvas[data-scene]')].map((cv, si) => ({
+  cv, s: SCENES[cv.dataset.scene],
+  runners: [
+    { kind: 'ghost', x: 80 + si * 140, dir: 1, phase: Math.random(), bob: Math.random() * Math.PI * 2 },
+    { kind: 'plain', x: 420 - si * 90, dir: -1, phase: Math.random(), bob: 0, usage: 0.6 },
+  ],
+}));
+
+function drawBackground(ctx, W, H, s, dpr) {
+  const ground = H - BAR_H * dpr;
+  if (s.desk) { ctx.fillStyle = s.desk; ctx.fillRect(0, 0, W, ground); }
+  else {
+    const g = ctx.createLinearGradient(0, 0, W, ground);
+    g.addColorStop(0, '#f2994a'); g.addColorStop(0.5, '#c0549b'); g.addColorStop(1, '#3b3f8f');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, ground);
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(W * 0.55, 18 * dpr, W * 0.3, ground - 18 * dpr);   // 흰 창
+    ctx.fillStyle = '#eceff3'; ctx.fillRect(W * 0.55, 18 * dpr, W * 0.3, 18 * dpr);
+  }
+  ctx.fillStyle = s.bar; ctx.fillRect(0, ground, W, H - ground);
+  ctx.fillStyle = s.edge; ctx.fillRect(0, ground, W, Math.max(1, dpr | 0));
+  ctx.fillStyle = s.icon;
+  const n = 6, size = 22 * dpr, gap = 10 * dpr, start = W / 2 - (n * size + (n - 1) * gap) / 2;
+  for (let i = 0; i < n; i++) {
+    ctx.beginPath(); ctx.roundRect(start + i * (size + gap), ground + (BAR_H * dpr - size) / 2, size, size, 5 * dpr); ctx.fill();
+  }
+  return ground;
+}
+
+let t = 0, last = performance.now(), acc = 0;
+function step(dt) {
+  t += dt;
+  for (const sc of scenes) {
+    const W = sc.cv.width;
+    for (const r of sc.runners) {
+      const h = P.size, w = h * crop.w / crop.h;
+      const u = r.kind === 'plain' ? r.usage : P.usage / 100;
+      const v = w * (0.4 + (7 - 0.4) * Math.pow(u, 0.7));  // SpeedProfile과 같은 곡선
+      const moved = v * dt;
+      r.x += moved * r.dir;
+      if (r.x < 0) { r.x = 0; r.dir = 1; }
+      if (r.x > W - w) { r.x = W - w; r.dir = -1; }
+      r.phase = (r.phase + moved / w * 0.8) % 1;
+    }
+  }
+}
+function render() {
+  const dpr = window.devicePixelRatio || 1;
+  for (const sc of scenes) {
+    const cv = sc.cv, W = Math.round(cv.clientWidth * dpr), H = Math.round(cv.clientHeight * dpr);
+    if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+    const ctx = cv.getContext('2d');
+    const ground = drawBackground(ctx, W, H, sc.s, dpr);
+    for (const r of sc.runners) {
+      if (r.kind === 'plain' && !$('compare').checked) continue;
+      const fs = frames(r.kind, P.size, P.tone === 'auto' ? sc.s.tone : P.tone), f = fs[Math.floor(r.phase * fs.length) % fs.length];
+      let lift = 0;
+      if (r.kind === 'ghost') {
+        lift = P.size * (P.floatH / 100 + P.bobA / 100 * Math.sin(2 * Math.PI * t / P.period + r.bob));
+        lift = Math.max(0, lift);
+      }
+      const x = Math.round(r.x) - f.pad, y = Math.round(ground - f.h - lift) - f.pad;
+      ctx.save();
+      if (r.dir < 0) { ctx.translate(x * 2 + f.c.width, 0); ctx.scale(-1, 1); }
+      ctx.drawImage(f.c, x, y);
+      ctx.restore();
+    }
+  }
+  renderZoom(dpr);
+}
+function renderZoom(dpr) {
+  const cv = $('zoom'), W = Math.round(cv.clientWidth * dpr), H = Math.round(cv.clientHeight * dpr);
+  if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+  const ctx = cv.getContext('2d'); ctx.imageSmoothingEnabled = false;
+  ctx.fillStyle = '#202020'; ctx.fillRect(0, 0, W / 2, H);
+  ctx.fillStyle = '#f3f3f3'; ctx.fillRect(W / 2, 0, W / 2, H);
+  const r = scenes[0].runners[0];
+  for (const [cx, auto] of [[W / 4, 'light'], [W * 3 / 4, 'dark']]) {
+    const fs = frames('ghost', P.size, P.tone === 'auto' ? auto : P.tone), f = fs[Math.floor(r.phase * fs.length) % fs.length];
+    const scale = Math.max(1, Math.floor(Math.min((W / 2 - 20) / f.c.width, (H - 20) / f.c.height)));
+    const dw = f.c.width * scale, dh = f.c.height * scale;
+    ctx.drawImage(f.c, Math.round(cx - dw / 2), Math.round(H / 2 - dh / 2), dw, dh);
+  }
+}
+function loop(now) {
+  const dt = Math.min(0.25, (now - last) / 1000); last = now; acc += dt;
+  if (acc >= 1 / 30) { step(acc); acc = 0; render(); }   // 앱 기본값처럼 30fps
+  requestAnimationFrame(loop);
+}
+loadMasks().then(() => { updateSummary(); render(); requestAnimationFrame(loop); });
+</script>
+</body>
+</html>

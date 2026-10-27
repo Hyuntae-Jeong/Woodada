@@ -7,7 +7,9 @@ using Woodada.Sprites;
 namespace Woodada.Rendering;
 
 /// <summary>오버레이에 그릴 러너 한 마리.</summary>
-internal readonly record struct RunnerFrame(IRunnerSprite Sprite, Rect Box, RunnerPose Pose, Color Color);
+/// <param name="LightBackground">밝은 작업표시줄·독 위인지. 스킨이 외곽선 톤을 고르는 데 쓴다.</param>
+internal readonly record struct RunnerFrame(IRunnerSprite Sprite, Rect Box, RunnerPose Pose, Color Color,
+    RunnerSkin Skin = RunnerSkin.None, bool LightBackground = false);
 
 /// <summary>
 /// 작업표시줄·독 위에 깔리는 투명 띠 창. 클릭 통과·포커스 안 뺏기 같은 OS별 설정은 IPlatform이 한다.
@@ -106,7 +108,7 @@ internal sealed class OverlayWindow : Window
 
         private void DrawAll(DrawingContext ctx, double scaling)
         {
-            foreach (var f in _frames) f.Sprite.Draw(ctx, f.Box, f.Pose, f.Color, scaling);
+            foreach (var f in _frames) f.Sprite.Draw(ctx, f.Box, f.Pose, f.Color, scaling, f.Skin, f.LightBackground);
         }
     }
 }

@@ -54,6 +54,9 @@ internal interface IPlatform
     /// <summary>게임·발표처럼 전체 화면 앱이 떠 있는지.</summary>
     bool IsFullScreenAppActive();
 
+    /// <summary>작업표시줄·독이 밝은 색인지. 반투명 스킨이 배경에 묻히지 않게 외곽선 톤을 고르는 데 쓴다.</summary>
+    bool IsBarLight();
+
     // ───────── 오버레이 창 ─────────
 
     /// <summary>오버레이 창이 처음 뜰 때 한 번: 클릭 통과, 포커스 안 뺏기, 모든 데스크톱에 보이기.</summary>

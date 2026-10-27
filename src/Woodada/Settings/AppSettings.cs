@@ -60,6 +60,8 @@ public sealed class AppSettings
             // 출시 전 러너는 입을 수 없다. 개발용으로 써 본 설정 파일에 남아 있어도 고양이로 돌린다.
             if (string.IsNullOrWhiteSpace(r.SpriteId) || Sprites.SpriteRegistry.IsUpcoming(r.SpriteId)) r.SpriteId = "cat";
             if (!ColorUtil.TryParse(r.Color, out _)) r.Color = DefaultColor;
+            // 스페셜 스킨은 아직 출시 전이라 개발용 빌드에서만 입는다. 모르는 Id도 지운다.
+            if (!AppInfo.IsDev || Sprites.RunnerSkins.Parse(r.Skin) == Sprites.RunnerSkin.None) r.Skin = null;
         }
         FramesPerSecond = Math.Clamp(FramesPerSecond, 10, 60);
     }
@@ -77,6 +79,9 @@ public sealed class RunnerConfig
     public string SpriteId { get; set; } = "cat";
     public bool Enabled { get; set; } = true;
     public string Color { get; set; } = AppSettings.DefaultColor;
+    /// <summary>스페셜 스킨 Id("ghost" …). null이면 색만 칠한다. 없을 때는 파일에 쓰지 않는다.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? Skin { get; set; }
     /// <summary>러너 높이. 화면 단위라 Windows는 물리 픽셀, macOS는 포인트(레티나에서도 같은 크기로 보인다).</summary>
     public int Size { get; set; } = 28;
 }

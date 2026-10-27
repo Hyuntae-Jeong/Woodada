@@ -121,6 +121,16 @@ internal sealed class WindowsPlatform : IPlatform
             : mem.dwMemoryLoad;
     }
 
+    /// <summary>
+    /// 작업표시줄은 앱 모드가 아니라 "기본 Windows 모드"를 따른다. 그래서 Avalonia가 읽는 앱 테마와 다를 수 있다.
+    /// 값이 없으면 Windows 11 기본값인 어두운 작업표시줄로 본다.
+    /// </summary>
+    public bool IsBarLight()
+    {
+        using var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
+        return key?.GetValue("SystemUsesLightTheme") is int v && v != 0;
+    }
+
     // ───────── 자동 실행 ─────────
 
     public bool IsStartupEnabled()

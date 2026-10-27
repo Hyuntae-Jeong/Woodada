@@ -32,6 +32,7 @@ internal sealed class OverlayController : IDisposable
     private Runway _runway;
     private PixelPitch _pitch = new(0.25, false, null, 0, 0);
     private bool _fullScreenApp;
+    private bool _lightBar;
 
     public OverlayController(SettingsStore store, StatsStore stats)
     {
@@ -90,6 +91,7 @@ internal sealed class OverlayController : IDisposable
         }
         _runway = Runway.FromBar(_platform.FindBar(screen));
         _pitch = MonitorPitch.For(screen);
+        _lightBar = SafeIsBarLight();
         _fullScreenApp = settings.HideInFullScreen && _platform.CanDetectFullScreen && _platform.IsFullScreenAppActive();
     }
 
@@ -139,20 +141,29 @@ internal sealed class OverlayController : IDisposable
 
     private void Render()
     {
-        int maxHeight = _runners.Max(r => r.Config.Size);
-        // 몸이 위아래로 출렁이는 여유분.
-        int stripHeight = maxHeight + Math.Max(4, maxHeight / 8);
+        // 몸 위 여유분: 출렁임, 그리고 스킨이 있으면 떠오르는 높이와 몸 밖으로 번지는 발광까지.
+        int stripHeight = _runners.Max(r => r.Config.Size + RunnerSkins.Headroom(r.Skin, r.Config.Size));
         var strip = _runway.GetStrip(stripHeight);
+        double seconds = _clock.Elapsed.TotalSeconds;
 
         var frames = _runners.Select(r =>
         {
             var size = r.BodySize;
-            var box = new Rect(r.State.X - strip.X, strip.Height - size.Height, size.Width, size.Height);
+            var skin = r.Skin;
+            double lift = RunnerSkins.Lift(skin, r.Config.Size, seconds, r.BobPhase);
+            var box = new Rect(r.State.X - strip.X, strip.Height - size.Height - lift, size.Width, size.Height);
             var pose = new RunnerPose(r.State.Direction, r.State.GaitPhase, r.State.Intensity);
-            return new RunnerFrame(r.Sprite, box, pose, ColorUtil.Parse(r.Config.Color, Colors.Orange));
+            return new RunnerFrame(r.Sprite, box, pose, ColorUtil.Parse(r.Config.Color, Colors.Orange), skin, _lightBar);
         }).ToList();
 
         _window.Present(strip, frames, _runway.HangBelow);
+    }
+
+    /// <summary>테마를 못 읽어도(레지스트리 권한 등) 러너는 계속 달려야 하니 어두운 막대로 본다.</summary>
+    private bool SafeIsBarLight()
+    {
+        try { return _platform.IsBarLight(); }
+        catch (Exception) { return false; }
     }
 
     /// <summary>로그오프·종료처럼 정상 종료 경로를 못 탈 수 있을 때 먼저 불러 기록을 남긴다.</summary>
