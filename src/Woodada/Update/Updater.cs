@@ -6,7 +6,8 @@ using System.Text.Json;
 namespace Woodada.Update;
 
 /// <summary>
-/// 앱이 켜질 때 GitHub 최신 릴리즈를 확인하고, 더 새 버전이 있으면 묻지 않고 바꿔 끼운 뒤 다시 실행한다.
+/// GitHub 최신 릴리즈를 확인하고, 더 새 버전이 있으면 묻지 않고 바꿔 끼운 뒤 다시 실행한다.
+/// 확인은 <see cref="CheckInterval"/>(6시간)에 한 번 한다. 언제 확인할지는 TrayApp이 <see cref="TimeUntilNextCheck"/>로 정한다.
 /// macOS의 .app 교체는 Updater.Mac.cs에 있다. 바꿔 끼울 수 없는 곳(.dmg 안, 쓰기 권한 없는 폴더)에서 돌면
 /// 알림만 띄운다(<see cref="FindNewerReleaseAsync"/>).
 ///
@@ -35,12 +36,13 @@ internal static partial class Updater
     public const string UpdatedArg = "--updated";
 
     /// <summary>
-    /// 설치에 실패해 원래 exe를 다시 띄울 때 넘기는 인자. 이번 실행에서는 업데이트를 확인하지 않는다.
-    /// 그러지 않으면 켜지자마자 같은 업데이트를 받아 또 실패하고 다시 뜨기를 끝없이 되풀이한다.
+    /// 설치에 실패해 원래 exe를 다시 띄울 때 넘기는 인자. 켜지자마자 업데이트를 확인하지 않는다.
+    /// 그러지 않으면 같은 업데이트를 받아 또 실패하고 다시 뜨기를 끝없이 되풀이한다.
+    /// 주기 확인은 그대로 하지만, 실패한 그 확인이 기록돼 있어 다음 주기까지는 다시 받지 않는다.
     /// </summary>
     public const string SkipUpdateArg = "--skip-update";
 
-    /// <summary>로그인 직후 자동 실행되면 네트워크가 아직 안 붙어 있을 수 있어 몇 번 더 시도한다.</summary>
+    /// <summary>로그인 직후에는 네트워크가 아직 안 붙어 있을 수 있어 몇 번 더 시도한다.</summary>
     private static readonly TimeSpan[] RetryDelays = { TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(60) };
 
     /// <summary>
@@ -55,8 +57,47 @@ internal static partial class Updater
 
     private static readonly string LogPath = Path.Combine(AppInfo.DataFolder, "update.log");
 
+    /// <summary>마지막으로 릴리즈 서버의 답을 받은 시각(UTC). 앱을 껐다 켜도 주기가 이어지도록 파일에 둔다.</summary>
+    private static readonly string LastCheckPath = Path.Combine(AppInfo.DataFolder, "update-check.txt");
+
+    /// <summary>새 릴리즈를 확인하는 주기.</summary>
+    public static readonly TimeSpan CheckInterval = TimeSpan.FromHours(6);
+
     /// <summary>로컬 빌드(0.0.0)나 dotnet run은 릴리즈로 덮어쓰면 안 되므로 업데이트하지 않는다.</summary>
-    private static bool IsReleaseBuild => Current > new Version(0, 0, 0);
+    public static bool IsReleaseBuild => Current > new Version(0, 0, 0);
+
+    /// <summary>
+    /// 다음 확인까지 남은 시간. 마지막 확인 뒤로 <see cref="CheckInterval"/>이 지났으면 0.
+    /// 확인한 적이 없거나 기록을 못 읽어도 0. 시계를 뒤로 돌려 마지막 확인이 미래에 있게 돼도 0(아니면 그 시각까지 확인을 안 한다).
+    /// </summary>
+    public static TimeSpan TimeUntilNextCheck()
+    {
+        try
+        {
+            if (!File.Exists(LastCheckPath)) return TimeSpan.Zero;
+            var last = DateTime.Parse(File.ReadAllText(LastCheckPath).Trim(), null, System.Globalization.DateTimeStyles.RoundtripKind);
+            var elapsed = DateTime.UtcNow - last;
+            if (elapsed < TimeSpan.Zero || elapsed >= CheckInterval) return TimeSpan.Zero;
+            return CheckInterval - elapsed;
+        }
+        catch (Exception)
+        {
+            return TimeSpan.Zero;
+        }
+    }
+
+    private static void MarkChecked()
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(LastCheckPath)!);
+            File.WriteAllText(LastCheckPath, DateTime.UtcNow.ToString("o"));
+        }
+        catch (Exception)
+        {
+            // 기록을 못 남기면 다음 주기에 한 번 더 확인할 뿐이다.
+        }
+    }
 
     /// <summary>
     /// 내려받아 검증까지 마친 새 앱. 아직 설치 위치는 건드리지 않은 상태.
@@ -106,13 +147,19 @@ internal static partial class Updater
 
     private const string ReleasesPage = "https://github.com/Hyuntae-Jeong/Woodada/releases/latest";
 
+    /// <summary>
+    /// once를 실행하고, 서버에 닿지 못했으면 조금 뒤 다시 해 본다. 끝까지 해냈을 때만 확인 시각을 남긴다.
+    /// 실패하면 기록이 그대로라, 다음 6시간을 채우기 전에 앱을 다시 켜도 바로 확인한다.
+    /// </summary>
     private static async Task<T?> WithRetriesAsync<T>(Func<CancellationToken, Task<T?>> once, CancellationToken ct) where T : class
     {
         for (int attempt = 0; ; attempt++)
         {
             try
             {
-                return await once(ct).ConfigureAwait(false);
+                var result = await once(ct).ConfigureAwait(false);
+                MarkChecked();
+                return result;
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -158,7 +205,7 @@ internal static partial class Updater
         string tag = release.GetProperty("tag_name").GetString() ?? "";
         if (ParseNewer(release) is not { } latest) return null;
 
-        if (FindAsset(release, ExeName) is not { } found) return null;
+        var found = FindAsset(release, ExeName);
 
         Directory.CreateDirectory(WorkDir);
         string stagedExe = Path.Combine(WorkDir, ExeName);
@@ -173,16 +220,17 @@ internal static partial class Updater
         return new Staged(latest, stagedExe);
     }
 
-    /// <summary>릴리즈에 올라간 파일 중 이름이 같은 것. 없으면 null.</summary>
-    private static JsonElement? FindAsset(JsonElement release, string name)
+    /// <summary>
+    /// 릴리즈에 올라간 파일 중 이름이 같은 것.
+    /// 없으면 릴리즈는 만들어졌는데 CI가 아직 파일을 올리는 중일 수 있으므로, 실패로 던져 확인 기록을 남기지 않는다.
+    /// </summary>
+    private static JsonElement FindAsset(JsonElement release, string name)
     {
         foreach (var a in release.GetProperty("assets").EnumerateArray())
         {
             if (a.GetProperty("name").GetString() == name) return a;
         }
-        // 릴리즈는 만들어졌는데 CI가 아직 파일을 올리는 중일 수 있다. 다음 실행 때 다시 본다.
-        Log($"{release.GetProperty("tag_name").GetString()} 릴리즈에 {name}이 없습니다");
-        return null;
+        throw new InvalidDataException($"{release.GetProperty("tag_name").GetString()} 릴리즈에 {name}이 없습니다");
     }
 
     /// <summary>릴리즈 파일을 path에 내려받고 온전한지 확인한다.</summary>

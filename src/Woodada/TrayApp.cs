@@ -29,6 +29,20 @@ internal sealed class TrayApp : IDisposable
     private readonly CancellationTokenSource _updateCts = new();
     private SettingsWindow? _settingsWindow;
 
+    /// <summary>
+    /// 다음 업데이트 확인 때 한 번 울리는 타이머. 울리면 멈추고, 확인을 마친 뒤 6시간 뒤로 다시 건다.
+    /// 그 사이에는 깨어나지 않아 CPU를 쓰지 않는다.
+    /// </summary>
+    private readonly DispatcherTimer _updateTimer = new();
+
+    /// <summary>설정 창이 열려 있을 때 받아 둔 업데이트. 창을 닫으면 설치한다.</summary>
+    private Updater.Staged? _pendingInstall;
+
+    /// <summary>바꿔 끼울 수 없을 때(macOS .dmg 안 등) 메뉴 맨 위에 붙이는 "새 버전 받기" 항목과, 마지막으로 알림을 띄운 버전.</summary>
+    private NativeMenuItem? _downloadItem;
+    private string _downloadUrl = "";
+    private Version? _notifiedVersion;
+
     public TrayApp(IClassicDesktopStyleApplicationLifetime lifetime, bool openSettings, bool updated, bool checkForUpdate)
     {
         _lifetime = lifetime;
@@ -76,40 +90,92 @@ internal sealed class TrayApp : IDisposable
 
         if (openSettings) ShowSettings();
         if (updated) Toast.Show("Woodada", $"v{Updater.Current.ToString(3)}(으)로 업데이트했어요.");
-        if (checkForUpdate) _ = CheckForUpdateAsync();
+        // 로컬 빌드(0.0.0)는 업데이트하지 않는다.
+        if (Updater.IsReleaseBuild)
+        {
+            _updateTimer.Tick += (_, _) => _ = RunUpdateCheckAsync();
+            // 마지막 확인 뒤로 6시간이 지났으면 바로, 아니면 남은 시간 뒤에 확인한다. 껐다 켜도 주기가 이어진다.
+            // 설치에 실패해 다시 뜬 실행(checkForUpdate=false)은 같은 업데이트를 또 받지 않도록 6시간을 꽉 채워 기다린다.
+            var wait = checkForUpdate ? Updater.TimeUntilNextCheck() : Updater.CheckInterval;
+            if (wait <= TimeSpan.Zero) _ = RunUpdateCheckAsync();
+            else ScheduleUpdateCheck(wait);
+        }
+    }
+
+    private void ScheduleUpdateCheck(TimeSpan wait)
+    {
+        _updateTimer.Interval = wait;
+        _updateTimer.Start();
+    }
+
+    /// <summary>새 릴리즈를 한 번 확인하고 6시간 뒤로 다음 확인을 건다. 실패해도 다음 확인은 6시간 뒤다.</summary>
+    private async Task RunUpdateCheckAsync()
+    {
+        _updateTimer.Stop();
+        await CheckForUpdateAsync();
+        if (!_updateCts.IsCancellationRequested) ScheduleUpdateCheck(Updater.CheckInterval);
     }
 
     /// <summary>
-    /// 켜질 때마다 새 릴리즈를 확인한다.
-    /// 있으면 묻지 않고 바꿔 끼운 뒤 다시 실행한다. 내려받기는 백그라운드에서, 설치 단계로 넘기고 종료하는 건 UI 스레드에서 한다.
+    /// 새 릴리즈가 있으면 묻지 않고 바꿔 끼운 뒤 다시 실행한다. 내려받기는 백그라운드에서, 설치 단계로 넘기고 종료하는 건 UI 스레드에서 한다.
+    /// 설정 창이 열려 있으면 쓰던 화면이 갑자기 닫히지 않게 창을 닫을 때까지 설치를 미룬다.
     /// macOS에서 바꿔 끼울 수 없는 곳(.dmg 안, 쓰기 권한 없는 폴더)에서 돌면 알림과 메뉴 항목으로 새 버전을 알려 주기만 한다.
     /// </summary>
     private async Task CheckForUpdateAsync()
     {
         try
         {
+            if (_pendingInstall is not null) return; // 이미 받아 둔 업데이트가 설정 창이 닫히길 기다리는 중
             if (OperatingSystem.IsWindows() || Updater.CanInstallHere())
             {
                 var staged = await Task.Run(() => Updater.PrepareAsync(_updateCts.Token));
                 if (staged is null || _updateCts.IsCancellationRequested) return;
-                if (Updater.StartInstaller(staged)) _lifetime.Shutdown();
+                if (_settingsWindow is not null)
+                {
+                    _pendingInstall = staged;
+                    Updater.Log($"v{staged.Version.ToString(3)}을 받아 두었습니다. 설정 창을 닫으면 설치합니다");
+                    return;
+                }
+                Install(staged);
                 return;
             }
 
             var release = await Task.Run(() => Updater.FindNewerReleaseAsync(_updateCts.Token));
             if (release is null || _updateCts.IsCancellationRequested) return;
-            string version = release.Version.ToString(3);
-            var download = new NativeMenuItem($"새 버전 v{version} 받기…");
-            download.Click += (_, _) => OpenUrl(release.PageUrl);
-            _menu.Items.Insert(0, download);
-            Toast.Show("새 버전이 나왔어요", $"Woodada v{version}을 받을 수 있어요. 눌러서 다운로드 페이지를 열어요.",
-                () => OpenUrl(release.PageUrl));
+            NotifyNewRelease(release);
         }
         catch (Exception ex)
         {
             // 버려진 Task라 여기서 잡지 않으면 실패가 아무 흔적 없이 사라진다. 앱은 지금 버전으로 계속 돈다.
             Updater.Log($"업데이트 확인 실패: {ex.Message}");
         }
+    }
+
+    private void Install(Updater.Staged staged)
+    {
+        if (Updater.StartInstaller(staged)) _lifetime.Shutdown();
+    }
+
+    /// <summary>
+    /// 바꿔 끼울 수 없을 때만 온다. 메뉴 맨 위에 "새 버전 받기"를 하나만 두고 버전을 맞춘다.
+    /// 알림은 새 버전마다 한 번만 띄운다. 6시간 뒤 확인에서 같은 버전이 또 보여도 다시 알리지 않는다.
+    /// </summary>
+    private void NotifyNewRelease(Updater.Release release)
+    {
+        string version = release.Version.ToString(3);
+        _downloadUrl = release.PageUrl;
+        if (_downloadItem is null)
+        {
+            _downloadItem = new NativeMenuItem();
+            _downloadItem.Click += (_, _) => OpenUrl(_downloadUrl);
+            _menu.Items.Insert(0, _downloadItem);
+        }
+        _downloadItem.Header = $"새 버전 v{version} 받기…";
+
+        if (release.Version == _notifiedVersion) return;
+        _notifiedVersion = release.Version;
+        Toast.Show("새 버전이 나왔어요", $"Woodada v{version}을 받을 수 있어요. 눌러서 다운로드 페이지를 열어요.",
+            () => OpenUrl(_downloadUrl));
     }
 
     private static void OpenUrl(string url)
@@ -134,7 +200,15 @@ internal sealed class TrayApp : IDisposable
         }
         _settingsWindow = new SettingsWindow(_store, _stats, _rewards, _overlay.Sampler);
         _settingsWindow.ShowPage(page);
-        _settingsWindow.Closed += (_, _) => _settingsWindow = null;
+        _settingsWindow.Closed += (_, _) =>
+        {
+            _settingsWindow = null;
+            if (_pendingInstall is { } staged)
+            {
+                _pendingInstall = null;
+                Install(staged);
+            }
+        };
         _settingsWindow.Show();
         _settingsWindow.Activate();
     }
@@ -220,6 +294,7 @@ internal sealed class TrayApp : IDisposable
     public void Dispose()
     {
         _updateCts.Cancel();
+        _updateTimer.Stop();
         _tooltipTimer.Stop();
         _settingsWindow?.Close();
         _tray.IsVisible = false;

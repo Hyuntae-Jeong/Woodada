@@ -7,7 +7,7 @@ namespace Woodada.Update;
 
 /// <summary>
 /// macOS 자동 업데이트. Windows와 같은 세 단계로 Woodada.app 번들을 통째로 바꿔 끼운다.
-/// 1. 지금 앱이 릴리즈의 Woodada-mac-&lt;arch&gt;.zip을 임시 폴더에 받아 풀고 검증한 뒤,
+/// 1. 지금 앱이 릴리즈의 auto-update-mac-&lt;arch&gt;.zip을 임시 폴더에 받아 풀고 검증한 뒤,
 ///    그 새 앱을 설치 모드로 띄우고 정상 종료한다(<see cref="StartMacInstaller"/>).
 /// 2. 설치 모드의 새 앱이 지금 앱이 끝나길 기다렸다가 자기 번들을 설치 위치 옆에 복사하고,
 ///    이름 바꾸기 두 번으로 바꿔치기한다(<see cref="RunMacInstaller"/>).
@@ -23,9 +23,12 @@ internal static partial class Updater
 {
     private const string MacAppName = "Woodada.app";
 
-    /// <summary>CI가 릴리즈에 올리는 파일(build/mac/build-app.sh). 지금 앱과 같은 CPU용을 받는다.</summary>
+    /// <summary>
+    /// CI가 릴리즈에 올리는 파일(build/mac/build-app.sh). 지금 앱과 같은 CPU용을 받는다.
+    /// 사용자가 릴리즈 페이지에서 .dmg 대신 받지 않도록 Woodada가 아닌 이름을 붙였다.
+    /// </summary>
     private static string MacZipName =>
-        $"Woodada-mac-{(RuntimeInformation.ProcessArchitecture == Architecture.Arm64 ? "arm64" : "x64")}.zip";
+        $"auto-update-mac-{(RuntimeInformation.ProcessArchitecture == Architecture.Arm64 ? "arm64" : "x64")}.zip";
 
     private static string MacStagedApp => Path.Combine(WorkDir, MacAppName);
 
@@ -89,7 +92,7 @@ internal static partial class Updater
         var release = doc.RootElement;
         string tag = release.GetProperty("tag_name").GetString() ?? "";
         if (ParseNewer(release) is not { } latest) return null;
-        if (FindAsset(release, MacZipName) is not { } found) return null;
+        var found = FindAsset(release, MacZipName);
 
         Directory.CreateDirectory(WorkDir);
         string zip = Path.Combine(WorkDir, MacZipName);
