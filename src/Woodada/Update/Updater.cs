@@ -6,9 +6,9 @@ using System.Text.Json;
 namespace Woodada.Update;
 
 /// <summary>
-/// 앱이 켜질 때 GitHub 최신 릴리즈를 확인한다.
-/// Windows는 더 새 버전이 있으면 묻지 않고 바꿔 끼운 뒤 다시 실행한다.
-/// macOS는 아직 알림만 띄운다(<see cref="FindNewerReleaseAsync"/>). .app 교체는 서명·공증과 함께 따로 만든다.
+/// 앱이 켜질 때 GitHub 최신 릴리즈를 확인하고, 더 새 버전이 있으면 묻지 않고 바꿔 끼운 뒤 다시 실행한다.
+/// macOS의 .app 교체는 Updater.Mac.cs에 있다. 바꿔 끼울 수 없는 곳(.dmg 안, 쓰기 권한 없는 폴더)에서 돌면
+/// 알림만 띄운다(<see cref="FindNewerReleaseAsync"/>).
 ///
 /// Windows 교체는 세 단계로 한다.
 /// 1. 지금 앱이 새 exe를 임시 폴더에 받아 검증하고, 그 exe를 설치 모드(<see cref="InstallArg"/>)로 띄운 뒤 정상 종료한다.
@@ -18,7 +18,7 @@ namespace Woodada.Update;
 /// 실행 중인 exe 파일은 이름을 바꾸는 것조차 하지 않는다. self-contained 단일 exe는 .NET 라이브러리를 필요할 때마다
 /// exe 경로에서 읽어 오므로, 실행 중에 그 경로의 파일이 바뀌면 다음 라이브러리를 못 찾고 FileNotFoundException으로 죽는다.
 /// </summary>
-internal static class Updater
+internal static partial class Updater
 {
     private const string LatestReleaseApi = "https://api.github.com/repos/Hyuntae-Jeong/Woodada/releases/latest";
 
@@ -58,24 +58,38 @@ internal static class Updater
     /// <summary>로컬 빌드(0.0.0)나 dotnet run은 릴리즈로 덮어쓰면 안 되므로 업데이트하지 않는다.</summary>
     private static bool IsReleaseBuild => Current > new Version(0, 0, 0);
 
-    /// <summary>내려받아 검증까지 마친 새 exe. 아직 설치 폴더는 건드리지 않은 상태.</summary>
-    public sealed record Staged(Version Version, string ExePath);
+    /// <summary>
+    /// 내려받아 검증까지 마친 새 앱. 아직 설치 위치는 건드리지 않은 상태.
+    /// Location은 Windows에서는 새 exe, macOS에서는 새 Woodada.app 번들이다.
+    /// </summary>
+    public sealed record Staged(Version Version, string Location);
 
-    /// <summary>새 릴리즈. macOS는 바꿔 끼우지 않고 이 정보로 알림만 띄운다.</summary>
+    /// <summary>새 릴리즈. 바꿔 끼울 수 없을 때 이 정보로 알림만 띄운다.</summary>
     public sealed record Release(Version Version, string PageUrl);
 
     /// <summary>
-    /// 새 버전이 있으면 임시 폴더에 내려받아 검증해 둔다(Windows). 없거나 실패하면 null.
+    /// 이 실행 위치에서 앱을 스스로 바꿔 끼울 수 있는지. false면 <see cref="FindNewerReleaseAsync"/>로 알림만 띄운다.
+    /// macOS는 안 되는 이유를 update.log에 남긴다.
+    /// </summary>
+    public static bool CanInstallHere()
+    {
+        if (!IsReleaseBuild) return false;
+        if (OperatingSystem.IsWindows()) return IsInstalledExe();
+        return OperatingSystem.IsMacOS() && MacInstallTarget() is not null;
+    }
+
+    /// <summary>
+    /// 새 버전이 있으면 임시 폴더에 내려받아 검증해 둔다. 없거나 실패하면 null.
     /// 실패해도 앱은 지금 버전 그대로 계속 돌아야 하므로 예외를 밖으로 던지지 않는다.
     /// </summary>
     public static Task<Staged?> PrepareAsync(CancellationToken ct)
     {
-        if (!OperatingSystem.IsWindows() || !IsReleaseBuild || !IsInstalledExe()) return Task.FromResult<Staged?>(null);
-        return WithRetriesAsync(PrepareOnceAsync, ct);
+        if (!CanInstallHere()) return Task.FromResult<Staged?>(null);
+        return WithRetriesAsync<Staged>(OperatingSystem.IsWindows() ? PrepareOnceAsync : PrepareMacOnceAsync, ct);
     }
 
     /// <summary>
-    /// 더 새 릴리즈가 있는지만 본다(macOS). 앱 교체는 아직 하지 않고, 사용자가 릴리즈 페이지에서 받게 한다.
+    /// 더 새 릴리즈가 있는지만 본다. 바꿔 끼울 수 없는 곳에서 돌 때(macOS의 .dmg 안 등) 사용자가 릴리즈 페이지에서 받게 한다.
     /// </summary>
     public static Task<Release?> FindNewerReleaseAsync(CancellationToken ct)
     {
@@ -144,27 +158,11 @@ internal static class Updater
         string tag = release.GetProperty("tag_name").GetString() ?? "";
         if (ParseNewer(release) is not { } latest) return null;
 
-        JsonElement? asset = null;
-        foreach (var a in release.GetProperty("assets").EnumerateArray())
-        {
-            if (a.GetProperty("name").GetString() == ExeName) asset = a;
-        }
-        if (asset is not { } found)
-        {
-            // 릴리즈는 만들어졌는데 CI가 아직 파일을 올리는 중일 수 있다. 다음 실행 때 다시 본다.
-            Log($"{tag} 릴리즈에 {ExeName}이 없습니다");
-            return null;
-        }
+        if (FindAsset(release, ExeName) is not { } found) return null;
 
         Directory.CreateDirectory(WorkDir);
         string stagedExe = Path.Combine(WorkDir, ExeName);
-        string url = found.GetProperty("browser_download_url").GetString()!;
-        await using (var download = await Http.GetStreamAsync(url, ct).ConfigureAwait(false))
-        await using (var file = File.Create(stagedExe))
-        {
-            await download.CopyToAsync(file, ct).ConfigureAwait(false);
-        }
-        Verify(stagedExe, found);
+        await DownloadAsync(found, stagedExe, ct).ConfigureAwait(false);
 
         // 내려받은 exe가 정말 그 버전인지 확인한다. 엉뚱한 파일이면 같은 업데이트를 매번 되풀이하게 된다.
         var info = FileVersionInfo.GetVersionInfo(stagedExe);
@@ -173,6 +171,30 @@ internal static class Updater
             throw new InvalidDataException($"{ExeName} 버전(v{stagedVersion})이 태그({tag})와 다릅니다");
 
         return new Staged(latest, stagedExe);
+    }
+
+    /// <summary>릴리즈에 올라간 파일 중 이름이 같은 것. 없으면 null.</summary>
+    private static JsonElement? FindAsset(JsonElement release, string name)
+    {
+        foreach (var a in release.GetProperty("assets").EnumerateArray())
+        {
+            if (a.GetProperty("name").GetString() == name) return a;
+        }
+        // 릴리즈는 만들어졌는데 CI가 아직 파일을 올리는 중일 수 있다. 다음 실행 때 다시 본다.
+        Log($"{release.GetProperty("tag_name").GetString()} 릴리즈에 {name}이 없습니다");
+        return null;
+    }
+
+    /// <summary>릴리즈 파일을 path에 내려받고 온전한지 확인한다.</summary>
+    private static async Task DownloadAsync(JsonElement asset, string path, CancellationToken ct)
+    {
+        string url = asset.GetProperty("browser_download_url").GetString()!;
+        await using (var download = await Http.GetStreamAsync(url, ct).ConfigureAwait(false))
+        await using (var file = File.Create(path))
+        {
+            await download.CopyToAsync(file, ct).ConfigureAwait(false);
+        }
+        Verify(path, asset);
     }
 
     /// <summary>API가 알려준 크기와 SHA-256으로 내려받은 파일이 온전한지 확인한다.</summary>
@@ -200,7 +222,9 @@ internal static class Updater
     /// </summary>
     public static bool StartInstaller(Staged staged)
     {
-        var start = new ProcessStartInfo(staged.ExePath)
+        if (OperatingSystem.IsMacOS()) return StartMacInstaller(staged);
+
+        var start = new ProcessStartInfo(staged.Location)
         {
             UseShellExecute = false,
             WorkingDirectory = WorkDir,
@@ -231,6 +255,12 @@ internal static class Updater
         int i = Array.IndexOf(args, InstallArg);
         if (i < 0 || i + 1 >= args.Length) return false;
         string target = args[i + 1];
+
+        if (OperatingSystem.IsMacOS())
+        {
+            RunMacInstaller(target, args);
+            return true;
+        }
 
         WaitForPreviousApp(args);
 
@@ -278,18 +308,19 @@ internal static class Updater
         return true;
     }
 
-    private static void WaitForPreviousApp(string[] args)
+    /// <summary>이전 앱이 끝나길 기다린다. 30초가 지나도 안 끝나면 false.</summary>
+    private static bool WaitForPreviousApp(string[] args)
     {
         int i = Array.IndexOf(args, WaitPidArg);
-        if (i < 0 || i + 1 >= args.Length || !int.TryParse(args[i + 1], out int pid)) return;
+        if (i < 0 || i + 1 >= args.Length || !int.TryParse(args[i + 1], out int pid)) return true;
         try
         {
             using var previous = Process.GetProcessById(pid);
-            previous.WaitForExit(TimeSpan.FromSeconds(30));
+            return previous.WaitForExit(TimeSpan.FromSeconds(30));
         }
         catch (ArgumentException)
         {
-            // 이미 끝났다.
+            return true; // 이미 끝났다.
         }
     }
 
@@ -298,8 +329,14 @@ internal static class Updater
     /// 설치 모드가 아직 끝나는 중일 수 있으므로 시작을 막지 않고 백그라운드에서 몇 번 다시 시도한다.
     /// 그래도 안 되면 다음 업데이트가 같은 자리에 덮어쓴다.
     /// </summary>
-    public static void CleanUpStaged()
+    public static void CleanUpStaged(string[] args)
     {
+        if (OperatingSystem.IsMacOS())
+        {
+            CleanUpMacStaged(args);
+            return;
+        }
+
         string staged = Path.Combine(WorkDir, ExeName);
         if (!File.Exists(staged)) return;
 

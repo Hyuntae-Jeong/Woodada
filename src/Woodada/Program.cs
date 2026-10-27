@@ -9,7 +9,7 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
-        // 자동 업데이트의 설치 단계로 실행됐으면 창 없이 exe만 바꿔 끼우고 끝낸다(Windows).
+        // 자동 업데이트의 설치 단계로 실행됐으면 창 없이 exe(macOS는 .app)만 바꿔 끼우고 끝낸다.
         if (Updater.TryRunInstaller(args)) return;
 
         // 두 번 실행하면 고양이가 겹쳐 두 배로 뛰므로 단일 인스턴스로 막는다.
@@ -17,7 +17,7 @@ internal static class Program
         if (instance is null) return;
 
         // 개발용 앱이 설치된 앱의 업데이트 임시 파일을 지우면 안 된다.
-        if (!AppInfo.IsDev) Updater.CleanUpStaged();
+        if (!AppInfo.IsDev) Updater.CleanUpStaged(args);
 
         App.Args = args;
         // 설정 창을 닫아도 트레이에 남아 있어야 하므로 "종료"를 누를 때만 끝낸다.

@@ -3,7 +3,7 @@
 #
 #   build/mac/build-app.sh [osx-arm64|osx-x64] [버전]
 #
-# 결과: publish/mac-<rid>/Woodada.app, publish/mac-<rid>/Woodada-mac-<arm64|x64>.dmg
+# 결과: publish/mac-<rid>/Woodada.app, publish/mac-<rid>/Woodada-mac-<arm64|x64>.dmg, publish/mac-<rid>/Woodada-mac-<arm64|x64>.zip
 # 릴리즈 CI(.github/workflows/release.yml)도 이 스크립트를 그대로 쓴다.
 set -euo pipefail
 
@@ -20,6 +20,7 @@ DOTNET="${DOTNET:-dotnet}"
 OUT="$ROOT/publish/mac-$RID"
 APP="$OUT/Woodada.app"
 DMG="$OUT/Woodada-mac-$ARCH.dmg"
+ZIP="$OUT/Woodada-mac-$ARCH.zip"
 
 rm -rf "$OUT"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
@@ -86,5 +87,10 @@ hdiutil detach "$MP" -quiet || { sleep 3; hdiutil detach "$MP" -force -quiet; }
 hdiutil convert "$WORK_DMG" -format UDZO -o "$DMG" -quiet
 rm -f "$WORK_DMG"
 
+# .zip: 자동 업데이트가 내려받아 지금 .app과 바꿔 끼우는 파일(src/Woodada/Update/Updater.Mac.cs — 이름이 같아야 한다).
+# ditto로 묶어야 서명·실행 권한이 그대로 남는다.
+ditto -c -k --keepParent "$APP" "$ZIP"
+
 echo "만들었습니다: $APP"
 echo "만들었습니다: $DMG"
+echo "만들었습니다: $ZIP"

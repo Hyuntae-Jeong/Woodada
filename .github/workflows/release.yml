@@ -3,7 +3,7 @@ name: Release
 # vX.Y.Z 태그를 푸시하면 Windows용 Woodada.exe와 macOS용 .dmg(애플 실리콘·인텔)를 빌드해 GitHub 릴리즈에 올립니다.
 # Windows 앱은 켜질 때마다 최신 릴리즈를 확인해 이 exe로 스스로 바꿔 끼웁니다
 # (src/Woodada/Update/Updater.cs — 릴리즈 파일 이름 Woodada.exe가 양쪽에서 같아야 합니다).
-# macOS 앱은 새 릴리즈가 있으면 알림만 띄웁니다.
+# macOS 앱도 같은 방식으로 Woodada-mac-<arm64|x64>.zip을 받아 .app을 바꿔 끼웁니다(src/Woodada/Update/Updater.Mac.cs).
 # workflow_dispatch로 수동 실행하면 빌드만 하고 릴리즈는 건너뜁니다 — 빌드 점검용.
 on:
   push:
@@ -75,14 +75,17 @@ jobs:
         with:
           dotnet-version: 9.0.x
 
-      # Woodada.app을 만들어 임시 서명하고 .dmg로 묶습니다. 로컬 맥에서도 같은 스크립트로 만들 수 있습니다.
+      # Woodada.app을 만들어 임시 서명하고 .dmg(처음 설치용)와 .zip(자동 업데이트용)으로 묶습니다.
+      # 로컬 맥에서도 같은 스크립트로 만들 수 있습니다.
       - name: Build Woodada.app and .dmg
         run: bash build/mac/build-app.sh ${{ matrix.rid }} ${{ needs.version.outputs.value }}
 
       - uses: actions/upload-artifact@v4
         with:
           name: Woodada-${{ matrix.rid }}
-          path: publish/mac-${{ matrix.rid }}/*.dmg
+          path: |
+            publish/mac-${{ matrix.rid }}/*.dmg
+            publish/mac-${{ matrix.rid }}/*.zip
 
   release:
     needs: [version, windows, mac]
@@ -123,7 +126,7 @@ jobs:
             echo "**macOS** — 애플 실리콘(M1 이후)은 \`Woodada-mac-arm64.dmg\`, 인텔 맥은 \`Woodada-mac-x64.dmg\`를 받아"
             echo "열고 Woodada를 응용 프로그램 폴더로 끌어다 놓으세요. Apple 개발자 서명이 없어 처음 열 때 경고가 뜹니다."
             echo "그러면 시스템 설정 → 개인정보 보호 및 보안에서 \"그래도 열기\"를 누르세요."
-            echo "새 버전이 나오면 메뉴 막대 아이콘이 알려 줍니다(자동 업데이트는 아직 없습니다)."
+            echo "그다음부터는 켜질 때마다 새 버전을 확인해 자동으로 업데이트합니다(\`.zip\` 파일은 자동 업데이트용입니다)."
             echo
             echo "고양이 이미지는 [RunCat365](https://github.com/runcat-dev/RunCat365)에서 가져왔으며 [Apache License 2.0](https://github.com/$GITHUB_REPOSITORY/blob/$tag/src/Woodada/Assets/RunCat/LICENSE)을 따릅니다."
             echo
@@ -138,5 +141,7 @@ jobs:
             artifacts/Woodada.exe
             artifacts/Woodada-mac-arm64.dmg
             artifacts/Woodada-mac-x64.dmg
+            artifacts/Woodada-mac-arm64.zip
+            artifacts/Woodada-mac-x64.zip
           fail_on_unmatched_files: true
           body_path: RELEASE_BODY.md

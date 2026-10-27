@@ -81,14 +81,14 @@ internal sealed class TrayApp : IDisposable
 
     /// <summary>
     /// 켜질 때마다 새 릴리즈를 확인한다.
-    /// Windows: 있으면 묻지 않고 바꿔 끼운 뒤 다시 실행한다. 내려받기는 백그라운드에서, 설치 단계로 넘기고 종료하는 건 UI 스레드에서 한다.
-    /// macOS: 알림과 메뉴 항목으로 새 버전을 알려 주기만 한다.
+    /// 있으면 묻지 않고 바꿔 끼운 뒤 다시 실행한다. 내려받기는 백그라운드에서, 설치 단계로 넘기고 종료하는 건 UI 스레드에서 한다.
+    /// macOS에서 바꿔 끼울 수 없는 곳(.dmg 안, 쓰기 권한 없는 폴더)에서 돌면 알림과 메뉴 항목으로 새 버전을 알려 주기만 한다.
     /// </summary>
     private async Task CheckForUpdateAsync()
     {
         try
         {
-            if (OperatingSystem.IsWindows())
+            if (OperatingSystem.IsWindows() || Updater.CanInstallHere())
             {
                 var staged = await Task.Run(() => Updater.PrepareAsync(_updateCts.Token));
                 if (staged is null || _updateCts.IsCancellationRequested) return;

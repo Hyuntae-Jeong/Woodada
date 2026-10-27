@@ -33,7 +33,7 @@
 - 🍎 **macOS 지원** — 독이 보이면 독 위를, 독을 숨겨 두면 화면 바닥을 달립니다. 독이 왼쪽·오른쪽에 있으면 독을 피해 화면 바닥을 달립니다.
 - 🎮 **전체 화면에서는 숨기** — 게임이나 발표 중에는 알아서 사라집니다(macOS는 전체 화면 앱이 따로 데스크톱을 써서 늘 가려집니다).
 - 🪶 **가볍게 상주** — 트레이 아이콘(macOS는 메뉴 막대 아이콘)으로만 떠 있고, 클릭은 고양이를 통과해 아래 창으로 그대로 전달됩니다.
-- 🔄 **자동 업데이트** — 켜질 때마다 새 릴리즈를 확인해, 있으면 알아서 바꿔 끼우고 다시 실행합니다(Windows). macOS는 새 버전이 나오면 알려 줍니다.
+- 🔄 **자동 업데이트** — 켜질 때마다 새 릴리즈를 확인해, 있으면 알아서 바꿔 끼우고 다시 실행합니다(Windows·macOS).
 - 📏 **달린 거리 기록** — 모니터 실제 크기로 환산해 "오늘 1.2 km 달렸어요"처럼 고양이별·전체 거리를 보여줍니다.
 
 ## 🚀 시작하기
@@ -54,7 +54,9 @@ exe는 쓰기 권한이 있는 폴더(예: 바탕 화면, `%LOCALAPPDATA%`)에 �
 - Apple 개발자 서명이 없어서 처음 열 때 "확인되지 않은 개발자" 경고가 뜹니다. 시스템 설정 → 개인정보 보호 및 보안에서 **그래도 열기**를 누르세요.
   터미널에서 `xattr -dr com.apple.quarantine /Applications/Woodada.app`을 실행해도 됩니다.
 - 독에는 아이콘이 생기지 않고 메뉴 막대에만 아이콘이 생깁니다.
-- 아직 자동 업데이트는 없고, 새 버전이 나오면 알림과 메뉴 막대 메뉴의 "새 버전 받기"로 알려 줍니다.
+- 그다음부터는 켜질 때마다 새 버전이 있는지 확인해 묻지 않고 업데이트합니다. 업데이트한 앱을 열 때는 경고가 다시 뜨지 않습니다.
+  응용 프로그램 폴더에 쓸 권한이 없는 계정이거나 `.dmg` 안에서 바로 실행했으면 업데이트를 건너뛰고, 알림과 메뉴 막대 메뉴의 "새 버전 받기"로 알려 줍니다.
+  확인·업데이트 기록은 `~/Library/Application Support/Woodada/update.log`에 남습니다.
 - 설정·기록은 `~/Library/Application Support/Woodada`에 저장됩니다.
 
 ### 직접 빌드하기
@@ -195,8 +197,9 @@ OS마다 달라야 하는 일(어디서 달릴지, CPU·메모리 읽기, 클릭
 | `Rewards/RewardStore` | 생선 잔고 계산, 잠금 해제 · 구매 저장(`rewards.json`), 기존 사용자의 색 지급 |
 | `UI/SettingsWindow` | 생선 지갑 띠 · 고양이(카드·색 칸 20개) · 옷장(러너 모음) · 기록 · 일반 |
 | `TrayApp` | 트레이·메뉴 막대 아이콘과 메뉴, 설정 창 열기, 업데이트 확인 |
-| `Update/Updater` | 시작 시 최신 릴리즈 확인. Windows: 새 `Woodada.exe`를 임시 폴더에 받아 검증(크기·SHA-256·버전) → 설치 모드로 띄우고 종료 → 설치 위치의 exe를 교체하고 재실행. macOS: 알림만 |
-| `build/mac/build-app.sh` | `Woodada.app` 만들기(Info.plist·아이콘·임시 서명)와, DMG 틀에 앱을 넣어 `.dmg` 묶기 |
+| `Update/Updater` | 시작 시 최신 릴리즈 확인. Windows: 새 `Woodada.exe`를 임시 폴더에 받아 검증(크기·SHA-256·버전) → 설치 모드로 띄우고 종료 → 설치 위치의 exe를 교체하고 재실행 |
+| `Update/Updater.Mac` | macOS: 새 `Woodada-mac-<arch>.zip`을 받아 풀고 검증(크기·SHA-256·버전·서명) → 설치 모드를 `open`으로 띄우고 종료 → 옆에 복사한 새 `.app`과 이름을 바꿔치기하고 재실행. 바꿔 끼울 수 없는 곳이면 알림만 |
+| `build/mac/build-app.sh` | `Woodada.app` 만들기(Info.plist·아이콘·임시 서명)와, DMG 틀에 앱을 넣어 `.dmg` 묶기, 자동 업데이트용 `.zip` 묶기 |
 | `build/mac/make-dmg-template.sh` | DMG 틀(`build/mac/dmg/template.dmg`) 만들기. Finder로 배경 그림·창 크기·아이콘 자리를 설정한다 |
 
 ### 새 러너 추가하기
@@ -209,7 +212,7 @@ OS마다 달라야 하는 일(어디서 달릴지, CPU·메모리 읽기, 클릭
 
 ## 📦 릴리즈
 
-`vX.Y.Z` 형식의 태그를 푸시하면 GitHub Actions(`.github/workflows/release.yml`)가 `Woodada.exe`(Windows)와 `Woodada-mac-arm64.dmg`·`Woodada-mac-x64.dmg`(macOS)를 빌드해 릴리즈에 올립니다.
+`vX.Y.Z` 형식의 태그를 푸시하면 GitHub Actions(`.github/workflows/release.yml`)가 `Woodada.exe`(Windows)와 `Woodada-mac-arm64.dmg`·`Woodada-mac-x64.dmg`(macOS, 처음 설치용)와 `Woodada-mac-arm64.zip`·`Woodada-mac-x64.zip`(macOS, 자동 업데이트용)을 빌드해 릴리즈에 올립니다.
 
 ```bash
 git tag v1.0.0
