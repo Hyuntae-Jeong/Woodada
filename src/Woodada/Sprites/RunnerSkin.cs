@@ -6,6 +6,7 @@ public enum RunnerSkin
     None,
     Ghost,
     Flash,
+    Glitch,
 }
 
 public static class RunnerSkins
@@ -16,6 +17,7 @@ public static class RunnerSkins
     {
         (RunnerSkin.Ghost, "ghost", "유령"),
         (RunnerSkin.Flash, "flash", "플래시"),
+        (RunnerSkin.Glitch, "glitch", "글리치"),
     };
 
     /// <summary>스킨이 있는 것들만(None 제외).</summary>

@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Media;
+using Woodada.Settings;
 
 namespace Woodada.Sprites;
 
@@ -28,6 +29,10 @@ internal static class FlashSkin
     private const double HeatStartUsage = 50;
     private const double HeatFullUsage = 60;
     private static readonly Color HeatColor = Color.FromRgb(0xD9, 0x62, 0x6B);
+    /// <summary>몸이 이미 붉은 계열이면 빨갛게 달아올라도 티가 안 나서, 대신 밝은 주황으로 달아오른다.</summary>
+    private static readonly Color HeatColorForRed = Color.FromRgb(0xFF, 0xB3, 0x47);
+    /// <summary>HeatColor와 색상(hue)이 이만큼(°) 가깝고 색이 뚜렷하면 붉은 계열로 본다.</summary>
+    private const double RedBodyDegrees = 25;
     /// <summary>
     /// 달아오르는 색을 몇 단계로 나눌지. 색마다 프레임을 새로 칠해 캐시하므로,
     /// 매끄럽게 섞으면 사용률이 조금만 흔들려도 새 그림을 계속 만든다.
@@ -49,13 +54,18 @@ internal static class FlashSkin
     public static double Strength(double usagePercent) =>
         MinStrength + (1 - MinStrength) * Math.Clamp(usagePercent / FullUsage, 0, 1);
 
-    /// <summary>지금 입을 몸 색. 평소엔 고른 색, 아주 빠르면 빨갛게 달아오른다.</summary>
+    /// <summary>지금 입을 몸 색. 평소엔 고른 색, 아주 빠르면 빨갛게(붉은 몸이면 주황으로) 달아오른다.</summary>
     public static Color BodyColor(Color chosen, double usagePercent)
     {
         double heat = Math.Clamp((usagePercent - HeatStartUsage) / (HeatFullUsage - HeatStartUsage), 0, 1);
         heat = Math.Round(heat * HeatSteps) / HeatSteps;
-        return heat <= 0 ? chosen : Mix(chosen, HeatColor, heat);
+        return heat <= 0 ? chosen : Mix(chosen, HeatColorFor(chosen), heat);
     }
+
+    private static Color HeatColorFor(Color chosen) =>
+        ColorUtil.IsChromatic(chosen, 0.3) && ColorUtil.HueDistance(chosen.ToHsl().H, HeatColor.ToHsl().H) < RedBodyDegrees
+            ? HeatColorForRed
+            : HeatColor;
 
     /// <summary>빠를수록 길어지는 몫(0.35~1).</summary>
     private static double SpeedShare(double usagePercent) => 0.35 + 0.65 * Math.Clamp(usagePercent / 100, 0, 1);

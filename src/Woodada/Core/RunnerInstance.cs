@@ -39,6 +39,9 @@ public sealed class RunnerInstance
     /// <summary>스킨 효과(둥실 흔들림, 불꽃 일렁임)의 시작 위상. 두 마리가 같은 스킨이어도 똑같이 움직이지 않게 한다.</summary>
     public double EffectPhase { get; } = Random.Shared.NextDouble() * 2 * Math.PI;
 
+    /// <summary>글리치 스킨이 언제 터졌고 지금 어떤 모양인지.</summary>
+    public GlitchState Glitch { get; } = new();
+
     /// <returns>이번에 실제로 달린 거리(px). 다른 모니터로 옮겨져 새 자리에서 출발한 순간이동은 세지 않는다.</returns>
     public double Update(double dt, double rawUsage, Runway runway)
     {

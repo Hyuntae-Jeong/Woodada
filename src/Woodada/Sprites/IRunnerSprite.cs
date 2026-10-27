@@ -35,6 +35,13 @@ public interface IRunnerSprite
     void Draw(DrawingContext ctx, Rect box, RunnerPose pose, Color color, double renderScaling, RunnerSkin skin, bool lightBackground) =>
         Draw(ctx, box, pose, color, renderScaling);
 
+    /// <summary>
+    /// 글리치 스킨으로 그린다. shape가 null이면 평소 모습(가장자리에 옅은 색 번짐), 아니면 지지직거리는 모습이다.
+    /// 지원하지 않는 스프라이트는 색만 칠한다.
+    /// </summary>
+    void DrawGlitch(DrawingContext ctx, Rect box, RunnerPose pose, Color color, double renderScaling, GlitchShape? shape) =>
+        Draw(ctx, box, pose, color, renderScaling);
+
     /// <summary>눈 없이 한 색으로 칠한 몸 모양을 opacity만큼 비치게 그린다. 플래시 스킨의 잔상이다.</summary>
     void DrawSilhouette(DrawingContext ctx, Rect box, RunnerPose pose, Color color, double opacity, double renderScaling)
     {

@@ -24,7 +24,8 @@ internal enum FrameLayer
 /// <param name="Phase">러너마다 다른 효과 위상.</param>
 internal readonly record struct RunnerFrame(IRunnerSprite Sprite, Rect Box, RunnerPose Pose, Color Color,
     RunnerSkin Skin = RunnerSkin.None, bool LightBackground = false,
-    FrameLayer Layer = FrameLayer.Body, double Opacity = 1, double Usage = 0, double Seconds = 0, double Phase = 0);
+    FrameLayer Layer = FrameLayer.Body, double Opacity = 1, double Usage = 0, double Seconds = 0, double Phase = 0,
+    GlitchShape? Glitch = null);
 
 /// <summary>
 /// 작업표시줄·독 위에 깔리는 투명 띠 창. 클릭 통과·포커스 안 뺏기 같은 OS별 설정은 IPlatform이 한다.
@@ -132,6 +133,9 @@ internal sealed class OverlayWindow : Window
                         break;
                     case FrameLayer.FlashWisps:
                         FlashSkin.DrawWisps(ctx, f.Box, f.Pose.Facing, f.Usage, f.Seconds, f.Phase, f.Color, scaling);
+                        break;
+                    case FrameLayer.Body when f.Skin == RunnerSkin.Glitch:
+                        f.Sprite.DrawGlitch(ctx, f.Box, f.Pose, f.Color, scaling, f.Glitch);
                         break;
                     default:
                         f.Sprite.Draw(ctx, f.Box, f.Pose, f.Color, scaling, f.Skin, f.LightBackground);

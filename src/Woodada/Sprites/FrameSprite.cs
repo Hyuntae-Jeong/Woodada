@@ -89,6 +89,101 @@ public sealed class FrameSprite : IRunnerSprite
         Blit(ctx, bmp, box, pose.Facing, scale, 0);
     }
 
+    public void DrawGlitch(DrawingContext ctx, Rect box, RunnerPose pose, Color color, double renderScaling, GlitchShape? shape)
+    {
+        double scale = renderScaling > 0 ? renderScaling : 1;
+        int pixelHeight = Math.Max(4, (int)Math.Round(box.Height * scale));
+        // 갈라짐 거리는 화면 단위라 레티나 macOS에서는 장치 픽셀 2개가 된다(유령 외곽선과 같은 규칙).
+        double unitPixels = OperatingSystem.IsMacOS() ? scale : 1;
+        var body = PickFrame(GetFrames(new FrameKey(FrameLook.Tinted, color.ToUInt32(), pixelHeight, false, 1)), pose);
+        // 갈라짐 색은 몸색과 겹치지 않는 조합으로 고른다(체리·민트 같은 몸색은 빨강/청록이 묻힌다).
+        var pair = GlitchSkin.PairFor(color);
+        var a = PickFrame(GetFrames(new FrameKey(FrameLook.Silhouette, pair.A.ToUInt32(), pixelHeight, false, 1)), pose);
+        var b = PickFrame(GetFrames(new FrameKey(FrameLook.Silhouette, pair.B.ToUInt32(), pixelHeight, false, 1)), pose);
+
+        double px = 1 / scale; // 장치 픽셀 하나(논리 단위)
+        double w = body.PixelSize.Width * px, h = body.PixelSize.Height * px;
+        double x = Math.Round(box.X * scale) / scale;
+        double y = Math.Round((box.Bottom - h) * scale) / scale;
+
+        using var _ = ctx.PushRenderOptions(new RenderOptions { BitmapInterpolationMode = BitmapInterpolationMode.None });
+        if (pose.Facing < 0)
+        {
+            // 원본은 오른쪽을 본다. 갈라짐·줄 밀림·노이즈까지 통째로 좌우만 뒤집는다.
+            using (ctx.PushTransform(Matrix.CreateScale(-1, 1) * Matrix.CreateTranslation(2 * x + w, 0)))
+                DrawGlitchFacingRight(ctx, body, a, b, pair, x, y, w, h, px, unitPixels, shape);
+        }
+        else
+        {
+            DrawGlitchFacingRight(ctx, body, a, b, pair, x, y, w, h, px, unitPixels, shape);
+        }
+    }
+
+    private static void DrawGlitchFacingRight(DrawingContext ctx, Bitmap body, Bitmap a, Bitmap b, GlitchSkin.SplitPair pair,
+        double x, double y, double w, double h, double px, double unitPixels, GlitchShape? shape)
+    {
+        if (shape is null)
+        {
+            // 평소: 가장자리에 아주 옅게 색이 번져 있다.
+            double fringe = Math.Max(1, Math.Round(unitPixels)) * px;
+            using (ctx.PushOpacity(GlitchSkin.IdleFringeOpacity))
+            {
+                DrawSliced(ctx, b, x + fringe, y, px, null);
+                DrawSliced(ctx, a, x - fringe, y, px, null);
+            }
+            DrawSliced(ctx, body, x, y, px, null);
+            return;
+        }
+
+        double split = Math.Max(1, Math.Round(shape.Split * unitPixels)) * px * shape.SplitSide;
+        using (ctx.PushOpacity(GlitchSkin.SplitOpacity))
+        {
+            DrawSliced(ctx, b, x + split, y, px, shape.Bands);
+            DrawSliced(ctx, a, x - split, y, px, shape.Bands);
+        }
+        DrawSliced(ctx, body, x, y, px, shape.Bands);
+
+        foreach (var n in shape.Noise)
+        {
+            // 픽셀 격자에 맞춰야 번지지 않고 또렷한 조각으로 보인다.
+            double nx = x + Math.Round(n.X * w / px) * px, ny = y + Math.Round(n.Y * h / px) * px;
+            double nw = Math.Max(2, Math.Round(n.Width * w / px)) * px, nh = Math.Max(1, Math.Round(n.Height * h / px)) * px;
+            ctx.FillRectangle(new SolidColorBrush(GlitchSkin.NoiseColor(n.ColorIndex, pair), GlitchSkin.NoiseOpacity), new Rect(nx, ny, nw, nh));
+        }
+    }
+
+    /// <summary>그림을 가로 줄로 나눠, bands에 든 줄은 옆으로 밀어 찍는다. bands가 없으면 통째로 찍는다.</summary>
+    private static void DrawSliced(DrawingContext ctx, Bitmap bmp, double x, double y, double px, IReadOnlyList<GlitchBand>? bands)
+    {
+        int width = bmp.PixelSize.Width, height = bmp.PixelSize.Height;
+        if (bands is null || bands.Count == 0)
+        {
+            ctx.DrawImage(bmp, new Rect(0, 0, width, height), new Rect(x, y, width * px, height * px));
+            return;
+        }
+
+        // 줄 경계마다 자르고, 한 조각씩 그 조각이 속한 줄만큼 밀어 찍는다.
+        var spans = bands.Select(band =>
+        {
+            int top = Math.Clamp((int)Math.Round(band.Top * height), 0, height);
+            int bottom = Math.Clamp(top + Math.Max(1, (int)Math.Round(band.Height * height)), 0, height);
+            return (Top: top, Bottom: bottom, Dx: Math.Round(band.Shift * width) * px);
+        }).ToList();
+        var cuts = new SortedSet<int> { 0, height };
+        foreach (var s in spans) { cuts.Add(s.Top); cuts.Add(s.Bottom); }
+        int prev = -1;
+        foreach (int cut in cuts)
+        {
+            if (prev >= 0 && cut > prev)
+            {
+                int y0 = prev;
+                double dx = spans.FirstOrDefault(s => y0 >= s.Top && y0 < s.Bottom).Dx;
+                ctx.DrawImage(bmp, new Rect(0, y0, width, cut - y0), new Rect(x + dx, y + y0 * px, width * px, (cut - y0) * px));
+            }
+            prev = cut;
+        }
+    }
+
     private static Bitmap PickFrame(Bitmap[] frames, RunnerPose pose)
     {
         int count = frames.Length;

@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>스킨 색 비교</title>
+<style>
+:root{--bg:#f4f5f8;--card:#fff;--text:#1d1f23;--muted:#6b7180;--line:#e2e5ea;--accent:#4a7bd0}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 "Segoe UI","Malgun Gothic",sans-serif}
+main{max-width:900px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:18px;margin:0 0 2px;font-weight:600}
+p.sub{margin:0 0 12px;color:var(--muted);font-size:13px}
+.bar{position:sticky;top:0;z-index:2;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:12px;display:flex;flex-wrap:wrap;gap:10px 22px;align-items:center;font-size:13px}
+.bar label{display:flex;gap:6px;align-items:center}
+.bar input[type=range]{width:140px;accent-color:var(--accent)}
+.bar output{color:var(--muted);min-width:34px;font-variant-numeric:tabular-nums}
+select{font:inherit;font-size:13px;padding:3px 8px;border:1px solid var(--line);background:#fff;border-radius:6px}
+.grid{display:grid;grid-template-columns:150px minmax(0,1fr) minmax(0,1fr);gap:6px 10px;align-items:center}
+.head{font-size:12px;color:var(--muted);font-weight:600;padding:0 2px}
+.name{display:flex;gap:8px;align-items:center;font-size:13px}
+.sw{width:18px;height:18px;border-radius:5px;border:1px solid rgba(0,0,0,.15);flex:none}
+.note{font-size:11px;color:var(--muted);line-height:1.35}
+.note b{color:#c2410c;font-weight:600}
+canvas.lane{display:block;width:100%;height:58px;border-radius:8px;border:1px solid var(--line)}
+@media (max-width:640px){.grid{grid-template-columns:96px minmax(0,1fr) minmax(0,1fr)}.note{display:none}}
+</style>
+</head>
+<body>
+<main>
+  <h1>플래시냥·글리치냥 색 비교</h1>
+  <p class="sub">팔레트 색 열 개를 한 줄씩 놓고, 줄마다 플래시냥(왼쪽)과 글리치냥(오른쪽)을 달리게 했어요.
+    "보정"을 켜면 몸색과 겹치는 효과 색을 자동으로 바꿔요. 껐다 켜며 비교해 보세요.</p>
+
+  <div class="bar">
+    <label>사용률 <input type="range" autocomplete="off" id="usage" min="0" max="100" step="1" value="35"><output id="usageOut">35%</output></label>
+    <label>배경 <select autocomplete="off" id="bg"><option value="light" selected>밝은 작업표시줄</option><option value="dark">어두운 작업표시줄</option></select></label>
+    <label><input type="checkbox" autocomplete="off" id="fix" checked> 보정</label>
+    <label><input type="checkbox" autocomplete="off" id="often" checked> 글리치 자주 (비교용)</label>
+  </div>
+
+  <div class="grid" id="grid">
+    <div class="head">색</div><div class="head">플래시냥</div><div class="head">글리치냥</div>
+  </div>
+</main>
+<script>
+const FRAMES = __FRAMES__;
+const COLORS = [['까망','#1E1E22'],['하양','#ECE7DF'],['치즈','#F4A261'],['고등어','#6D8BA8'],['회색','#9A9AA0'],
+                ['삼색','#C9825B'],['민트','#7FB8A4'],['레몬','#E6C55A'],['라벤더','#AE8FC7'],['체리','#D9626B']];
+const $ = id => document.getElementById(id);
+const mk = (w, h) => { const c = document.createElement('canvas'); c.width = Math.max(1, w); c.height = Math.max(1, h); return c; };
+const SIZE = 28;
+let usage = 35;
+$('usage').addEventListener('input', e => { usage = +e.target.value; $('usageOut').textContent = usage + '%'; });
+$('fix').addEventListener('change', () => { cache.clear(); updateNotes(); });
+
+// ── 색 도우미 ──
+function hexRgb(h) { const n = parseInt(h.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
+function rgbHex([r, g, b]) { return '#' + [r, g, b].map(v => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')).join(''); }
+function mix(a, b, t) { const A = hexRgb(a), B = hexRgb(b); return rgbHex(A.map((v, i) => v + (B[i] - v) * t)); }
+function lum(h) { const [r, g, b] = hexRgb(h); return (0.299 * r + 0.587 * g + 0.114 * b) / 255; }
+function hsl(hex) {
+  let [r, g, b] = hexRgb(hex).map(v => v / 255);
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
+  if (d === 0) return { h: 0, s: 0, l };
+  const s = d / (1 - Math.abs(2 * l - 1));
+  let h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return { h: (h * 60 + 360) % 360, s, l };
+}
+const hueDist = (a, b) => { const d = Math.abs(a - b) % 360; return d > 180 ? 360 - d : d; };
+const eyeFor = c => lum(c) > 0.7 ? '#2d2a30' : '#ffffff';
+
+// ── 보정 규칙 ──
+const PAIRS = {
+  rc: { name: '빨강/청록', a: '#FF2E4D', b: '#22E6F0' },
+  mg: { name: '마젠타/초록', a: '#FF2BD6', b: '#38F27A' },
+  py: { name: '보라/노랑', a: '#8A4DFF', b: '#FFE14A' },
+};
+// 글리치: 기본은 빨강/청록. 몸색이 그 둘 중 하나와 색상(hue)이 30° 안으로 가까울 때만,
+// 나머지 두 조합 중 몸색과 더 멀리 떨어진 조합으로 바꾼다. 무채색(까망·하양·회색)은 늘 그대로.
+const PAIR_CONFLICT = 30;
+function pairDistance(c, p) { return Math.min(hueDist(c.h, hsl(p.a).h), hueDist(c.h, hsl(p.b).h)); }
+function glitchPair(body) {
+  if (!$('fix').checked) return 'rc';
+  const c = hsl(body);
+  if (c.s < 0.25 || c.l > 0.85 || c.l < 0.15) return 'rc';
+  if (pairDistance(c, PAIRS.rc) >= PAIR_CONFLICT) return 'rc';
+  return pairDistance(c, PAIRS.mg) >= pairDistance(c, PAIRS.py) ? 'mg' : 'py';
+}
+// 플래시: 몸이 이미 붉은 계열이면 빨강 대신 밝은 주황빛으로 달아오른다.
+const HEAT = '#D9626B', HEAT_ALT = '#FFB347';
+function heatColor(body) {
+  if (!$('fix').checked) return HEAT;
+  const c = hsl(body);
+  return c.s > 0.3 && hueDist(c.h, hsl(HEAT).h) < 25 ? HEAT_ALT : HEAT;
+}
+function flashBody(chosen) {
+  let heat = Math.max(0, Math.min(1, (usage - 50) / 10));
+  heat = Math.round(heat * 5) / 5;
+  return heat <= 0 ? chosen : mix(chosen, heatColor(chosen), heat);
+}
+const FIRE = ['#FF4D2E', '#FF8A3D', '#FFC24A', '#FFE9A0'];
+function trailColor(t, body) {
+  const x = t * (FIRE.length - 1), i = Math.min(FIRE.length - 2, Math.floor(x));
+  const c = mix(FIRE[i], FIRE[i + 1], x - i);
+  return t < 0.2 ? mix(body, c, 0.5 + t * 2.5) : c;
+}
+
+// ── 마스크 (FrameSprite와 같은 방식) ──
+let crop, masks;
+function findEyes(alpha, w, h) {
+  const visited = new Uint8Array(w * h), eye = new Uint8Array(w * h);
+  for (let s = 0; s < w * h; s++) {
+    if (visited[s] || alpha[s] >= 128) continue;
+    const comp = [], q = [s]; visited[s] = 1; let border = false;
+    while (q.length) {
+      const i = q.pop(); comp.push(i);
+      const x = i % w, y = (i / w) | 0;
+      if (x === 0 || y === 0 || x === w - 1 || y === h - 1) border = true;
+      for (const [nx, ny] of [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]]) {
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+        const j = ny * w + nx; if (visited[j] || alpha[j] >= 128) continue;
+        visited[j] = 1; q.push(j);
+      }
+    }
+    if (border || comp.length > w * h / 100) continue;
+    const cx = comp.reduce((a, i) => a + i % w, 0) / comp.length;
+    if (cx < w * 0.55) continue;
+    for (const i of comp) eye[i] = 1;
+  }
+  const grown = eye.slice();
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    if (!eye[y * w + x]) continue;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const nx = x + dx, ny = y + dy; if (nx >= 0 && ny >= 0 && nx < w && ny < h) grown[ny * w + nx] = 1;
+    }
+  }
+  return grown;
+}
+async function loadMasks() {
+  const imgs = await Promise.all(FRAMES.map(src => new Promise(r => { const i = new Image(); i.onload = () => r(i); i.src = src; })));
+  const W = imgs[0].width, H = imgs[0].height;
+  const alphas = imgs.map(img => {
+    const c = mk(W, H), x = c.getContext('2d'); x.drawImage(img, 0, 0);
+    const d = x.getImageData(0, 0, W, H).data, a = new Uint8Array(W * H);
+    for (let i = 0; i < W * H; i++) a[i] = d[i * 4 + 3];
+    return a;
+  });
+  let x0 = W, y0 = H, x1 = -1, y1 = -1;
+  for (const a of alphas) for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (a[y * W + x] > 8) {
+    x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+  }
+  const cw = x1 - x0 + 1, ch = y1 - y0 + 1;
+  crop = { w: cw, h: ch };
+  const w = Math.round(SIZE * cw / ch), h = SIZE;
+  masks = alphas.map(a => {
+    const al = new Uint8Array(cw * ch);
+    for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) al[y * cw + x] = a[(y + y0) * W + x + x0];
+    const eye = findEyes(al, cw, ch);
+    const sil = mk(cw, ch), eyeC = mk(cw, ch);
+    const sd = sil.getContext('2d').createImageData(cw, ch), ed = eyeC.getContext('2d').createImageData(cw, ch);
+    for (let i = 0; i < cw * ch; i++) {
+      sd.data.set([255, 255, 255, eye[i] ? 255 : al[i]], i * 4);
+      ed.data.set([255, 255, 255, eye[i] ? 255 - al[i] : 0], i * 4);
+    }
+    sil.getContext('2d').putImageData(sd, 0, 0); eyeC.getContext('2d').putImageData(ed, 0, 0);
+    const place = src => { const c = mk(w, h), x = c.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(src, 0, 0, w, h); return c; };
+    return { sil: place(sil), eye: place(eyeC), w, h };
+  });
+}
+function tint(c, color) {
+  const t = mk(c.width, c.height), x = t.getContext('2d');
+  x.drawImage(c, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = color; x.fillRect(0, 0, t.width, t.height); return t;
+}
+// (프레임 번호, 종류, 색)별로 한 번만 칠해 둔다.
+const cache = new Map();
+function bodyImg(i, color) {
+  const k = 'b' + i + color;
+  if (!cache.has(k)) { const m = masks[i], c = mk(m.w, m.h), o = c.getContext('2d'); o.drawImage(tint(m.sil, color), 0, 0); o.drawImage(tint(m.eye, eyeFor(color)), 0, 0); cache.set(k, c); }
+  return cache.get(k);
+}
+function silImg(i, color) {
+  const k = 's' + i + color;
+  if (!cache.has(k)) cache.set(k, tint(masks[i].sil, color));
+  return cache.get(k);
+}
+const frameOf = phase => Math.floor(phase * masks.length) % masks.length;
+
+// ── 줄(레인) ──
+const lanes = [];
+function buildGrid() {
+  const grid = $('grid');
+  COLORS.forEach(([name, hex], i) => {
+    const label = document.createElement('div'); label.className = 'name';
+    label.innerHTML = `<span class="sw" style="background:${hex}"></span><div><div>${name}</div><div class="note" id="note${i}"></div></div>`;
+    const fc = document.createElement('canvas'); fc.className = 'lane';
+    const gc = document.createElement('canvas'); gc.className = 'lane';
+    grid.append(label, fc, gc);
+    const start = () => ({ x: 20 + Math.random() * 200, dir: Math.random() < 0.5 ? 1 : -1, phase: Math.random(), odo: 0, hist: [], burstUntil: 0, glitch: null, seed: Math.random() * 100 });
+    lanes.push({ hex, i, flash: { cv: fc, r: start() }, glitch: { cv: gc, r: start() } });
+  });
+}
+function updateNotes() {
+  for (const l of lanes) {
+    const notes = [];
+    const pair = glitchPair(l.hex);
+    if (pair !== 'rc') notes.push(`글리치: <b>${PAIRS[pair].name}</b>`);
+    if (heatColor(l.hex) !== HEAT) notes.push('플래시: <b>주황으로 달아오름</b>');
+    $('note' + l.i).innerHTML = notes.join('<br>');
+  }
+}
+
+function move(r, W, dt) {
+  const w = masks[0].w, u = usage / 100;
+  const v = w * (0.4 + (7 - 0.4) * Math.pow(u, 0.7));
+  let x = r.x + v * dt * r.dir;
+  if (x > W - w) { x = 2 * (W - w) - x; r.dir = -1; }
+  if (x < 0) { x = -x; r.dir = 1; }
+  r.x = x; r.odo += v * dt;
+  r.phase = (r.phase + v * dt / w * 0.8) % 1;
+  r.hist.push({ odo: r.odo, x: r.x, dir: r.dir, phase: r.phase });
+  if (r.hist.length > 64) r.hist.shift();
+}
+function behind(r, dist) {
+  const target = r.odo - dist, h = r.hist;
+  for (let i = h.length - 1; i > 0; i--) {
+    const a = h[i - 1], b = h[i];
+    if (a.odo <= target) {
+      const k = b.odo > a.odo ? (target - a.odo) / (b.odo - a.odo) : 0;
+      if (a.dir !== b.dir) return k < 0.5 ? a : b;
+      return { x: a.x + (b.x - a.x) * k, dir: b.dir, phase: b.phase };
+    }
+  }
+  return h[0] ?? null;
+}
+function drawAt(ctx, img, x, y, dir) {
+  ctx.save();
+  if (dir < 0) { ctx.translate(x * 2 + img.width, 0); ctx.scale(-1, 1); }
+  ctx.drawImage(img, x, y);
+  ctx.restore();
+}
+function background(ctx, W, H) {
+  const dark = $('bg').value === 'dark', ground = H - 14;
+  ctx.fillStyle = dark ? '#1a2537' : '#e6e9ee'; ctx.fillRect(0, 0, W, ground);
+  ctx.fillStyle = dark ? '#202020' : '#f3f3f3'; ctx.fillRect(0, ground, W, H - ground);
+  return ground;
+}
+
+// 플래시냥: 앱의 FlashSkin과 같은 값(꼬리 90%, 잔상 8개, 첫 잔상 60%, 줄기 4개 130%, 느릴 때 세기 35%).
+function drawFlash(ctx, r, chosen, ground, t) {
+  const body = flashBody(chosen), m0 = masks[0], u = usage / 100;
+  const k = 0.35 + 0.65 * Math.min(1, usage / 40), share = 0.35 + 0.65 * u;
+  const tail = m0.w * 0.9 * k * share;
+  const back = Math.round(r.x) + (r.dir > 0 ? m0.w * 0.35 : m0.w * 0.65);
+  for (let j = 0; j < 4; j++) {
+    const rnd = 0.5 + 0.5 * Math.sin(j * 12.9898 + r.seed);
+    const len = m0.w * 1.3 * k * share * (0.55 + 0.45 * rnd);
+    const y0 = ground - m0.h * (1 - (0.12 + 0.6 * j / 3));
+    for (let s = 0; s < 14; s++) {
+      const a = s / 14, b = (s + 1) / 14;
+      const wave = q => Math.sin(q * 4.5 - t * 14 + j * 1.7 + r.seed) * m0.h * 0.07 * q;
+      ctx.strokeStyle = trailColor(a, body); ctx.globalAlpha = 0.75 * k * (1 - a);
+      ctx.lineWidth = Math.max(0.6, (1 - a) * Math.max(1.5, m0.h * 0.07)); ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(back - r.dir * len * a, y0 + wave(a) - m0.h * 0.08 * a);
+      ctx.lineTo(back - r.dir * len * b, y0 + wave(b) - m0.h * 0.08 * b);
+      ctx.stroke();
+    }
+  }
+  for (let i = 8; i >= 1; i--) {
+    const q = i / 8, s = behind(r, tail * q); if (!s) continue;
+    ctx.globalAlpha = 0.6 * k * Math.pow(1 - (i - 1) / 8, 1.3);
+    drawAt(ctx, silImg(frameOf(s.phase), trailColor(q, body)), Math.round(s.x), ground - m0.h, s.dir);
+  }
+  ctx.globalAlpha = 1;
+  drawAt(ctx, bodyImg(frameOf(r.phase), body), Math.round(r.x), ground - m0.h, r.dir);
+}
+
+// 글리치냥: 앱의 GlitchSkin과 같은 값. '글리치 자주'를 켜면 비교하기 쉽게 1초에 3번쯤 터진다.
+const rand = (a, b) => a + Math.random() * (b - a);
+function drawGlitch(ctx, r, chosen, ground, t, dt) {
+  const body = chosen, pair = PAIRS[glitchPair(chosen)], m = masks[frameOf(r.phase)], u = usage / 100;
+  const rate = $('often').checked ? 3 : 0.4 + 2.6 * u;
+  if (t >= r.burstUntil) { r.glitch = null; if (Math.random() < rate * dt) r.burstUntil = t + 0.22 * rand(0.6, 1.4); }
+  const tmp = mk(m.w + 40, m.h + 4), o = tmp.getContext('2d'), bx = 20, by = 2;
+  const A = silImg(frameOf(r.phase), pair.a), B = silImg(frameOf(r.phase), pair.b), Body = bodyImg(frameOf(r.phase), body);
+  if (t < r.burstUntil) {
+    if (!r.glitch || Math.random() < 0.6) {
+      const power = 0.45 + 0.55 * u, bands = [];
+      for (let i = 0; i < 3; i++) { const hh = Math.max(1, Math.round(m.h * rand(0.06, 0.18))); bands.push({ y: Math.floor(rand(0, m.h - hh)), h: hh, dx: Math.round(rand(-1, 1) * m.w * 0.18 * power) }); }
+      const noise = [];
+      for (let i = 0; i < Math.round(4 * power); i++) noise.push({ x: Math.round(rand(-0.3, 1.2) * m.w), y: Math.round(rand(0, 1) * m.h), w: Math.max(2, Math.round(rand(0.06, 0.3) * m.w)), h: Math.max(1, Math.round(rand(0.03, 0.08) * m.h)), c: [pair.a, pair.b, '#ffffff'][Math.floor(rand(0, 3))] });
+      r.glitch = { bands, split: Math.max(1, Math.round(2 * power * rand(0.6, 1.4))), side: Math.random() < 0.5 ? 1 : -1, noise };
+    }
+    const g = r.glitch;
+    o.globalAlpha = 0.85; sliced(o, B, bx + g.split * g.side, by, g.bands); sliced(o, A, bx - g.split * g.side, by, g.bands);
+    o.globalAlpha = 1; sliced(o, Body, bx, by, g.bands);
+    o.globalAlpha = 0.9; for (const n of g.noise) { o.fillStyle = n.c; o.fillRect(bx + n.x, by + n.y, n.w, n.h); }
+    o.globalAlpha = 1;
+  } else {
+    o.globalAlpha = 0.2; o.drawImage(B, bx + 1, by); o.drawImage(A, bx - 1, by); o.globalAlpha = 1;
+    o.drawImage(Body, bx, by);
+  }
+  drawAt(ctx, tmp, Math.round(r.x) - bx, ground - m.h - by, r.dir);
+}
+function sliced(ctx, img, x, y, bands) {
+  const h = img.height, cuts = new Set([0, h]);
+  for (const b of bands) { cuts.add(b.y); cuts.add(Math.min(h, b.y + b.h)); }
+  const ys = [...cuts].sort((a, b) => a - b);
+  for (let i = 0; i < ys.length - 1; i++) {
+    const y0 = ys[i], y1 = ys[i + 1]; if (y1 <= y0) continue;
+    const band = bands.find(b => y0 >= b.y && y0 < b.y + b.h);
+    ctx.drawImage(img, 0, y0, img.width, y1 - y0, x + (band ? band.dx : 0), y + y0, img.width, y1 - y0);
+  }
+}
+
+let t = 0, last = performance.now(), acc = 0;
+function frame(dt) {
+  t += dt;
+  const dpr = window.devicePixelRatio || 1;
+  for (const l of lanes) {
+    for (const kind of ['flash', 'glitch']) {
+      const { cv, r } = l[kind];
+      const W = Math.round(cv.clientWidth * dpr), H = Math.round(cv.clientHeight * dpr);
+      if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+      move(r, W, dt);
+      const ctx = cv.getContext('2d'), ground = background(ctx, W, H);
+      if (kind === 'flash') drawFlash(ctx, r, l.hex, ground, t); else drawGlitch(ctx, r, l.hex, ground, t, dt);
+    }
+  }
+}
+function loop(now) {
+  const dt = Math.min(0.25, (now - last) / 1000); last = now; acc += dt;
+  if (acc >= 1 / 30) { frame(acc); acc = 0; }
+  requestAnimationFrame(loop);
+}
+loadMasks().then(() => { buildGrid(); updateNotes(); frame(0); requestAnimationFrame(loop); });
+</script>
+</body>
+</html>

@@ -50,9 +50,11 @@ button{cursor:pointer;padding:4px 12px}
     <div class="grid" id="controls"></div>
     <div class="checks">
       <label>고양이 색 <select autocomplete="off" id="color">
-        <option value="#1E1E22" selected>까망</option><option value="#D9626B">체리</option>
-        <option value="#F4A261">치즈</option><option value="#ECE7DF">하양</option>
-        <option value="#6D8BA8">고등어</option></select></label>
+        <option value="#1E1E22" selected>까망</option><option value="#ECE7DF">하양</option>
+        <option value="#F4A261">치즈</option><option value="#6D8BA8">고등어</option>
+        <option value="#9A9AA0">회색</option><option value="#C9825B">삼색</option>
+        <option value="#7FB8A4">민트</option><option value="#E6C55A">레몬</option>
+        <option value="#AE8FC7">라벤더</option><option value="#D9626B">체리</option></select></label>
       <label>잔상 색 <select autocomplete="off" id="trail">
         <option value="fire" selected>불꽃 (빨강→주황→노랑)</option><option value="bolt">번개 (노랑→흰)</option>
         <option value="sky">하늘 (파랑→흰)</option><option value="cat">고양이 색</option></select></label>
@@ -111,6 +113,17 @@ function updateSummary() {
 function hexRgb(h) { const n = parseInt(h.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
 function rgbHex([r, g, b]) { return '#' + [r, g, b].map(v => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')).join(''); }
 function mix(a, b, t) { const A = hexRgb(a), B = hexRgb(b); return rgbHex(A.map((v, i) => v + (B[i] - v) * t)); }
+// 색상(hue)·채도 도우미. 앱의 ColorUtil.IsChromatic / HueDistance와 같은 규칙.
+function hsl(hex) {
+  let [r, g, b] = hexRgb(hex).map(v => v / 255);
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
+  if (d === 0) return { h: 0, s: 0, l };
+  const s = d / (1 - Math.abs(2 * l - 1));
+  let h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return { h: (h * 60 + 360) % 360, s, l };
+}
+const hueDist = (a, b) => { const d = Math.abs(a - b) % 360; return d > 180 ? 360 - d : d; };
+const chromatic = (hex, minS) => { const c = hsl(hex); return c.s >= minS && c.l >= 0.15 && c.l <= 0.85; };
 function lum(h) { const [r, g, b] = hexRgb(h); return (0.299 * r + 0.587 * g + 0.114 * b) / 255; }
 const eyeFor = c => lum(c) > 0.7 ? '#2d2a30' : '#ffffff';  // 앱의 FrameSprite 색칠과 같은 규칙
 
@@ -123,11 +136,13 @@ function trailColor(t, body) {
   return t < 0.2 ? mix(body, c, 0.5 + t * 2.5) : c;
 }
 // 앱의 FlashSkin.BodyColor: '빨개지는 사용률' 10%p 전부터 달아올라 그 사용률에서 완전히 빨개진다. 5단계로 끊는다.
-const HEAT_COLOR = '#D9626B';
+// 붉은 몸(색상이 체리와 25° 안, 채도 0.3 이상)은 빨갛게 달아올라도 티가 안 나서 밝은 주황으로 달아오른다.
+const HEAT_COLOR = '#D9626B', HEAT_FOR_RED = '#FFB347';
+const heatFor = c => chromatic(c, 0.3) && hueDist(hsl(c).h, hsl(HEAT_COLOR).h) < 25 ? HEAT_FOR_RED : HEAT_COLOR;
 function bodyColor() {
   let heat = Math.max(0, Math.min(1, (usageNow - (P.heatAt - 10)) / 10));
   heat = Math.round(heat * 5) / 5;
-  return heat <= 0 ? P.color : mix(P.color, HEAT_COLOR, heat);
+  return heat <= 0 ? P.color : mix(P.color, heatFor(P.color), heat);
 }
 
 // ── 마스크 (FrameSprite와 같은 방식: 합집합으로 자르고, 머리 쪽 작은 구멍을 눈으로) ──

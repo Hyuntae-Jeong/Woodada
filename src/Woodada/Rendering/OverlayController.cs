@@ -162,7 +162,13 @@ internal sealed class OverlayController : IDisposable
                 // 플래시 효과는 몸 아래에 깔려야 하니 몸보다 먼저 넣는다.
                 AddFlashTrail(frames, r, strip, box, pose, color, seconds);
             }
-            frames.Add(new RunnerFrame(r.Sprite, box, pose, color, skin, _lightBar));
+            GlitchShape? glitch = null;
+            if (skin == RunnerSkin.Glitch)
+            {
+                GlitchSkin.Advance(r.Glitch, seconds, r.Usage);
+                glitch = r.Glitch.Shape;
+            }
+            frames.Add(new RunnerFrame(r.Sprite, box, pose, color, skin, _lightBar, Glitch: glitch));
         }
 
         _window.Present(strip, frames, _runway.HangBelow);

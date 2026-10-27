@@ -103,4 +103,20 @@ public static class ColorUtil
 
     /// <summary>검정 고양이 눈이 안 보이는 걸 막으려고 밝기를 본다.</summary>
     public static double Luminance(Color c) => (0.299 * c.R + 0.587 * c.G + 0.114 * c.B) / 255.0;
+
+    /// <summary>색상환에서 두 색상(0~360°) 사이 거리(0~180°).</summary>
+    public static double HueDistance(double a, double b)
+    {
+        double d = Math.Abs(a - b) % 360;
+        return d > 180 ? 360 - d : d;
+    }
+
+    /// <summary>
+    /// 스킨 효과 색과 겹칠 만큼 색이 뚜렷한지. 까망·하양·회색처럼 무채색이거나 아주 밝거나 어두우면 아니다.
+    /// </summary>
+    public static bool IsChromatic(Color c, double minSaturation)
+    {
+        var hsl = c.ToHsl();
+        return hsl.S >= minSaturation && hsl.L is >= 0.15 and <= 0.85;
+    }
 }

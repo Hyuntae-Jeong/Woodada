@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>글리치냥 미리보기</title>
+<style>
+:root{--bg:#f4f5f8;--card:#fff;--text:#1d1f23;--muted:#6b7180;--line:#e2e5ea;--accent:#4a7bd0}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 "Segoe UI","Malgun Gothic",sans-serif}
+main{max-width:780px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:18px;margin:0 0 2px;font-weight:600}
+p.sub{margin:0 0 14px;color:var(--muted);font-size:13px}
+.scene{position:relative;border-radius:10px;overflow:hidden;margin-bottom:10px;border:1px solid var(--line)}
+.scene canvas{display:block;width:100%;height:130px}
+.tag{position:absolute;left:10px;top:8px;font-size:12px;padding:1px 9px;border-radius:99px;background:rgba(0,0,0,.45);color:#fff}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-top:14px}
+.panel h2{font-size:13px;margin:0 0 10px;color:var(--muted);font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px 24px}
+label.row{display:grid;grid-template-columns:104px 1fr 58px;align-items:center;gap:8px;font-size:13px}
+label.row output{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.checks{display:flex;gap:18px;flex-wrap:wrap;margin-top:12px;font-size:13px;align-items:center}
+.checks label{display:flex;gap:6px;align-items:center}
+button,select{font:inherit;font-size:13px;padding:3px 8px;border:1px solid var(--line);background:#fff;border-radius:6px}
+button{cursor:pointer;padding:4px 12px}
+#zoom{width:100%;height:200px;display:block;border-radius:8px;image-rendering:pixelated}
+#summary{margin:12px 0 0;font-size:13px;color:var(--muted);user-select:all}
+</style>
+</head>
+<body>
+<main>
+  <h1>글리치냥 미리보기</h1>
+  <p class="sub">실제 RunCat 5프레임으로 그렸어요. 크기는 앱과 같은 물리 픽셀 기준이고, 30fps로 움직여요.
+    평소엔 고른 색으로 달리다가, 가끔 화면이 고장 난 것처럼 지지직거려요. CPU 사용률이 높을수록 더 자주, 더 세게 튀어요.
+    겉모습만 바뀌고 속도와 생선은 그대로예요.</p>
+
+  <div class="scene"><canvas data-scene="light"></canvas><span class="tag">밝은 작업표시줄</span></div>
+  <div class="scene"><canvas data-scene="dark"></canvas><span class="tag">어두운 작업표시줄</span></div>
+  <div class="scene"><canvas data-scene="busy"></canvas><span class="tag">화려한 배경화면 + 흰 창</span></div>
+
+  <div class="panel">
+    <h2>확대 (밝은 작업표시줄 고양이, 픽셀 그대로)</h2>
+    <canvas id="zoom"></canvas>
+  </div>
+
+  <div class="panel">
+    <h2>조절</h2>
+    <div class="grid" id="controls"></div>
+    <div class="checks">
+      <label>고양이 색 <select autocomplete="off" id="color">
+        <option value="#1E1E22" selected>까망</option><option value="#ECE7DF">하양</option>
+        <option value="#F4A261">치즈</option><option value="#6D8BA8">고등어</option>
+        <option value="#9A9AA0">회색</option><option value="#C9825B">삼색</option>
+        <option value="#7FB8A4">민트</option><option value="#E6C55A">레몬</option>
+        <option value="#AE8FC7">라벤더</option><option value="#D9626B">체리</option></select></label>
+      <label>갈라지는 색 <select autocomplete="off" id="pair">
+        <option value="auto" selected>자동 (몸색 따라)</option><option value="rc">빨강 / 청록</option><option value="mg">마젠타 / 초록</option>
+        <option value="py">보라 / 노랑</option></select></label>
+      <label><input type="checkbox" autocomplete="off" id="auto"> 사용률 자동 변동</label>
+      <button id="burst">지금 글리치</button>
+      <button id="reset">기본값</button>
+    </div>
+    <p id="summary"></p>
+  </div>
+</main>
+<script>
+const FRAMES = __FRAMES__;
+const DEFS = [
+  ['size','크기',16,72,1,28,'px'],
+  ['usage','사용률',0,100,1,30,'%'],
+  ['rateLow','빈도 (CPU 0%)',0,3,0.1,0.4,'/초'],
+  ['rateHigh','빈도 (CPU 100%)',0,8,0.1,3,'/초'],
+  ['dur','지속 시간',60,600,10,220,'ms'],
+  ['split','색 갈라짐',0,6,0.5,2,'px'],
+  ['slices','밀리는 줄',0,5,1,3,'개'],
+  ['shift','줄 밀림 세기',0,40,1,18,'%'],
+  ['noise','노이즈 조각',0,10,1,4,'개'],
+  ['idle','평소 색 번짐',0,60,1,20,'%'],
+];
+const PAIRS = {
+  rc: { name: '빨강 / 청록', a: '#FF2E4D', b: '#22E6F0' },
+  mg: { name: '마젠타 / 초록', a: '#FF2BD6', b: '#38F27A' },
+  py: { name: '보라 / 노랑', a: '#8A4DFF', b: '#FFE14A' },
+};
+const P = {};
+const $ = id => document.getElementById(id);
+const mk = (w, h) => { const c = document.createElement('canvas'); c.width = Math.max(1, w); c.height = Math.max(1, h); return c; };
+
+const ctl = $('controls');
+const fmt = (v, step) => step < 1 ? (+v).toFixed(1) : v;
+for (const [k, name, min, max, step, def, unit] of DEFS) {
+  P[k] = def;
+  const l = document.createElement('label'); l.className = 'row';
+  l.innerHTML = `<span>${name}</span><input type="range" autocomplete="off" min="${min}" max="${max}" step="${step}" value="${def}" id="r_${k}"><output id="o_${k}"></output>`;
+  ctl.appendChild(l);
+  const inp = l.querySelector('input'), out = l.querySelector('output');
+  const show = () => out.textContent = fmt(inp.value, step) + unit;
+  show();
+  inp.addEventListener('input', () => { P[k] = +inp.value; show(); invalidate(); });
+}
+P.color = $('color').value; P.pair = $('pair').value;
+$('color').addEventListener('change', e => { P.color = e.target.value; invalidate(); });
+$('pair').addEventListener('change', e => { P.pair = e.target.value; invalidate(); });
+$('burst').addEventListener('click', () => { for (const sc of scenes) startBurst(sc.r); });
+$('reset').addEventListener('click', () => {
+  for (const [k, , , , step, def, unit] of DEFS) { P[k] = def; $('r_' + k).value = def; $('o_' + k).textContent = fmt(def, step) + unit; }
+  $('color').value = '#1E1E22'; P.color = '#1E1E22'; $('pair').value = 'auto'; P.pair = 'auto';
+  $('auto').checked = false; invalidate();
+});
+function updateSummary() {
+  $('summary').textContent = `현재 값: 빈도 ${P.rateLow}~${P.rateHigh}/초 · 지속 ${P.dur}ms · 색 갈라짐 ${P.split}px · 밀리는 줄 ${P.slices}개 · 줄 밀림 ${P.shift}% · 노이즈 ${P.noise}개 · 평소 번짐 ${P.idle}% · 갈라지는 색 ${P.pair === 'auto' ? '자동(' + PAIRS[pairKey()].name + ')' : PAIRS[pairKey()].name}`;
+}
+
+function hexRgb(h) { const n = parseInt(h.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
+// 색상(hue)·채도 도우미. 앱의 ColorUtil.IsChromatic / HueDistance와 같은 규칙.
+function hsl(hex) {
+  let [r, g, b] = hexRgb(hex).map(v => v / 255);
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
+  if (d === 0) return { h: 0, s: 0, l };
+  const s = d / (1 - Math.abs(2 * l - 1));
+  let h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return { h: (h * 60 + 360) % 360, s, l };
+}
+const hueDist = (a, b) => { const d = Math.abs(a - b) % 360; return d > 180 ? 360 - d : d; };
+const chromatic = (hex, minS) => { const c = hsl(hex); return c.s >= minS && c.l >= 0.15 && c.l <= 0.85; };
+// 앱의 GlitchSkin.PairFor: 기본은 빨강/청록. 몸색이 그중 하나와 색상이 30° 안으로 가까울 때만
+// 나머지 두 조합 중 몸색과 더 멀리 떨어진 쪽을 쓴다. 무채색은 늘 빨강/청록.
+function autoPair(body) {
+  if (!chromatic(body, 0.25)) return 'rc';
+  const h = hsl(body).h, dist = k => Math.min(hueDist(h, hsl(PAIRS[k].a).h), hueDist(h, hsl(PAIRS[k].b).h));
+  if (dist('rc') >= 30) return 'rc';
+  return dist('mg') >= dist('py') ? 'mg' : 'py';
+}
+const pairKey = () => P.pair === 'auto' ? autoPair(P.color) : P.pair;
+function lum(h) { const [r, g, b] = hexRgb(h); return (0.299 * r + 0.587 * g + 0.114 * b) / 255; }
+const eyeFor = c => lum(c) > 0.7 ? '#2d2a30' : '#ffffff';  // 앱의 FrameSprite 색칠과 같은 규칙
+
+// ── 마스크 (FrameSprite와 같은 방식: 합집합으로 자르고, 머리 쪽 작은 구멍을 눈으로) ──
+let crop, masks;
+function findEyes(alpha, w, h) {
+  const visited = new Uint8Array(w * h), eye = new Uint8Array(w * h);
+  for (let s = 0; s < w * h; s++) {
+    if (visited[s] || alpha[s] >= 128) continue;
+    const comp = [], q = [s]; visited[s] = 1; let border = false;
+    while (q.length) {
+      const i = q.pop(); comp.push(i);
+      const x = i % w, y = (i / w) | 0;
+      if (x === 0 || y === 0 || x === w - 1 || y === h - 1) border = true;
+      for (const [nx, ny] of [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]]) {
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+        const j = ny * w + nx; if (visited[j] || alpha[j] >= 128) continue;
+        visited[j] = 1; q.push(j);
+      }
+    }
+    if (border || comp.length > w * h / 100) continue;
+    const cx = comp.reduce((a, i) => a + i % w, 0) / comp.length;
+    if (cx < w * 0.55) continue;
+    for (const i of comp) eye[i] = 1;
+  }
+  const grown = eye.slice();
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    if (!eye[y * w + x]) continue;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const nx = x + dx, ny = y + dy; if (nx >= 0 && ny >= 0 && nx < w && ny < h) grown[ny * w + nx] = 1;
+    }
+  }
+  return grown;
+}
+async function loadMasks() {
+  const imgs = await Promise.all(FRAMES.map(src => new Promise(r => { const i = new Image(); i.onload = () => r(i); i.src = src; })));
+  const W = imgs[0].width, H = imgs[0].height;
+  const alphas = imgs.map(img => {
+    const c = mk(W, H), x = c.getContext('2d'); x.drawImage(img, 0, 0);
+    const d = x.getImageData(0, 0, W, H).data, a = new Uint8Array(W * H);
+    for (let i = 0; i < W * H; i++) a[i] = d[i * 4 + 3];
+    return a;
+  });
+  let x0 = W, y0 = H, x1 = -1, y1 = -1;
+  for (const a of alphas) for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (a[y * W + x] > 8) {
+    x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+  }
+  const cw = x1 - x0 + 1, ch = y1 - y0 + 1;
+  crop = { w: cw, h: ch };
+  masks = alphas.map(a => {
+    const al = new Uint8Array(cw * ch);
+    for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) al[y * cw + x] = a[(y + y0) * W + x + x0];
+    const eye = findEyes(al, cw, ch);
+    const sil = mk(cw, ch), eyeC = mk(cw, ch);
+    const sd = sil.getContext('2d').createImageData(cw, ch), ed = eyeC.getContext('2d').createImageData(cw, ch);
+    for (let i = 0; i < cw * ch; i++) {
+      sd.data.set([255, 255, 255, eye[i] ? 255 : al[i]], i * 4);
+      ed.data.set([255, 255, 255, eye[i] ? 255 - al[i] : 0], i * 4);
+    }
+    sil.getContext('2d').putImageData(sd, 0, 0); eyeC.getContext('2d').putImageData(ed, 0, 0);
+    return { sil, eye: eyeC };
+  });
+}
+
+function place(src, w, h) {
+  const c = mk(w, h), x = c.getContext('2d');
+  x.imageSmoothingQuality = 'high'; x.drawImage(src, 0, 0, w, h); return c;
+}
+function tint(c, color) {
+  const t = mk(c.width, c.height), x = t.getContext('2d');
+  x.drawImage(c, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = color; x.fillRect(0, 0, t.width, t.height); return t;
+}
+let cache = new Map();
+function invalidate() { cache = new Map(); updateSummary(); }
+// 몸(색+눈)과, 갈라질 때 쓰는 두 색 실루엣을 프레임마다 미리 칠해 둔다.
+function frames(h) {
+  const key = 'f' + h;
+  if (!cache.has(key)) {
+    const w = Math.max(1, Math.round(h * crop.w / crop.h)), pair = PAIRS[pairKey()];
+    cache.set(key, masks.map(m => {
+      const S = place(m.sil, w, h);
+      const body = mk(w, h), o = body.getContext('2d');
+      o.drawImage(tint(S, P.color), 0, 0); o.drawImage(tint(place(m.eye, w, h), eyeFor(P.color)), 0, 0);
+      return { body, a: tint(S, pair.a), b: tint(S, pair.b), w, h };
+    }));
+  }
+  return cache.get(key);
+}
+
+// ── 씬 ──
+const SCENES = {
+  dark:  { desk: '#1a2537', bar: '#202020', edge: 'rgba(255,255,255,.08)', icon: 'rgba(255,255,255,.18)' },
+  light: { desk: '#e6e9ee', bar: '#f3f3f3', edge: 'rgba(0,0,0,.08)', icon: 'rgba(0,0,0,.14)' },
+  busy:  { desk: null, bar: '#2a2530', edge: 'rgba(255,255,255,.1)', icon: 'rgba(255,255,255,.2)' },
+};
+const BAR_H = 40;
+const scenes = [...document.querySelectorAll('canvas[data-scene]')].map((cv, si) => ({
+  cv, s: SCENES[cv.dataset.scene],
+  r: { x: 60 + si * 180, dir: si % 2 ? -1 : 1, phase: Math.random(), burstUntil: 0, burstStart: 0, glitch: null },
+}));
+
+function drawBackground(ctx, W, H, s, dpr) {
+  const ground = H - BAR_H * dpr;
+  if (s.desk) { ctx.fillStyle = s.desk; ctx.fillRect(0, 0, W, ground); }
+  else {
+    const g = ctx.createLinearGradient(0, 0, W, ground);
+    g.addColorStop(0, '#f2994a'); g.addColorStop(0.5, '#c0549b'); g.addColorStop(1, '#3b3f8f');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, ground);
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(W * 0.55, 18 * dpr, W * 0.3, ground - 18 * dpr);
+    ctx.fillStyle = '#eceff3'; ctx.fillRect(W * 0.55, 18 * dpr, W * 0.3, 18 * dpr);
+  }
+  ctx.fillStyle = s.bar; ctx.fillRect(0, ground, W, H - ground);
+  ctx.fillStyle = s.edge; ctx.fillRect(0, ground, W, Math.max(1, dpr | 0));
+  ctx.fillStyle = s.icon;
+  const n = 6, size = 22 * dpr, gap = 10 * dpr, start = W / 2 - (n * size + (n - 1) * gap) / 2;
+  for (let i = 0; i < n; i++) {
+    ctx.beginPath(); ctx.roundRect(start + i * (size + gap), ground + (BAR_H * dpr - size) / 2, size, size, 5 * dpr); ctx.fill();
+  }
+  return ground;
+}
+
+let t = 0, last = performance.now(), acc = 0, usageNow = P.usage;
+const rand = (a, b) => a + Math.random() * (b - a);
+function startBurst(r) {
+  r.burstStart = t;
+  r.burstUntil = t + P.dur / 1000 * rand(0.6, 1.4);
+}
+// 글리치가 터진 동안 매 프레임 새로 뽑는 모양: 밀리는 줄, 색 갈라짐 방향, 노이즈 조각.
+// 세기(0~1)는 사용률이 높을수록 크다.
+function rollGlitch(r, f) {
+  const power = 0.45 + 0.55 * usageNow / 100;
+  const bands = [];
+  for (let i = 0; i < P.slices; i++) {
+    const hgt = Math.max(1, Math.round(f.h * rand(0.06, 0.18)));
+    const y = Math.floor(rand(0, f.h - hgt));
+    const dx = Math.round(rand(-1, 1) * f.w * P.shift / 100 * power);
+    if (dx !== 0) bands.push({ y, h: hgt, dx });
+  }
+  const split = Math.max(1, Math.round(P.split * power * rand(0.6, 1.4)));
+  const noise = [];
+  for (let i = 0; i < Math.round(P.noise * power); i++) {
+    noise.push({
+      x: Math.round(rand(-0.3, 1.2) * f.w), y: Math.round(rand(0, 1) * f.h),
+      w: Math.round(rand(2, Math.max(3, f.w * 0.3))), h: Math.max(1, Math.round(rand(1, f.h * 0.08))),
+      c: [PAIRS[pairKey()].a, PAIRS[pairKey()].b, '#ffffff'][Math.floor(rand(0, 3))],
+    });
+  }
+  r.glitch = { bands, split, noise, flip: Math.random() < 0.5 ? 1 : -1 };
+}
+function step(dt) {
+  t += dt;
+  usageNow = $('auto').checked ? 50 + 48 * Math.sin(t * 0.6) : P.usage;
+  // 사용률에 따라 1초에 몇 번 터질지. 프레임마다 그 확률로 새 글리치를 시작한다.
+  const rate = P.rateLow + (P.rateHigh - P.rateLow) * usageNow / 100;
+  for (const sc of scenes) {
+    const r = sc.r, W = sc.cv.width;
+    const h = P.size, w = h * crop.w / crop.h, u = usageNow / 100;
+    const v = w * (0.4 + (7 - 0.4) * Math.pow(u, 0.7));  // 앱의 SpeedProfile과 같은 곡선
+    let x = r.x + v * dt * r.dir;
+    if (x > W - w) { x = 2 * (W - w) - x; r.dir = -1; }
+    if (x < 0) { x = -x; r.dir = 1; }
+    r.x = x;
+    r.phase = (r.phase + v * dt / w * 0.8) % 1;
+    if (t >= r.burstUntil && Math.random() < rate * dt) startBurst(r);
+  }
+}
+
+// 몸 그림을 줄 단위로 나눠, 밀리는 줄은 옆으로 옮겨 찍는다.
+function drawSliced(ctx, img, x, y, bands) {
+  const h = img.height, cuts = new Set([0, h]);
+  for (const b of bands) { cuts.add(b.y); cuts.add(Math.min(h, b.y + b.h)); }
+  const ys = [...cuts].sort((a, b) => a - b);
+  for (let i = 0; i < ys.length - 1; i++) {
+    const y0 = ys[i], y1 = ys[i + 1];
+    if (y1 <= y0) continue;
+    const band = bands.find(b => y0 >= b.y && y0 < b.y + b.h);
+    const dx = band ? band.dx : 0;
+    ctx.drawImage(img, 0, y0, img.width, y1 - y0, x + dx, y + y0, img.width, y1 - y0);
+  }
+}
+
+function drawRunner(ctx, r, ground) {
+  const fs = frames(P.size), f = fs[Math.floor(r.phase * fs.length) % fs.length];
+  const pad = Math.ceil(f.w * 0.5) + 8;
+  // 고양이 한 마리를 오른쪽 보는 방향으로 따로 그린 뒤, 방향에 맞게 뒤집어 찍는다.
+  const tmp = mk(f.w + pad * 2, f.h + 4), o = tmp.getContext('2d');
+  const bx = pad, by = 2;
+  const bursting = t < r.burstUntil;
+  if (bursting) {
+    if (!r.glitch || Math.random() < 0.6) rollGlitch(r, f);   // 터지는 동안 대부분 프레임에서 모양을 새로 뽑아 지지직거린다
+    const g = r.glitch;
+    o.globalAlpha = 0.85;
+    drawSliced(o, f.b, bx + g.split * g.flip, by, g.bands);
+    drawSliced(o, f.a, bx - g.split * g.flip, by, g.bands);
+    o.globalAlpha = 1;
+    drawSliced(o, f.body, bx, by, g.bands);
+    for (const n of g.noise) { o.fillStyle = n.c; o.globalAlpha = 0.9; o.fillRect(bx + n.x, by + n.y, n.w, n.h); }
+    o.globalAlpha = 1;
+  } else {
+    r.glitch = null;
+    if (P.idle > 0) {
+      // 평소: 가장자리에 아주 옅게 색이 번져 있다. 글리치 스킨이라는 걸 늘 알 수 있게.
+      o.globalAlpha = P.idle / 100;
+      o.drawImage(f.b, bx + 1, by);
+      o.drawImage(f.a, bx - 1, by);
+      o.globalAlpha = 1;
+    }
+    o.drawImage(f.body, bx, by);
+  }
+  const x = Math.round(r.x) - pad, y = ground - f.h - by;
+  ctx.save();
+  if (r.dir < 0) { ctx.translate(x * 2 + tmp.width, 0); ctx.scale(-1, 1); }
+  ctx.drawImage(tmp, x, y);
+  ctx.restore();
+}
+
+function render() {
+  const dpr = window.devicePixelRatio || 1;
+  for (const sc of scenes) {
+    const cv = sc.cv, W = Math.round(cv.clientWidth * dpr), H = Math.round(cv.clientHeight * dpr);
+    if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+    const ctx = cv.getContext('2d');
+    const ground = drawBackground(ctx, W, H, sc.s, dpr);
+    drawRunner(ctx, sc.r, ground);
+  }
+  renderZoom();
+}
+// 첫 번째 씬에서 고양이 주변만 잘라 크게 보여 준다.
+function renderZoom() {
+  const dpr = window.devicePixelRatio || 1, cv = $('zoom');
+  const W = Math.round(cv.clientWidth * dpr), H = Math.round(cv.clientHeight * dpr);
+  if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+  const src = scenes[0].cv, r = scenes[0].r, f0 = frames(P.size)[0];
+  const scale = Math.max(2, Math.floor(H / (f0.h * 2)));
+  const sw = Math.floor(W / scale), sh = Math.floor(H / scale);
+  const ground = src.height - BAR_H * dpr;
+  const cx = Math.round(r.x + f0.w / 2);
+  const sx = Math.max(0, Math.min(src.width - sw, cx - (sw >> 1)));
+  const sy = Math.max(0, Math.min(src.height - sh, Math.round(ground + sh * 0.15 - sh)));
+  const ctx = cv.getContext('2d'); ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(src, sx, sy, sw, sh, 0, 0, sw * scale, sh * scale);
+}
+function loop(now) {
+  const dt = Math.min(0.25, (now - last) / 1000); last = now; acc += dt;
+  if (acc >= 1 / 30) { step(acc); acc = 0; render(); }   // 앱 기본값처럼 30fps
+  requestAnimationFrame(loop);
+}
+loadMasks().then(() => { updateSummary(); render(); requestAnimationFrame(loop); });
+</script>
+</body>
+</html>
