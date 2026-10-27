@@ -148,7 +148,7 @@ public sealed class FrameSprite : IRunnerSprite
             // 픽셀 격자에 맞춰야 번지지 않고 또렷한 조각으로 보인다.
             double nx = x + Math.Round(n.X * w / px) * px, ny = y + Math.Round(n.Y * h / px) * px;
             double nw = Math.Max(2, Math.Round(n.Width * w / px)) * px, nh = Math.Max(1, Math.Round(n.Height * h / px)) * px;
-            ctx.FillRectangle(new SolidColorBrush(GlitchSkin.NoiseColor(n.ColorIndex, pair), GlitchSkin.NoiseOpacity), new Rect(nx, ny, nw, nh));
+            ctx.FillRectangle(GlitchSkin.NoiseBrush(n.ColorIndex, pair), new Rect(nx, ny, nw, nh));
         }
     }
 

@@ -1,4 +1,5 @@
 using Avalonia.Media;
+using Avalonia.Media.Immutable;
 using Woodada.Settings;
 
 namespace Woodada.Sprites;
@@ -84,6 +85,18 @@ internal static class GlitchSkin
     }
 
     public static Color NoiseColor(int index, SplitPair pair) => index switch { 0 => pair.A, 1 => pair.B, _ => Colors.White };
+
+    /// <summary>
+    /// 노이즈 조각을 칠할 붓. 조합 3개 × 색 3개뿐이라 처음에 다 만들어 둔다.
+    /// 매 프레임 붓을 새로 만들면 화면 합성 쪽 객체까지 함께 생겨 메모리가 크게 출렁인다(플래시 불꽃 줄기와 같은 문제).
+    /// </summary>
+    public static IImmutableBrush NoiseBrush(int index, SplitPair pair) =>
+        NoiseBrushes.TryGetValue(pair, out var brushes) ? brushes[Math.Clamp(index, 0, 2)]
+            : new ImmutableSolidColorBrush(NoiseColor(index, pair), NoiseOpacity); // PairFor 밖의 조합은 오지 않지만 혹시 모르니
+
+    private static readonly Dictionary<SplitPair, IImmutableBrush[]> NoiseBrushes =
+        new[] { RedCyan, MagentaGreen, PurpleYellow }.ToDictionary(p => p, p => Enumerable.Range(0, 3)
+            .Select(i => (IImmutableBrush)new ImmutableSolidColorBrush(NoiseColor(i, p), NoiseOpacity)).ToArray());
 
     /// <summary>
     /// 한 프레임 진행한다. 평소엔 사용률에 따른 확률로 새 글리치를 시작하고,

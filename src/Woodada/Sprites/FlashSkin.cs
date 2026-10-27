@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Media;
+using Avalonia.Media.Immutable;
 using Woodada.Settings;
 
 namespace Woodada.Sprites;
@@ -106,6 +107,8 @@ internal static class FlashSkin
         double back = box.X + (dir > 0 ? w * 0.35 : w * 0.65);
         double maxWidth = Math.Max(1.5, h * scale * 0.07); // 장치 픽셀
 
+        var pens = WispPens(body, k, maxWidth, scale);
+
         for (int j = 0; j < WispCount; j++)
         {
             double rnd = 0.5 + 0.5 * Math.Sin(j * 12.9898 + phase);
@@ -120,12 +123,46 @@ internal static class FlashSkin
             for (int s = 0; s < WispSegments; s++)
             {
                 double a = s / (double)WispSegments, b = (s + 1) / (double)WispSegments;
-                var brush = new SolidColorBrush(TrailColor(a, body), 0.75 * k * (1 - a));
-                double thickness = Math.Max(0.6, (1 - a) * maxWidth) / scale;
-                ctx.DrawLine(new Pen(brush, thickness, lineCap: PenLineCap.Round), At(a), At(b));
+                ctx.DrawLine(pens[s], At(a), At(b));
             }
         }
     }
+
+    /// <summary>
+    /// 줄기 마디별 펜(색·진하기·굵기). 매 프레임 붓·펜을 새로 만들면 화면 합성 쪽 객체까지 함께 생겨
+    /// 초당 수천 개씩 쓰레기가 쌓이고 메모리가 수백 MB씩 출렁인다. 그래서 한 번 만든 펜을 다시 쓴다.
+    /// </summary>
+    private static ImmutablePen[] WispPens(Color body, double strength, double maxWidth, double scale)
+    {
+        // 진하기는 사용률 따라 계속 변하니 단계로 끊어야 캐시가 맞는다. 32단계면 진하기 차이가 2%대라 눈에 안 띈다.
+        int step = (int)Math.Round(strength * StrengthSteps);
+        var key = new WispKey(body.ToUInt32(), step, maxWidth, scale);
+        if (WispPenCache.TryGetValue(key, out var pens)) return pens;
+
+        // 펜은 불변이라 Dispose할 것이 없다. 넘치면 비우고 다시 채운다.
+        if (WispPenCache.Count >= MaxWispPenSets) WispPenCache.Clear();
+
+        double k = step / (double)StrengthSteps;
+        pens = new ImmutablePen[WispSegments];
+        for (int s = 0; s < WispSegments; s++)
+        {
+            double a = s / (double)WispSegments;
+            var brush = new ImmutableSolidColorBrush(TrailColor(a, body), 0.75 * k * (1 - a));
+            double thickness = Math.Max(0.6, (1 - a) * maxWidth) / scale;
+            pens[s] = new ImmutablePen(brush, thickness, lineCap: PenLineCap.Round);
+        }
+        WispPenCache[key] = pens;
+        return pens;
+    }
+
+    private const int StrengthSteps = 32;
+    // 러너 둘 × 진하기 단계(MinStrength~1이라 약 21개) × 달아오름 단계(6개)를 넉넉히 담는다
+    private const int MaxWispPenSets = 256;
+
+    private readonly record struct WispKey(uint Body, int StrengthStep, double MaxWidth, double Scale);
+
+    // 오버레이 그리기는 UI 스레드에서만 하므로 잠금 없이 쓴다
+    private static readonly Dictionary<WispKey, ImmutablePen[]> WispPenCache = new();
 
     private static Color Mix(Color a, Color b, double t) => Color.FromRgb(
         (byte)Math.Round(a.R + (b.R - a.R) * t),
