@@ -59,5 +59,8 @@ internal static class Program
         .UsePlatformDetect()
         // macOS: 독에 아이콘을 띄우지 않고 메뉴 막대 아이콘으로만 있는다(.app의 LSUIElement와 같은 효과).
         .With(new MacOSPlatformOptions { ShowInDock = false })
+        // Windows: GPU로 그리면 하이브리드 그래픽 노트북(Intel 화면)에서 드라이버가 화면 크기 버퍼를
+        // 계속 잡았다 놓아 메모리가 수백 MB씩 출렁인다. 작업표시줄 띠는 작아서 CPU로 그려도 부담이 적다.
+        .With(new Win32PlatformOptions { RenderingMode = new[] { Win32RenderingMode.Software } })
         .LogToTrace();
 }
