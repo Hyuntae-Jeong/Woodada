@@ -83,8 +83,17 @@ internal sealed class SettingsWindow : Window
     private readonly ComboBox _devPick = new() { MinWidth = 110 };
     private List<RunnerSkin?> _devPickSkins = new();
     private readonly CheckBox _devFree = new() { Content = "생선 안 쓰고 뽑기" };
-    /// <summary>방금 뽑아 연출 중이거나 결과를 보여 주는 스킨.</summary>
+    /// <summary>방금 뽑아 연출 중이거나 결과를 보여 주는 스킨. None이면 꽝이다.</summary>
     private RunnerSkin _pulled;
+    /// <summary>뽑기 직전의 꽝 연속 횟수. 연출 중에는 이 값을 보여 줘야 결과가 미리 새지 않는다.</summary>
+    private int _streakBeforePull;
+    private readonly Border _resultBadge = new()
+    {
+        CornerRadius = new CornerRadius(9), Padding = new Thickness(7, 1), VerticalAlignment = VerticalAlignment.Center,
+    };
+    private readonly TextBlock _resultBadgeText = new() { FontSize = 10.5, FontWeight = FontWeight.Bold, Foreground = GameArt.Brush(Colors.White) };
+    private static readonly Color NewBadge = Color.FromRgb(0xD9, 0x62, 0x6B);
+    private static readonly Color MissBadge = Color.FromRgb(0x8A, 0x93, 0xA1);
     // 냥뽑기 예고 (일반 버전)
     private readonly TextBlock _teaserSub = new();
 
@@ -750,12 +759,8 @@ internal sealed class SettingsWindow : Window
         Grid.SetColumn(pullRight, 1);
         _pullRow.Children.Add(pullRight);
 
-        var badge = new Border
-        {
-            Background = GameArt.Brush(Color.FromRgb(0xD9, 0x62, 0x6B)), CornerRadius = new CornerRadius(9), Padding = new Thickness(7, 1),
-            VerticalAlignment = VerticalAlignment.Center,
-            Child = new TextBlock { Text = "NEW", FontSize = 10.5, FontWeight = FontWeight.Bold, Foreground = GameArt.Brush(Colors.White) },
-        };
+        // 당첨이면 빨간 "NEW", 꽝이면 회색 "꽝".
+        _resultBadge.Child = _resultBadgeText;
         _resultName.FontSize = GameArt.FontTotal;
         _resultName.FontWeight = FontWeight.Bold;
         _resultName.VerticalAlignment = VerticalAlignment.Center;
@@ -765,7 +770,7 @@ internal sealed class SettingsWindow : Window
         _resultDesc.Foreground = GameArt.Brush(GameArt.SubText);
         _resultDesc.TextWrapping = TextWrapping.Wrap;
         _resultDesc.Margin = new Thickness(0, 2, 12, 0);
-        var nameLine = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { badge, _resultName, _resultStars } };
+        var nameLine = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { _resultBadge, _resultName, _resultStars } };
         _resultRow.Children.Add(new StackPanel { VerticalAlignment = VerticalAlignment.Center, Children = { nameLine, _resultDesc } });
         _again.Click += (_, _) => Pull();
         var resultRight = new StackPanel
@@ -858,8 +863,8 @@ internal sealed class SettingsWindow : Window
         _stage.Complete = done;
         _pullTitle.Text = done ? "스페셜 스킨을 모두 모았어요" : "스페셜 스킨 뽑기";
         _pullSub.Text = done ? "새 스킨이 나오면 다시 뽑을 수 있어요"
-            : left.Count == RewardCatalog.Skins.Count ? string.Join(" · ", RewardCatalog.Skins.Select(s => s.Name)) + " 중 하나가 나와요"
-            : $"아직 없는 스킨만 나와요 · 남은 {left.Count}종";
+            : (left.Count == RewardCatalog.Skins.Count ? $"스킨 {left.Count}종 중 하나, 아니면 꽝이 나와요" : $"아직 없는 스킨 {left.Count}종, 아니면 꽝이 나와요")
+              + PityNote();
         _gachaPrice.IsVisible = !done;
         _gachaPrice.Affordable = canPay;
         _pull.Text = done ? "모두 모았어요" : canPay ? "한 번 뽑기" : "생선이 모자라요";
@@ -880,23 +885,41 @@ internal sealed class SettingsWindow : Window
         }
         _dexCount.Text = $"{RewardCatalog.Skins.Count}칸 중 {RewardCatalog.Skins.Count - left.Count}칸";
 
-        // 결과 고르기 목록은 남은 스킨이 바뀔 때만 다시 만든다. 매번 만들면 고른 항목이 풀린다.
-        var pickable = left.Select(s => (RunnerSkin?)s.Skin).Prepend(null).ToList();
+        // 결과 고르기: 무작위 · 꽝(None) · 남은 스킨. 남은 스킨이 바뀔 때만 다시 만든다. 매번 만들면 고른 항목이 풀린다.
+        var pickable = left.Select(s => (RunnerSkin?)s.Skin).Prepend(RunnerSkin.None).Prepend(null).ToList();
         if (!pickable.SequenceEqual(_devPickSkins))
         {
             var keep = _devPick.SelectedIndex > 0 && _devPick.SelectedIndex < _devPickSkins.Count ? _devPickSkins[_devPick.SelectedIndex] : null;
             _devPickSkins = pickable;
-            _devPick.ItemsSource = pickable.Select(s => s is { } k ? RewardCatalog.FindSkin(k)!.Name : "무작위").ToList();
+            _devPick.ItemsSource = pickable.Select(s => s switch
+            {
+                null => "무작위",
+                RunnerSkin.None => "꽝",
+                { } k => RewardCatalog.FindSkin(k)!.Name,
+            }).ToList();
             _devPick.SelectedIndex = Math.Max(0, pickable.IndexOf(keep));
         }
+    }
+
+    /// <summary>
+    /// 꽝이 이어지고 있으면 천장까지 남은 횟수. 확률이 아니라 약속이라 보여 준다.
+    /// 연출 중에는 뽑기 전 값을 보여 준다. 바로 바뀌면 "꽝 1번"이 무대보다 먼저 결과를 알려 버린다.
+    /// </summary>
+    private string PityNote()
+    {
+        int streak = _stage.IsPlaying ? _streakBeforePull : _rewards.Current.GachaMissStreak;
+        if (streak <= 0) return "";
+        int until = Math.Max(1, RewardCatalog.GachaPity + 1 - streak);
+        return until <= 1 ? $" · 꽝 {streak}번, 다음엔 꼭 나와요" : $" · 꽝 {streak}번, {until}번 안에 꼭 나와요";
     }
 
     private void Pull()
     {
         if (_stage.IsPlaying) return;
         RunnerSkin? forced = _devPick.SelectedIndex > 0 && _devPick.SelectedIndex < _devPickSkins.Count ? _devPickSkins[_devPick.SelectedIndex] : null;
-        // 뽑은 스킨은 연출 전에 바로 저장된다. 연출 중에 창을 닫아도 잃지 않는다.
-        if (_rewards.TryPullSkin(forced, _devFree.IsChecked == true) is not { } skin)
+        _streakBeforePull = _rewards.Current.GachaMissStreak;
+        // 결과(스킨이든 꽝이든)는 연출 전에 바로 저장된다. 연출 중에 창을 닫아도 잃지 않는다.
+        if (_rewards.TryPull(forced, _devFree.IsChecked == true) is not { } skin)
         {
             RefreshGacha();
             return;
@@ -904,20 +927,35 @@ internal sealed class SettingsWindow : Window
         _pulled = skin;
         _pullRow.IsVisible = true;
         _resultRow.IsVisible = false;
-        _stage.Play(skin);
+        _stage.Play(skin == RunnerSkin.None ? null : skin);
         RefreshGacha();
     }
 
     private void ShowPullResult()
     {
-        if (RewardCatalog.FindSkin(_pulled) is not { } info) return;
+        _pullRow.IsVisible = false;
+        _resultRow.IsVisible = true;
+        if (RewardCatalog.FindSkin(_pulled) is not { } info)
+        {
+            // 꽝: 회색 배지와 무대 문구, 천장까지 남은 횟수.
+            _resultBadge.Background = GameArt.Brush(MissBadge);
+            _resultBadgeText.Text = "꽝";
+            _resultName.Text = "앗, 도망갔어요!";
+            _resultStars.Text = "";
+            int until = _rewards.PullsUntilGuaranteed;
+            string spent = $"생선 {GameArt.FormatCount(RewardCatalog.GachaPrice)}개를 썼어요.";
+            _resultDesc.Text = until <= 1 ? $"{spent} 다음 번엔 꼭 스킨이 나와요" : $"{spent} {until}번 안에 꼭 스킨이 나와요";
+            _wearButtons.Children.Clear();
+            RefreshGacha();
+            return;
+        }
+        _resultBadge.Background = GameArt.Brush(NewBadge);
+        _resultBadgeText.Text = "NEW";
         _resultName.Text = info.Name;
         _resultStars.Text = $"{new string('★', info.Stars)}{new string('☆', 4 - info.Stars)}  {info.Tier}";
         _resultStars.Foreground = GameArt.Brush(info.Ink);
         _resultDesc.Text = info.Description;
         RefreshWearButtons();
-        _pullRow.IsVisible = false;
-        _resultRow.IsVisible = true;
         RefreshGacha();
         RefreshSkinTiles();
     }

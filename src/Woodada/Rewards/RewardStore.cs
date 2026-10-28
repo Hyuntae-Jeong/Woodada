@@ -22,6 +22,9 @@ public sealed class Inventory
 
     /// <summary>뽑기로 얻은 스페셜 스킨 Id("ghost" …). 아직 개발용 빌드에서만 쓴다.</summary>
     public List<string> Skins { get; set; } = new();
+
+    /// <summary>지금까지 꽝이 몇 번 이어졌는지. 천장(RewardCatalog.GachaPity)을 세는 데 쓰고, 스킨이 나오면 0이 된다.</summary>
+    public int GachaMissStreak { get; set; }
 }
 
 /// <summary>
@@ -143,20 +146,35 @@ public sealed class RewardStore
     public bool OwnsSkin(RunnerSkin skin) =>
         skin == RunnerSkin.None || Current.Skins.Contains(RunnerSkins.ToId(skin) ?? "", StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>천장까지: 이번을 포함해 몇 번 안에 꼭 스킨이 나오는지(1이면 다음 뽑기가 확정).</summary>
+    public int PullsUntilGuaranteed => Math.Max(1, RewardCatalog.GachaPity + 1 - Current.GachaMissStreak);
+
     /// <summary>
-    /// 한 번 뽑는다. 가진 스킨은 나오지 않고, 남은 것끼리 RewardCatalog의 비율대로 고른다.
-    /// 다 모았거나 생선이 모자라면 null. 뽑은 스킨은 연출을 보기 전에 바로 저장한다(연출 중에 창을 닫아도 남게).
+    /// 한 번 뽑는다. GachaWinChance 확률로 스킨, 아니면 꽝(RunnerSkin.None)이다. 꽝이 GachaPity번 이어졌으면 이번은 꼭 스킨.
+    /// 스킨은 가진 것을 빼고 남은 것끼리 RewardCatalog의 비율대로 고른다.
+    /// 다 모았거나 생선이 모자라면 null. 결과는 연출을 보기 전에 바로 저장한다(연출 중에 창을 닫아도 남게).
     /// </summary>
-    /// <param name="forced">개발용: 이 스킨이 남아 있으면 이것을 준다.</param>
+    /// <param name="forced">개발용: None이면 꽝, 남아 있는 스킨이면 그 스킨을 준다.</param>
     /// <param name="free">개발용: 생선을 쓰지 않는다.</param>
-    public RunnerSkin? TryPullSkin(RunnerSkin? forced = null, bool free = false)
+    public RunnerSkin? TryPull(RunnerSkin? forced = null, bool free = false)
     {
         var pool = RewardCatalog.Skins.Where(s => !OwnsSkin(s.Skin)).ToList();
         if (pool.Count == 0) return null;
         if (!free && !Spend(RewardCatalog.GachaPrice)) return null;
 
+        bool win = forced is { } f
+            ? f != RunnerSkin.None
+            : Current.GachaMissStreak >= RewardCatalog.GachaPity || Random.Shared.NextDouble() < RewardCatalog.GachaWinChance;
+        if (!win)
+        {
+            Current.GachaMissStreak++;
+            Save();
+            return RunnerSkin.None;
+        }
+
         var pick = pool.FirstOrDefault(s => s.Skin == forced) ?? PickWeighted(pool);
         Current.Skins.Add(RunnerSkins.ToId(pick.Skin)!);
+        Current.GachaMissStreak = 0;
         Save();
         return pick.Skin;
     }
@@ -172,10 +190,11 @@ public sealed class RewardStore
         return pool[^1];
     }
 
-    /// <summary>개발용: 뽑은 스킨을 모두 지운다.</summary>
+    /// <summary>개발용: 뽑은 스킨과 꽝 연속 횟수를 모두 지운다.</summary>
     public void DevClearSkins()
     {
         Current.Skins.Clear();
+        Current.GachaMissStreak = 0;
         Save();
     }
 

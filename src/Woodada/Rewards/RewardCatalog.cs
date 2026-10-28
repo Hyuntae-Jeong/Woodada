@@ -70,8 +70,17 @@ public static class RewardCatalog
 
     // ───────────────────────── 스페셜 스킨 뽑기 (개발용 빌드에서만) ─────────────────────────
 
-    /// <summary>뽑기 한 번 가격.</summary>
-    public const int GachaPrice = 2000;
+    /// <summary>뽑기 한 번 가격. 꽝이 나올 수 있다.</summary>
+    public const int GachaPrice = 500;
+
+    /// <summary>
+    /// 한 번 뽑을 때 스킨이 나올 확률(나머지는 꽝). 스킨을 모아도 그대로이고, 남은 스킨이 이 몫을 나눠 갖는다.
+    /// 35%면 스킨 하나에 평균 생선 약 1,360개(천장 포함), 3종을 다 모으려면 평균 약 4,100개다.
+    /// </summary>
+    public const double GachaWinChance = 0.35;
+
+    /// <summary>천장: 꽝이 이만큼 이어지면 다음 뽑기는 꼭 스킨이 나온다. 스킨 하나에 최대 생선 3,500개.</summary>
+    public const int GachaPity = 6;
 
     /// <summary>
     /// 도감 순서 그대로. 등급별 비율은 레어 60 : 에픽 30 : 전설 10이고, 같은 등급끼리는 똑같이 나눠 갖는다.

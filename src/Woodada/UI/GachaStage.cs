@@ -14,6 +14,7 @@ namespace Woodada.UI;
 /// 뽑기 무대. 바탕화면과 작업표시줄을 흉내 낸 어두운 상자다.
 /// 뽑기 전: "누가 달려올까요?" · 뽑는 중: CPU가 치솟으며 검은 실루엣이 달려와 멈추고, 등급 색으로 빛나다 번쩍 ·
 /// 뽑은 뒤: 그 스킨이 작업표시줄 위에서 제자리 달리기를 한다. 뽑는 중에 누르면 건너뛴다.
+/// 꽝(도망냥): 똑같이 달려와 "?"까지 가지만, 빛이 깜빡깜빡 불발되다 꺼지고 "!" 하고 놀라 반대로 도망간다. 번쩍은 없다.
 /// 높이 300짜리 시안 좌표로 그리고 실제 높이에 맞춰 줄인다.
 /// Teaser면 일반 버전의 냥뽑기 예고 화면이다. 뽑지 않고, 마우스를 올리면 같은 연출을 정체가 드러나기 직전("?")까지만 보여 준다.
 /// </summary>
@@ -25,6 +26,8 @@ internal sealed class GachaStage : Control
     /// <summary>작업표시줄 윗선(시안 좌표).</summary>
     private const double BarTop = 256;
     private const double PlaySeconds = 3.0;
+    /// <summary>꽝 연출 길이. 3초까지는 당첨과 같고, 그 뒤 놀라서 도망간다.</summary>
+    private const double MissSeconds = 4.4;
     private const double RunnerHeight = 54;
     private const double ShowcaseHeight = 92;
     /// <summary>결과 고양이가 달리는 사용률. 효과가 다 보이되 플래시 몸이 달아오르기(50%) 전이다.</summary>
@@ -95,14 +98,19 @@ internal sealed class GachaStage : Control
 
     public bool IsPlaying => _mode == Mode.Playing;
 
+    /// <summary>지금 연출(또는 결과)이 꽝인지.</summary>
+    private bool _miss;
+
     /// <summary>연출이 끝났거나 건너뛰어 결과가 보이기 시작할 때.</summary>
     public event EventHandler? Finished;
 
     private double Now => _clock.Elapsed.TotalSeconds;
 
-    public void Play(RunnerSkin result)
+    /// <param name="result">나온 스킨. null이면 꽝이다.</param>
+    public void Play(RunnerSkin? result)
     {
-        _result = result;
+        _miss = result is null;
+        _result = result ?? RunnerSkin.None;
         _mode = Mode.Playing;
         _start = Now;
         _runPhase = 0;
@@ -125,7 +133,7 @@ internal sealed class GachaStage : Control
         _mode = Mode.Showing;
         _start = Now;
         Cursor = Cursor.Default;
-        if (RewardCatalog.FindSkin(_result) is { } info) Burst(_designWidth / 2, 200, info.Accent);
+        if (!_miss && RewardCatalog.FindSkin(_result) is { } info) Burst(_designWidth / 2, 200, info.Accent);
         Finished?.Invoke(this, EventArgs.Empty);
     }
 
@@ -154,6 +162,7 @@ internal sealed class GachaStage : Control
         _teaserLoop = true;
         if (_mode == Mode.Playing || TeaserSkins.Count == 0) return;
         _result = TeaserSkins[_teaserIndex % TeaserSkins.Count].Skin;
+        _miss = false;
         _mode = Mode.Playing;
         _start = Now;
         _runPhase = 0;
@@ -173,7 +182,13 @@ internal sealed class GachaStage : Control
             // 달려오면서 점점 느려진다. 다리도 그만큼 천천히 움직이다 멈춘다.
             double p = Seg(t, 0, 2.0);
             _runPhase += dt * (p < 1 ? 5 + 20 * (1 - p) : 0);
-            if (!Teaser)
+            if (_miss)
+            {
+                // 놀란 뒤 반대로 내달린다.
+                if (t > 3.3) _runPhase += dt * 26;
+                if (t >= MissSeconds) Finish();
+            }
+            else if (!Teaser)
             {
                 if (t >= PlaySeconds) Finish();
             }
@@ -222,8 +237,14 @@ internal sealed class GachaStage : Control
                 case Mode.Idle:
                     DrawIdle(ctx, width, t, scaling);
                     break;
+                case Mode.Playing when _miss && t >= PlaySeconds:
+                    DrawMissEscape(ctx, width, t, scaling);
+                    break;
                 case Mode.Playing:
                     DrawPlaying(ctx, width, t, scaling);
+                    break;
+                case Mode.Showing when _miss:
+                    DrawMissEscape(ctx, width, MissSeconds, scaling);
                     break;
                 default:
                     DrawShowing(ctx, width, t, scaling);
@@ -334,34 +355,103 @@ internal sealed class GachaStage : Control
             }
         }
 
-        // 멈춘 뒤 등급 색으로 두근두근 빛난다.
-        double pulse = Seg(t, 2.2, 2.6) * (0.55 + 0.45 * Math.Sin(t * 14));
-        if (pulse > 0)
+        if (!_miss)
         {
-            foreach (var (dx, dy) in Ring(2.5))
-                sprite.DrawSilhouette(ctx, box.Translate(new Vector(dx, dy)), pose, accent, pulse, scaling);
-        }
-        // 어두운 바탕에서도 모양이 보이게 옅은 테두리를 두른 검은 실루엣.
-        foreach (var (dx, dy) in Ring(1.2))
-            sprite.DrawSilhouette(ctx, box.Translate(new Vector(dx, dy)), pose, Colors.White, 0.22, scaling);
-        sprite.DrawSilhouette(ctx, box, pose, Shadow, 1, scaling);
-
-        double b = Seg(t, 2.0, 2.3);
-        if (b > 0)
-        {
-            double k = Back(b);
-            using (ctx.PushTransform(Matrix.CreateScale(k, k) * Matrix.CreateTranslation(cx + 6, BarTop - size.Height - 26)))
+            // 멈춘 뒤 등급 색으로 두근두근 빛난다.
+            double pulse = Seg(t, 2.2, 2.6) * (0.55 + 0.45 * Math.Sin(t * 14));
+            if (pulse > 0)
             {
-                ctx.DrawEllipse(White, null, new Point(0, 0), 16, 16);
-                ctx.DrawGeometry(White, null, BubbleTail);
-                TextAt(ctx, "?", 20, Color.FromRgb(0x20, 0x25, 0x30), FontWeight.Bold, 0, 1);
+                foreach (var (dx, dy) in Ring(2.5))
+                    sprite.DrawSilhouette(ctx, box.Translate(new Vector(dx, dy)), pose, accent, pulse, scaling);
             }
         }
+        else if (t > 2.2)
+        {
+            // 꽝: 여러 등급 색이 깜빡깜빡 바뀌다가 불발되어 꺼진다.
+            double fade = 1 - Seg(t, 2.5, 2.95);
+            if (fade > 0)
+            {
+                var skins = RewardCatalog.Skins;
+                var flicker = skins[(int)(t * 14) % skins.Count].Accent;
+                foreach (var (dx, dy) in Ring(2.5))
+                    sprite.DrawSilhouette(ctx, box.Translate(new Vector(dx, dy)), pose, flicker, 0.9 * fade, scaling);
+            }
+        }
+        DrawShadowCat(ctx, sprite, box, pose, scaling);
 
+        double b = Seg(t, 2.0, 2.3);
+        if (b > 0) DrawBubble(ctx, cx + 6, BarTop - size.Height - 26, Back(b), "?");
+
+        if (_miss) return; // 꽝은 번쩍하지 않는다
         double flash = Seg(t, 2.75, 3.0);
         if (flash > 0)
             using (ctx.PushOpacity(flash))
                 ctx.FillRectangle(White, new Rect(0, 0, width, DesignHeight));
+    }
+
+    /// <summary>꽝의 뒷부분: "!" 하고 놀라 폴짝 뛴 뒤 반대로 도망가고, "앗, 도망갔어요!"가 뜬다.</summary>
+    private void DrawMissEscape(DrawingContext ctx, double width, double t, double scaling)
+    {
+        DrawDesk(ctx, width, 100);
+        using (ctx.PushOpacity(0.35))
+            ctx.FillRectangle(Black, new Rect(0, 0, width, BarTop));
+
+        var sprite = SpriteRegistry.Get("cat");
+        var size = sprite.Measure(RunnerHeight);
+        if (t < 3.3)
+        {
+            double hop = Math.Sin(Seg(t, 3.0, 3.3) * Math.PI) * 12;
+            var box = new Rect(width / 2 - size.Width / 2, BarTop - hop - size.Height, size.Width, size.Height);
+            DrawShadowCat(ctx, sprite, box, new RunnerPose(1, 0.4, 0.8), scaling);
+            DrawBubble(ctx, width / 2 + 6, box.Y - 26, 1, "!");
+        }
+        else
+        {
+            double q = Seg(t, 3.3, 4.0);
+            if (q < 1)
+            {
+                // 점점 빨라지며 왼쪽 밖으로. 뒤(오른쪽)에 먼지가 인다.
+                double cx = width / 2 - q * q * q * (width / 2 + 90);
+                var box = new Rect(cx - size.Width / 2, BarTop - size.Height, size.Width, size.Height);
+                DrawShadowCat(ctx, sprite, box, new RunnerPose(-1, _runPhase / 5 % 1, 1), scaling);
+                for (int i = 0; i < 3; i++)
+                {
+                    double a = 1.6 * Hash(Math.Floor(t * 30) + i);
+                    double r = 3 + i * 1.5;
+                    using (ctx.PushOpacity(Math.Clamp(0.35 * a, 0, 1)))
+                        ctx.DrawEllipse(Dust, null, new Point(box.Right + 6 + i * 9, BarTop - 4 - i * 2), r, r);
+                }
+            }
+        }
+
+        double ta = Seg(t, 3.4, 3.75);
+        if (ta > 0)
+        {
+            using (ctx.PushOpacity(ta))
+            {
+                TextAt(ctx, "앗, 도망갔어요!", 24, Colors.White, FontWeight.Bold, width / 2, 58 - 6 * (1 - ta));
+                TextAt(ctx, "꽝 · 다음엔 꼭 잡아 봐요", 13, Color.FromArgb(184, 255, 255, 255), FontWeight.Medium, width / 2, 88);
+            }
+        }
+    }
+
+    /// <summary>어두운 바탕에서도 모양이 보이게 옅은 테두리를 두른 검은 실루엣.</summary>
+    private static void DrawShadowCat(DrawingContext ctx, IRunnerSprite sprite, Rect box, RunnerPose pose, double scaling)
+    {
+        foreach (var (dx, dy) in Ring(1.2))
+            sprite.DrawSilhouette(ctx, box.Translate(new Vector(dx, dy)), pose, Colors.White, 0.22, scaling);
+        sprite.DrawSilhouette(ctx, box, pose, Shadow, 1, scaling);
+    }
+
+    /// <summary>머리 위 말풍선("?", "!"). (x, y)가 풍선 가운데, k는 튀어나오는 크기.</summary>
+    private void DrawBubble(DrawingContext ctx, double x, double y, double k, string text)
+    {
+        using (ctx.PushTransform(Matrix.CreateScale(k, k) * Matrix.CreateTranslation(x, y)))
+        {
+            ctx.DrawEllipse(White, null, new Point(0, 0), 16, 16);
+            ctx.DrawGeometry(White, null, BubbleTail);
+            TextAt(ctx, text, 20, Color.FromRgb(0x20, 0x25, 0x30), FontWeight.Bold, 0, 1);
+        }
     }
 
     private void DrawShowing(DrawingContext ctx, double width, double t, double scaling)
