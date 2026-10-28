@@ -94,11 +94,11 @@ internal sealed class TrayApp : IDisposable
         if (Updater.IsReleaseBuild)
         {
             _updateTimer.Tick += (_, _) => _ = RunUpdateCheckAsync();
-            // 마지막 확인 뒤로 6시간이 지났으면 바로, 아니면 남은 시간 뒤에 확인한다. 껐다 켜도 주기가 이어진다.
+            Updater.DeleteLegacyCheckRecord();
+            // 켜질 때 바로 한 번 확인하고, 그 뒤로 켜져 있는 동안 6시간마다 확인한다.
             // 설치에 실패해 다시 뜬 실행(checkForUpdate=false)은 같은 업데이트를 또 받지 않도록 6시간을 꽉 채워 기다린다.
-            var wait = checkForUpdate ? Updater.TimeUntilNextCheck() : Updater.CheckInterval;
-            if (wait <= TimeSpan.Zero) _ = RunUpdateCheckAsync();
-            else ScheduleUpdateCheck(wait);
+            if (checkForUpdate) _ = RunUpdateCheckAsync();
+            else ScheduleUpdateCheck(Updater.CheckInterval);
         }
     }
 

@@ -7,7 +7,7 @@ namespace Woodada.Update;
 
 /// <summary>
 /// GitHub 최신 릴리즈를 확인하고, 더 새 버전이 있으면 묻지 않고 바꿔 끼운 뒤 다시 실행한다.
-/// 확인은 <see cref="CheckInterval"/>(6시간)에 한 번 한다. 언제 확인할지는 TrayApp이 <see cref="TimeUntilNextCheck"/>로 정한다.
+/// 확인은 켜질 때 한 번, 그 뒤로 켜져 있는 동안 <see cref="CheckInterval"/>(6시간)마다 한 번 한다(TrayApp이 정한다).
 /// macOS의 .app 교체는 Updater.Mac.cs에 있다. 바꿔 끼울 수 없는 곳(.dmg 안, 쓰기 권한 없는 폴더)에서 돌면
 /// 알림만 띄운다(<see cref="FindNewerReleaseAsync"/>).
 ///
@@ -57,45 +57,24 @@ internal static partial class Updater
 
     private static readonly string LogPath = Path.Combine(AppInfo.DataFolder, "update.log");
 
-    /// <summary>마지막으로 릴리즈 서버의 답을 받은 시각(UTC). 앱을 껐다 켜도 주기가 이어지도록 파일에 둔다.</summary>
-    private static readonly string LastCheckPath = Path.Combine(AppInfo.DataFolder, "update-check.txt");
-
     /// <summary>새 릴리즈를 확인하는 주기.</summary>
     public static readonly TimeSpan CheckInterval = TimeSpan.FromHours(6);
 
     /// <summary>로컬 빌드(0.0.0)나 dotnet run은 릴리즈로 덮어쓰면 안 되므로 업데이트하지 않는다.</summary>
     public static bool IsReleaseBuild => Current > new Version(0, 0, 0);
 
-    /// <summary>
-    /// 다음 확인까지 남은 시간. 마지막 확인 뒤로 <see cref="CheckInterval"/>이 지났으면 0.
-    /// 확인한 적이 없거나 기록을 못 읽어도 0. 시계를 뒤로 돌려 마지막 확인이 미래에 있게 돼도 0(아니면 그 시각까지 확인을 안 한다).
-    /// </summary>
-    public static TimeSpan TimeUntilNextCheck()
-    {
-        try
-        {
-            if (!File.Exists(LastCheckPath)) return TimeSpan.Zero;
-            var last = DateTime.Parse(File.ReadAllText(LastCheckPath).Trim(), null, System.Globalization.DateTimeStyles.RoundtripKind);
-            var elapsed = DateTime.UtcNow - last;
-            if (elapsed < TimeSpan.Zero || elapsed >= CheckInterval) return TimeSpan.Zero;
-            return CheckInterval - elapsed;
-        }
-        catch (Exception)
-        {
-            return TimeSpan.Zero;
-        }
-    }
+    /// <summary>예전 버전이 "마지막 확인 시각"을 남기던 파일. 이제 켜질 때마다 확인하므로 쓰지 않고, 남아 있으면 지운다.</summary>
+    private static readonly string LegacyLastCheckPath = Path.Combine(AppInfo.DataFolder, "update-check.txt");
 
-    private static void MarkChecked()
+    public static void DeleteLegacyCheckRecord()
     {
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(LastCheckPath)!);
-            File.WriteAllText(LastCheckPath, DateTime.UtcNow.ToString("o"));
+            if (File.Exists(LegacyLastCheckPath)) File.Delete(LegacyLastCheckPath);
         }
         catch (Exception)
         {
-            // 기록을 못 남기면 다음 주기에 한 번 더 확인할 뿐이다.
+            // 못 지워도 아무 데서도 읽지 않으니 그만이다.
         }
     }
 
@@ -147,19 +126,14 @@ internal static partial class Updater
 
     private const string ReleasesPage = "https://github.com/Hyuntae-Jeong/Woodada/releases/latest";
 
-    /// <summary>
-    /// once를 실행하고, 서버에 닿지 못했으면 조금 뒤 다시 해 본다. 끝까지 해냈을 때만 확인 시각을 남긴다.
-    /// 실패하면 기록이 그대로라, 다음 6시간을 채우기 전에 앱을 다시 켜도 바로 확인한다.
-    /// </summary>
+    /// <summary>once를 실행하고, 서버에 닿지 못했으면 조금 뒤 다시 해 본다.</summary>
     private static async Task<T?> WithRetriesAsync<T>(Func<CancellationToken, Task<T?>> once, CancellationToken ct) where T : class
     {
         for (int attempt = 0; ; attempt++)
         {
             try
             {
-                var result = await once(ct).ConfigureAwait(false);
-                MarkChecked();
-                return result;
+                return await once(ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
