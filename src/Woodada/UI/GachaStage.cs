@@ -16,7 +16,6 @@ namespace Woodada.UI;
 /// 뽑은 뒤: 그 스킨이 작업표시줄 위에서 제자리 달리기를 한다. 뽑는 중에 누르면 건너뛴다.
 /// 꽝(도망냥): 똑같이 달려와 "?"까지 가지만, 빛이 깜빡깜빡 불발되다 꺼지고 "!" 하고 놀라 반대로 도망간다. 번쩍은 없다.
 /// 높이 300짜리 시안 좌표로 그리고 실제 높이에 맞춰 줄인다.
-/// Teaser면 일반 버전의 냥뽑기 예고 화면이다. 뽑지 않고, 마우스를 올리면 같은 연출을 정체가 드러나기 직전("?")까지만 보여 준다.
 /// </summary>
 internal sealed class GachaStage : Control
 {
@@ -64,7 +63,7 @@ internal sealed class GachaStage : Control
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromMilliseconds(33) };
     private readonly Stopwatch _clock = Stopwatch.StartNew();
     private readonly TreadmillRunner _showcase = new();
-    private readonly TreadmillRunner[] _parade = RewardCatalog.Skins.Select(_ => new TreadmillRunner()).ToArray();
+    private readonly TreadmillRunner[] _parade = RewardCatalog.AvailableSkins.Select(_ => new TreadmillRunner()).ToArray();
     private readonly List<Particle> _particles = new();
     private Mode _mode = Mode.Idle;
     private RunnerSkin _result;
@@ -82,19 +81,6 @@ internal sealed class GachaStage : Control
 
     /// <summary>스킨을 다 모았으면 뽑기 전 화면이 "도감 완성!"이 된다.</summary>
     public bool Complete { get; set; }
-
-    /// <summary>일반 버전 예고 화면. 뽑지 않고 마우스를 올렸을 때만 연출을 "?"까지 보여 준다.</summary>
-    public bool Teaser { get; set; }
-
-    /// <summary>예고 화면에서 차례로 달려오는 스킨. 다음 릴리즈에 공개할 것만.</summary>
-    public IReadOnlyList<SkinInfo> TeaserSkins { get; set; } = RewardCatalog.UpcomingSkins;
-
-    // 예고: 번쩍하기 직전에서 멈추고, 잠시 "곧 만나요!"를 보여 준 뒤 다음 스킨으로 다시 달려온다.
-    private const double TeaserHold = 2.7;
-    private const double TeaserLoopSeconds = 4.6;
-    private bool _teaserLoop;
-    private int _teaserIndex;
-    private readonly IImmutableBrush _soonBadge = new ImmutableSolidColorBrush(GameArt.Accent);
 
     public bool IsPlaying => _mode == Mode.Playing;
 
@@ -140,33 +126,7 @@ internal sealed class GachaStage : Control
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
         base.OnPointerReleased(e);
-        if (Teaser) StartTeaser(); // 터치 화면처럼 마우스를 올릴 수 없는 경우
-        else if (_mode == Mode.Playing) Finish();
-    }
-
-    protected override void OnPointerEntered(PointerEventArgs e)
-    {
-        base.OnPointerEntered(e);
-        if (Teaser) StartTeaser();
-    }
-
-    protected override void OnPointerExited(PointerEventArgs e)
-    {
-        base.OnPointerExited(e);
-        // 보던 한 바퀴는 끝까지 보여 주고 멈춘다.
-        _teaserLoop = false;
-    }
-
-    private void StartTeaser()
-    {
-        _teaserLoop = true;
-        if (_mode == Mode.Playing || TeaserSkins.Count == 0) return;
-        _result = TeaserSkins[_teaserIndex % TeaserSkins.Count].Skin;
-        _miss = false;
-        _mode = Mode.Playing;
-        _start = Now;
-        _runPhase = 0;
-        InvalidateVisual();
+        if (_mode == Mode.Playing) Finish();
     }
 
     private void Tick()
@@ -188,15 +148,9 @@ internal sealed class GachaStage : Control
                 if (t > 3.3) _runPhase += dt * 26;
                 if (t >= MissSeconds) Finish();
             }
-            else if (!Teaser)
+            else if (t >= PlaySeconds)
             {
-                if (t >= PlaySeconds) Finish();
-            }
-            else if (t >= TeaserLoopSeconds)
-            {
-                _teaserIndex++;
-                if (_teaserLoop) StartNextTeaser();
-                else ShowIdle();
+                Finish();
             }
         }
         for (int i = _particles.Count - 1; i >= 0; i--)
@@ -227,13 +181,6 @@ internal sealed class GachaStage : Control
         {
             switch (_mode)
             {
-                case Mode.Idle when Teaser:
-                    DrawTeaserIdle(ctx, width, t, scaling);
-                    break;
-                case Mode.Playing when Teaser:
-                    DrawPlaying(ctx, width, Math.Min(t, TeaserHold), scaling);
-                    DrawTeaserCaption(ctx, width, t);
-                    break;
                 case Mode.Idle:
                     DrawIdle(ctx, width, t, scaling);
                     break;
@@ -256,51 +203,6 @@ internal sealed class GachaStage : Control
 
     // ───────────────────────── 장면 ─────────────────────────
 
-    private void StartNextTeaser()
-    {
-        _mode = Mode.Idle;
-        StartTeaser();
-    }
-
-    /// <summary>예고 화면: COMING SOON 배지, 안내, 등급 색으로 은은하게 빛나는 실루엣들.</summary>
-    private void DrawTeaserIdle(DrawingContext ctx, double width, double t, double scaling)
-    {
-        DrawDesk(ctx, width, null);
-        ctx.DrawRectangle(_soonBadge, null, new Rect(14, 14, 112, 24), 12, 12);
-        TextAt(ctx, "COMING SOON", 11, Colors.White, FontWeight.Bold, 70, 26);
-        TextAt(ctx, "스페셜 스킨 뽑기가 곧 열려요", 22, Color.FromArgb(230, 255, 255, 255), FontWeight.Bold, width / 2, 70);
-        TextAt(ctx, "생선을 모아 두면 열리자마자 뽑을 수 있어요", 13, Color.FromArgb(153, 255, 255, 255), FontWeight.Medium, width / 2, 100);
-        TextAt(ctx, "마우스를 올리면 살짝 보여 드려요", 12, Color.FromArgb(97, 255, 255, 255), FontWeight.Medium, width / 2, 150);
-
-        var sprite = SpriteRegistry.Get("cat");
-        var size = sprite.Measure(46);
-        var pose = new RunnerPose(1, 0.4, 0.5);
-        int count = TeaserSkins.Count;
-        for (int i = 0; i < count; i++)
-        {
-            double cx = width / 2 + (i - (count - 1) / 2.0) * 96;
-            var box = new Rect(cx - size.Width / 2, BarTop - size.Height, size.Width, size.Height);
-            double k = 0.5 + 0.5 * Math.Sin(t * 2 + i * 2.1);
-            foreach (var (dx, dy) in Ring(2))
-                sprite.DrawSilhouette(ctx, box.Translate(new Vector(dx, dy)), pose, TeaserSkins[i].Accent, 0.25 + 0.45 * k, scaling);
-            sprite.DrawSilhouette(ctx, box, pose, Shadow, 1, scaling);
-            TextAt(ctx, "?", 18, Color.FromArgb(140, 255, 255, 255), FontWeight.Bold, cx + 4, BarTop - size.Height - 14);
-        }
-    }
-
-    /// <summary>예고 연출이 "?"에서 멈춘 뒤 띄우는 말. 정체(이름)는 말하지 않고 등급만 알려 준다.</summary>
-    private void DrawTeaserCaption(DrawingContext ctx, double width, double t)
-    {
-        double a = Seg(t, TeaserHold, TeaserHold + 0.3);
-        if (a <= 0 || RewardCatalog.FindSkin(_result) is not { } info) return;
-        using (ctx.PushOpacity(a))
-        {
-            TextAt(ctx, "곧 만나요!", 26, Colors.White, FontWeight.Bold, width / 2, 66);
-            TextAt(ctx, $"{new string('★', info.Stars)} {info.Tier} 스킨 · 정체는 냥뽑기가 열리면 공개돼요", 13,
-                Color.FromArgb(191, 255, 255, 255), FontWeight.Medium, width / 2, 98);
-        }
-    }
-
     private void DrawIdle(DrawingContext ctx, double width, double t, double scaling)
     {
         if (!Complete)
@@ -318,7 +220,7 @@ internal sealed class GachaStage : Control
         double spacing = count > 1 ? Math.Min(90, (width - 120) / (count - 1)) : 0;
         for (int i = 0; i < count; i++)
         {
-            var skin = RewardCatalog.Skins[i].Skin;
+            var skin = RewardCatalog.AvailableSkins[i].Skin;
             _parade[i].Draw(ctx, width / 2 + (i - (count - 1) / 2.0) * spacing, BarTop, 46, skin, RewardCatalog.ShowcaseColor(skin), 35, scaling);
         }
         TextAt(ctx, "도감 완성!", 24, Colors.White, FontWeight.Bold, width / 2, 54);
@@ -371,7 +273,7 @@ internal sealed class GachaStage : Control
             double fade = 1 - Seg(t, 2.5, 2.95);
             if (fade > 0)
             {
-                var skins = RewardCatalog.Skins;
+                var skins = RewardCatalog.AvailableSkins;
                 var flicker = skins[(int)(t * 14) % skins.Count].Accent;
                 foreach (var (dx, dy) in Ring(2.5))
                     sprite.DrawSilhouette(ctx, box.Translate(new Vector(dx, dy)), pose, flicker, 0.9 * fade, scaling);

@@ -20,7 +20,7 @@ public sealed class Inventory
     /// <summary>잠금 해제한 러너(스프라이트 Id). 무료 러너는 넣지 않는다.</summary>
     public List<string> Runners { get; set; } = new();
 
-    /// <summary>뽑기로 얻은 스페셜 스킨 Id("ghost" …). 아직 개발용 빌드에서만 쓴다.</summary>
+    /// <summary>냥뽑기로 얻은 스페셜 스킨 Id("ghost" …).</summary>
     public List<string> Skins { get; set; } = new();
 
     /// <summary>지금까지 꽝이 몇 번 이어졌는지. 천장(RewardCatalog.GachaPity)을 세는 데 쓰고, 스킨이 나오면 0이 된다.</summary>
@@ -158,7 +158,7 @@ public sealed class RewardStore
     /// <param name="free">개발용: 생선을 쓰지 않는다.</param>
     public RunnerSkin? TryPull(RunnerSkin? forced = null, bool free = false)
     {
-        var pool = RewardCatalog.Skins.Where(s => !OwnsSkin(s.Skin)).ToList();
+        var pool = RewardCatalog.AvailableSkins.Where(s => !OwnsSkin(s.Skin)).ToList();
         if (pool.Count == 0) return null;
         if (!free && !Spend(RewardCatalog.GachaPrice)) return null;
 
@@ -181,10 +181,10 @@ public sealed class RewardStore
 
     private static SkinInfo PickWeighted(IReadOnlyList<SkinInfo> pool)
     {
-        double roll = Random.Shared.NextDouble() * pool.Sum(s => s.Weight);
+        double roll = Random.Shared.NextDouble() * pool.Sum(RewardCatalog.WeightOf);
         foreach (var s in pool)
         {
-            roll -= s.Weight;
+            roll -= RewardCatalog.WeightOf(s);
             if (roll < 0) return s;
         }
         return pool[^1];

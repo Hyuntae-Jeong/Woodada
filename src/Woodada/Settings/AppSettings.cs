@@ -60,8 +60,8 @@ public sealed class AppSettings
             // 출시 전 러너는 입을 수 없다. 개발용으로 써 본 설정 파일에 남아 있어도 고양이로 돌린다.
             if (string.IsNullOrWhiteSpace(r.SpriteId) || Sprites.SpriteRegistry.IsUpcoming(r.SpriteId)) r.SpriteId = "cat";
             if (!ColorUtil.TryParse(r.Color, out _)) r.Color = DefaultColor;
-            // 스페셜 스킨은 아직 출시 전이라 개발용 빌드에서만 입는다. 모르는 Id도 지운다.
-            if (!AppInfo.IsDev || Sprites.RunnerSkins.Parse(r.Skin) == Sprites.RunnerSkin.None) r.Skin = null;
+            // 이 빌드에 없는 스킨(일반 버전의 미공개 스킨)과 모르는 Id는 지운다.
+            if (!Rewards.RewardCatalog.IsAvailable(Sprites.RunnerSkins.Parse(r.Skin))) r.Skin = null;
         }
         FramesPerSecond = Math.Clamp(FramesPerSecond, 10, 60);
     }
