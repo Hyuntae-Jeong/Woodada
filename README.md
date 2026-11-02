@@ -37,7 +37,7 @@ On an Intel Mac? Grab [this one](https://github.com/Hyuntae-Jeong/Woodada/releas
 - 🔄 **Always up to date** — Updates itself when a new version comes out.
 
 <p align="center">
-  <img src="app/docs/settings.png" alt="Woodada settings — choosing cat colors and special skins" width="600">
+  <img src="app/docs/settings-en.png" alt="Woodada settings — choosing cat colors and special skins" width="600">
 </p>
 
 ### 🎰 Special cats from the Cat Gacha
