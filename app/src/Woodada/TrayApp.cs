@@ -64,7 +64,6 @@ internal sealed class TrayApp : IDisposable
         quitItem.Click += (_, _) => _lifetime.Shutdown();
         _menu.Items.Add(settingsItem);
         _menu.Items.Add(_startupItem);
-        if (AppInfo.IsDev) AddDevSkinItems();
         _menu.Items.Add(quitItem);
 
         _tray = new TrayIcon
@@ -227,49 +226,6 @@ internal sealed class TrayApp : IDisposable
         var updated = settings.Clone();
         updated.StartupDefaultApplied = true;
         _store.Update(updated);
-    }
-
-    /// <summary>
-    /// 스페셜 스킨은 출시 전이라 설정 창에 넣지 않고, 개발용 앱 트레이에서만 입혀 본다.
-    /// 러너 목록(CPU·메모리)은 고정이라 메뉴는 한 번만 만들고, 설정이 바뀔 때 체크 표시만 맞춘다.
-    /// </summary>
-    private void AddDevSkinItems()
-    {
-        // 러너마다 스킨 한 줄씩. 한 러너는 스킨을 하나만 입으니 다른 스킨을 고르면 바꿔 입는다.
-        var items = new List<(string Id, RunnerSkin Skin, NativeMenuItem Item)>();
-        foreach (var r in _store.Current.Runners)
-        {
-            _menu.Items.Add(new NativeMenuItemSeparator());
-            string id = r.Id;
-            foreach (var skin in RunnerSkins.All)
-            {
-                var item = new NativeMenuItem($"[개발용] {SettingsWindow.RunnerName(r)} {RunnerSkins.DisplayName(skin)} 스킨")
-                {
-                    ToggleType = NativeMenuItemToggleType.CheckBox,
-                };
-                item.Click += (_, _) => ToggleSkin(id, skin);
-                _menu.Items.Add(item);
-                items.Add((id, skin, item));
-            }
-        }
-        _menu.Items.Add(new NativeMenuItemSeparator());
-
-        void Sync()
-        {
-            foreach (var (id, skin, item) in items)
-                item.IsChecked = RunnerSkins.Parse(_store.Current.Runners.FirstOrDefault(x => x.Id == id)?.Skin) == skin;
-        }
-        Sync();
-        _store.Changed += (_, _) => Sync();
-    }
-
-    private void ToggleSkin(string id, RunnerSkin skin)
-    {
-        var settings = _store.Current.Clone();
-        var r = settings.Runners.FirstOrDefault(x => x.Id == id);
-        if (r is null) return;
-        r.Skin = RunnerSkins.Parse(r.Skin) == skin ? null : RunnerSkins.ToId(skin);
-        _store.Update(settings);
     }
 
     private bool SafeIsStartupEnabled()

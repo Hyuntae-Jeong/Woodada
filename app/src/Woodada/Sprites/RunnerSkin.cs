@@ -17,24 +17,19 @@ public static class RunnerSkins
 {
     /// <summary>settings.json에 저장하는 Id. enum을 그대로 저장하면 나중에 스킨을 빼거나 이름을 바꿨을 때
     /// 옛 파일을 읽다가 설정 전체가 기본값으로 날아가므로, 모르는 Id는 그냥 무시하는 문자열로 둔다.</summary>
-    private static readonly (RunnerSkin Skin, string Id, string Name)[] Known =
+    private static readonly (RunnerSkin Skin, string Id)[] Known =
     {
-        (RunnerSkin.Ghost, "ghost", "유령"),
-        (RunnerSkin.Flash, "flash", "플래시"),
-        (RunnerSkin.Glitch, "glitch", "글리치"),
-        (RunnerSkin.Ice, "ice", "얼음"),
-        (RunnerSkin.Kittens, "kittens", "줄줄이"),
+        (RunnerSkin.Ghost, "ghost"),
+        (RunnerSkin.Flash, "flash"),
+        (RunnerSkin.Glitch, "glitch"),
+        (RunnerSkin.Ice, "ice"),
+        (RunnerSkin.Kittens, "kittens"),
     };
-
-    /// <summary>스킨이 있는 것들만(None 제외).</summary>
-    public static IEnumerable<RunnerSkin> All => Known.Select(k => k.Skin);
 
     public static RunnerSkin Parse(string? id) =>
         Known.FirstOrDefault(k => string.Equals(k.Id, id, StringComparison.OrdinalIgnoreCase)).Skin;
 
     public static string? ToId(RunnerSkin skin) => Known.FirstOrDefault(k => k.Skin == skin).Id;
-
-    public static string DisplayName(RunnerSkin skin) => Known.FirstOrDefault(k => k.Skin == skin).Name ?? "";
 
     /// <summary>
     /// 이 스킨을 입었을 때 실제로 보이는 몸색. 유령·얼음은 고른 색 대신 제 색을 입는다.
