@@ -183,6 +183,6 @@ internal sealed class ShopTile : ClickableControl
         var captionRect = new Rect(outer.X, art.Bottom + 2, outer.Width, textLine);
         GameArt.DrawCentered(ctx, GameArt.Format(Caption, GameArt.FontSmall, GameArt.Text), captionRect);
         var soonRect = new Rect(outer.X, captionRect.Bottom, outer.Width, textLine);
-        GameArt.DrawCentered(ctx, GameArt.Format("곧 만나요!", GameArt.FontSmall, GameArt.Accent, FontWeight.Bold), soonRect);
+        GameArt.DrawCentered(ctx, GameArt.Format(Loc.T("곧 만나요!", "Coming soon!"), GameArt.FontSmall, GameArt.Accent, FontWeight.Bold), soonRect);
     }
 }

@@ -5,9 +5,9 @@ public static class SpriteRegistry
     // 등록 순서가 옷장의 칸 순서이자 가격 순서다(RewardCatalog.RunnerPrice).
     private static readonly Dictionary<string, IRunnerSprite> Sprites = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["cat"] = new FrameSprite("cat", "고양이", "RunCat.cat_running_", 5),
-        ["dachshund"] = new FrameSprite("dachshund", "닥스훈트", "Dog.dog_running_", 5),
-        ["rabbit"] = new FrameSprite("rabbit", "토끼", "Rabbit.rabbit_running_", 5),
+        ["cat"] = new FrameSprite("cat", new("고양이", "Cat"), "RunCat.cat_running_", 5),
+        ["dachshund"] = new FrameSprite("dachshund", new("닥스훈트", "Dachshund"), "Dog.dog_running_", 5),
+        ["rabbit"] = new FrameSprite("rabbit", new("토끼", "Rabbit"), "Rabbit.rabbit_running_", 5),
         // 다른 러너를 추가할 때 여기에 등록.
     };
 

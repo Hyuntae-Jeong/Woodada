@@ -15,8 +15,8 @@ internal static class Dialogs
     public static Task<bool> ConfirmAsync(Window owner, string title, string message)
     {
         var dialog = NewDialog(title, 380);
-        var yes = DialogButton("예", primary: true);
-        var no = DialogButton("아니요", primary: false);
+        var yes = DialogButton(Loc.T("예", "Yes"), primary: true);
+        var no = DialogButton(Loc.T("아니요", "No"), primary: false);
         yes.Click += (_, _) => dialog.Close(true);
         no.Click += (_, _) => dialog.Close(false);
         dialog.Content = DialogBody(
@@ -32,7 +32,7 @@ internal static class Dialogs
     /// <summary>색을 고른다. 취소하면 null.</summary>
     public static Task<string?> PickColorAsync(Window owner, string initialHex)
     {
-        var dialog = NewDialog("색 고르기", 360);
+        var dialog = NewDialog(Loc.T("색 고르기", "Pick a color"), 360);
         var picker = new ColorView
         {
             Color = ColorUtil.Parse(initialHex, Colors.Black),
@@ -40,8 +40,8 @@ internal static class Dialogs
             IsAlphaVisible = false,
             Height = 420,
         };
-        var ok = DialogButton("확인", primary: true);
-        var cancel = DialogButton("취소", primary: false);
+        var ok = DialogButton(Loc.T("확인", "OK"), primary: true);
+        var cancel = DialogButton(Loc.T("취소", "Cancel"), primary: false);
         ok.Click += (_, _) => dialog.Close(ColorUtil.ToHex(picker.Color));
         cancel.Click += (_, _) => dialog.Close(null);
         dialog.Content = DialogBody(picker, ok, cancel);

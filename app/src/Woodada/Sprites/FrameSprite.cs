@@ -40,10 +40,10 @@ public sealed class FrameSprite : IRunnerSprite
     private readonly Dictionary<FrameKey, Bitmap[]> _cache = new();
 
     /// <param name="resourcePrefix">임베디드 리소스 이름 앞부분. 뒤에 "{i}.png"가 붙는다.</param>
-    public FrameSprite(string id, string displayName, string resourcePrefix, int frameCount)
+    public FrameSprite(string id, LocText displayName, string resourcePrefix, int frameCount)
     {
         Id = id;
-        DisplayName = displayName;
+        _displayName = displayName;
         var raw = Enumerable.Range(0, frameCount).Select(i => AlphaImage.Load($"{resourcePrefix}{i}.png")).ToArray();
 
         // 프레임마다 실루엣 범위가 달라서, 전 프레임 합집합으로 잘라야 발 위치(바닥선)가 흔들리지 않는다.
@@ -59,7 +59,8 @@ public sealed class FrameSprite : IRunnerSprite
     }
 
     public string Id { get; }
-    public string DisplayName { get; }
+    private readonly LocText _displayName;
+    public string DisplayName => _displayName;
 
     public Size Measure(double height) => new(height * _crop.Width / _crop.Height, height);
 

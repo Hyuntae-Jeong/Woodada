@@ -58,17 +58,27 @@ public sealed class SettingsStore
     private AppSettings Load()
     {
         AppSettings settings;
+        bool loaded = false;
         try
         {
-            settings = File.Exists(FilePath)
-                ? Deserialize(File.ReadAllText(FilePath))
-                : AppSettings.CreateDefault();
+            if (File.Exists(FilePath))
+            {
+                settings = Deserialize(File.ReadAllText(FilePath));
+                loaded = true;
+            }
+            else
+            {
+                settings = AppSettings.CreateDefault();
+            }
         }
         catch (Exception)
         {
             // 파일이 깨졌으면 기본값으로 뜬다. 상주 앱이 시작조차 못 하는 것보단 낫다.
             settings = AppSettings.CreateDefault();
         }
+        // 설정 파일이 없거나 깨졌어도 달린 기록이 있으면 예전부터 쓰던 사용자다. 갑자기 영어로 바뀌지 않게 한다.
+        if (!loaded && File.Exists(Path.Combine(AppInfo.DataFolder, "stats.json")))
+            settings.Language = Loc.KoreanId;
         settings.Normalize();
         return settings;
     }

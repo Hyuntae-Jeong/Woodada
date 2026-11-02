@@ -15,8 +15,8 @@ internal sealed class WindowsPlatform : IPlatform
     private const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
 
     public string DataRoot => Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-    public string BarName => "작업표시줄";
-    public string StartupMenuLabel => "Windows 시작 시 실행";
+    public string BarName => Loc.T("작업표시줄", "taskbar");
+    public string StartupMenuLabel => Loc.T("Windows 시작 시 실행", "Start with Windows");
     public bool CanDetectFullScreen => true;
 
     // ───────── 어디서 달릴지 ─────────

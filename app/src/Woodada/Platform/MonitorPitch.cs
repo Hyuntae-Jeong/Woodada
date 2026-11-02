@@ -75,10 +75,10 @@ public static class ScreenCatalog
             .Select((s, i) =>
             {
                 var tags = new List<string>();
-                if (s.IsPrimary) tags.Add("주 모니터");
-                if (!p.FindBar(s).HasBar) tags.Add($"{p.BarName} 없음 → 화면 아래");
+                if (s.IsPrimary) tags.Add(Loc.T("주 모니터", "main"));
+                if (!p.FindBar(s).HasBar) tags.Add(Loc.T($"{p.BarName} 없음 → 화면 아래", $"no {p.BarName} → bottom of screen"));
                 string suffix = tags.Count > 0 ? $" ({string.Join(", ", tags)})" : "";
-                return new MonitorItem(p.ScreenKey(s), $"모니터 {i + 1} — {s.Bounds.Width}×{s.Bounds.Height}{suffix}");
+                return new MonitorItem(p.ScreenKey(s), $"{Loc.T("모니터", "Monitor")} {i + 1} — {s.Bounds.Width}×{s.Bounds.Height}{suffix}");
             })
             .ToList();
     }

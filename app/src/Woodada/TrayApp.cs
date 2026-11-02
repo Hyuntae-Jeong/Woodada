@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
@@ -24,7 +25,9 @@ internal sealed class TrayApp : IDisposable
     private readonly OverlayController _overlay;
     private readonly TrayIcon _tray;
     private readonly NativeMenu _menu = new();
+    private readonly NativeMenuItem _settingsItem;
     private readonly NativeMenuItem _startupItem;
+    private readonly NativeMenuItem _quitItem;
     private readonly DispatcherTimer _tooltipTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly CancellationTokenSource _updateCts = new();
     private SettingsWindow? _settingsWindow;
@@ -41,30 +44,34 @@ internal sealed class TrayApp : IDisposable
     /// <summary>바꿔 끼울 수 없을 때(macOS .dmg 안 등) 메뉴 맨 위에 붙이는 "새 버전 받기" 항목과, 마지막으로 알림을 띄운 버전.</summary>
     private NativeMenuItem? _downloadItem;
     private string _downloadUrl = "";
+    private string _downloadVersion = "";
     private Version? _notifiedVersion;
 
     public TrayApp(IClassicDesktopStyleApplicationLifetime lifetime, bool openSettings, bool updated, bool checkForUpdate)
     {
         _lifetime = lifetime;
+        Loc.Use(_store.Current.Language);
         TryRun(_platform.MigrateLegacyStartup);
         ApplyStartupDefault();
         _rewards = new RewardStore(_stats);
         _rewards.GrantStartingItems(_store.Current);
         _overlay = new OverlayController(_store, _stats);
 
-        var settingsItem = new NativeMenuItem("설정…");
-        settingsItem.Click += (_, _) => ShowSettings();
-        _startupItem = new NativeMenuItem(_platform.StartupMenuLabel)
+        _settingsItem = new NativeMenuItem();
+        _settingsItem.Click += (_, _) => ShowSettings();
+        _startupItem = new NativeMenuItem
         {
             ToggleType = NativeMenuItemToggleType.CheckBox,
             IsChecked = SafeIsStartupEnabled(),
         };
         _startupItem.Click += (_, _) => ToggleStartup();
-        var quitItem = new NativeMenuItem("종료");
-        quitItem.Click += (_, _) => _lifetime.Shutdown();
-        _menu.Items.Add(settingsItem);
+        _quitItem = new NativeMenuItem();
+        _quitItem.Click += (_, _) => _lifetime.Shutdown();
+        _menu.Items.Add(_settingsItem);
         _menu.Items.Add(_startupItem);
-        _menu.Items.Add(quitItem);
+        _menu.Items.Add(_quitItem);
+        LabelMenu();
+        _store.Changed += (_, _) => OnLanguageMaybeChanged();
 
         _tray = new TrayIcon
         {
@@ -88,7 +95,7 @@ internal sealed class TrayApp : IDisposable
         AppDomain.CurrentDomain.ProcessExit += (_, _) => _stats.Save();
 
         if (openSettings) ShowSettings();
-        if (updated) Toast.Show("Woodada", $"v{Updater.Current.ToString(3)}(으)로 업데이트했어요.");
+        if (updated) Toast.Show("Woodada", Loc.T($"v{Updater.Current.ToString(3)}(으)로 업데이트했어요.", $"Updated to v{Updater.Current.ToString(3)}."));
         // 로컬 빌드(0.0.0)는 업데이트하지 않는다.
         if (Updater.IsReleaseBuild)
         {
@@ -169,11 +176,13 @@ internal sealed class TrayApp : IDisposable
             _downloadItem.Click += (_, _) => OpenUrl(_downloadUrl);
             _menu.Items.Insert(0, _downloadItem);
         }
-        _downloadItem.Header = $"새 버전 v{version} 받기…";
+        _downloadVersion = version;
+        LabelMenu();
 
         if (release.Version == _notifiedVersion) return;
         _notifiedVersion = release.Version;
-        Toast.Show("새 버전이 나왔어요", $"Woodada v{version}을 받을 수 있어요. 눌러서 다운로드 페이지를 열어요.",
+        Toast.Show(Loc.T("새 버전이 나왔어요", "A new version is out"),
+            Loc.T($"Woodada v{version}을 받을 수 있어요. 눌러서 다운로드 페이지를 열어요.", $"Woodada v{version} is ready. Click to open the download page."),
             () => OpenUrl(_downloadUrl));
     }
 
@@ -189,7 +198,7 @@ internal sealed class TrayApp : IDisposable
         }
     }
 
-    private void ShowSettings(SettingsWindow.Page page = SettingsWindow.Page.Cats)
+    private void ShowSettings(SettingsWindow.Page page = SettingsWindow.Page.Cats, PixelPoint? position = null)
     {
         if (_settingsWindow is not null)
         {
@@ -197,10 +206,17 @@ internal sealed class TrayApp : IDisposable
             _settingsWindow.Activate();
             return;
         }
-        _settingsWindow = new SettingsWindow(_store, _stats, _rewards, _overlay.Sampler);
-        _settingsWindow.ShowPage(page);
-        _settingsWindow.Closed += (_, _) =>
+        var window = new SettingsWindow(_store, _stats, _rewards, _overlay.Sampler);
+        _settingsWindow = window;
+        window.ShowPage(page);
+        if (position is { } p)
         {
+            window.WindowStartupLocation = WindowStartupLocation.Manual;
+            window.Position = p;
+        }
+        window.Closed += (_, _) =>
+        {
+            if (_settingsWindow != window) return; // 언어를 바꿔 다시 연 창이 이어받았다
             _settingsWindow = null;
             if (_pendingInstall is { } staged)
             {
@@ -208,8 +224,38 @@ internal sealed class TrayApp : IDisposable
                 Install(staged);
             }
         };
-        _settingsWindow.Show();
-        _settingsWindow.Activate();
+        window.Show();
+        window.Activate();
+    }
+
+    /// <summary>메뉴 글자를 지금 언어로 맞춘다.</summary>
+    private void LabelMenu()
+    {
+        _settingsItem.Header = Loc.T("설정…", "Settings…");
+        _startupItem.Header = _platform.StartupMenuLabel;
+        _quitItem.Header = Loc.T("종료", "Quit");
+        if (_downloadItem is not null)
+            _downloadItem.Header = Loc.T($"새 버전 v{_downloadVersion} 받기…", $"Get v{_downloadVersion}…");
+    }
+
+    /// <summary>
+    /// 일반 탭에서 언어를 바꾸면 메뉴 글자를 바꾸고, 설정 창은 같은 자리·같은 탭(일반)에서 새 언어로 다시 연다.
+    /// 창의 글자는 만들 때 정해지는 게 많아서, 하나씩 바꾸기보다 새로 여는 편이 빠짐없다.
+    /// 설정 창의 이벤트 처리 도중이라 닫기는 그 처리가 끝난 뒤로 미룬다.
+    /// </summary>
+    private void OnLanguageMaybeChanged()
+    {
+        if (!Loc.Use(_store.Current.Language)) return;
+        LabelMenu();
+        if (_settingsWindow is not { } old) return;
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_settingsWindow != old) return;
+            var position = old.Position;
+            _settingsWindow = null;
+            ShowSettings(SettingsWindow.Page.General, position);
+            old.Close();
+        });
     }
 
     /// <summary>

@@ -208,7 +208,7 @@ internal sealed class GachaStage : Control
         if (!Complete)
         {
             DrawDesk(ctx, width, 12 + 3 * Math.Sin(t * 1.3));
-            TextAt(ctx, "누가 달려올까요?", 22, Color.FromArgb(191, 255, 255, 255), FontWeight.Bold, width / 2, 150);
+            TextAt(ctx, Loc.T("누가 달려올까요?", "Who's coming?"), 22, Color.FromArgb(191, 255, 255, 255), FontWeight.Bold, width / 2, 150);
             TextAt(ctx, "?", 54, Color.FromArgb(46, 255, 255, 255), FontWeight.Bold, width / 2, 208 + 4 * Math.Sin(t * 2));
             return;
         }
@@ -223,8 +223,8 @@ internal sealed class GachaStage : Control
             var skin = RewardCatalog.AvailableSkins[i].Skin;
             _parade[i].Draw(ctx, width / 2 + (i - (count - 1) / 2.0) * spacing, BarTop, 46, skin, RewardCatalog.ShowcaseColor(skin), 35, scaling);
         }
-        TextAt(ctx, "도감 완성!", 24, Colors.White, FontWeight.Bold, width / 2, 54);
-        TextAt(ctx, "새 스킨이 나오면 뽑기가 다시 열려요", 13, Color.FromArgb(166, 255, 255, 255), FontWeight.Medium, width / 2, 84);
+        TextAt(ctx, Loc.T("도감 완성!", "Collection complete!"), 24, Colors.White, FontWeight.Bold, width / 2, 54);
+        TextAt(ctx, Loc.T("새 스킨이 나오면 뽑기가 다시 열려요", "The gacha reopens when a new skin comes out"), 13, Color.FromArgb(166, 255, 255, 255), FontWeight.Medium, width / 2, 84);
     }
 
     private void DrawPlaying(DrawingContext ctx, double width, double t, double scaling)
@@ -331,8 +331,8 @@ internal sealed class GachaStage : Control
         {
             using (ctx.PushOpacity(ta))
             {
-                TextAt(ctx, "앗, 도망갔어요!", 24, Colors.White, FontWeight.Bold, width / 2, 58 - 6 * (1 - ta));
-                TextAt(ctx, "꽝 · 다음엔 꼭 잡아 봐요", 13, Color.FromArgb(184, 255, 255, 255), FontWeight.Medium, width / 2, 88);
+                TextAt(ctx, Loc.T("앗, 도망갔어요!", "Oops, it got away!"), 24, Colors.White, FontWeight.Bold, width / 2, 58 - 6 * (1 - ta));
+                TextAt(ctx, Loc.T("꽝 · 다음엔 꼭 잡아 봐요", "No luck · catch it next time"), 13, Color.FromArgb(184, 255, 255, 255), FontWeight.Medium, width / 2, 88);
             }
         }
     }

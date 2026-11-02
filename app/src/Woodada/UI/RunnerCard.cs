@@ -43,7 +43,7 @@ internal sealed class RunnerCard : CardPanel
         _title.VerticalAlignment = VerticalAlignment.Center;
         layout.Children.Add(_title);
 
-        _visible.Content = "표시";
+        _visible.Content = Loc.T("표시", "Show");
         _visible.Foreground = GameArt.Brush(GameArt.Text);
         _visible.MinHeight = 0;
         _visible.Padding = new Thickness(6, 0, 0, 0);
@@ -70,7 +70,7 @@ internal sealed class RunnerCard : CardPanel
         var sizeRow = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto") };
         sizeRow.Children.Add(new TextBlock
         {
-            Text = "크기", FontSize = GameArt.FontBody, Foreground = GameArt.Brush(GameArt.SubText),
+            Text = Loc.T("크기", "Size"), FontSize = GameArt.FontBody, Foreground = GameArt.Brush(GameArt.SubText),
             VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0),
         });
         _size.Minimum = AppSettings.MinSize;
@@ -122,9 +122,9 @@ internal sealed class RunnerCard : CardPanel
             var skin = RunnerSkins.Parse(r.Skin);
             // 스킨을 입었으면 색 이름 옆에 스킨 이름을 붙인다.
             string look = Rewards.RewardCatalog.FindSkin(skin) is { } info ? $"{colorName} · {info.Name}" : colorName;
-            _colorName.Text = trialHex is not null ? "입어 보는 중이에요 · 아직 사지 않았어요"
-                : r.Enabled ? $"{look} · {SettingsWindow.MetricName(r.Metric)} 사용률로 달려요"
-                : $"{look} · 숨겨 둠";
+            _colorName.Text = trialHex is not null ? Loc.T("입어 보는 중이에요 · 아직 사지 않았어요", "Trying it on · not bought yet")
+                : r.Enabled ? Loc.T($"{look} · {SettingsWindow.MetricName(r.Metric)} 사용률로 달려요", $"{look} · runs on {SettingsWindow.MetricName(r.Metric)} usage")
+                : Loc.T($"{look} · 숨겨 둠", $"{look} · hidden");
             _colorName.Foreground = GameArt.Brush(trialHex is not null ? GameArt.Accent : GameArt.SubText);
             _visible.IsChecked = r.Enabled;
             _size.Value = Math.Clamp(r.Size, AppSettings.MinSize, AppSettings.MaxSize);

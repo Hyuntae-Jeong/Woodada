@@ -4,7 +4,7 @@ using Woodada.Sprites;
 namespace Woodada.Rewards;
 
 /// <summary>기본 팔레트의 색 하나. Price가 0이면 처음부터 갖고 있다.</summary>
-public sealed record PresetColor(string Id, string Name, string Hex, int Price)
+public sealed record PresetColor(string Id, LocText Name, string Hex, int Price)
 {
     public bool IsFree => Price <= 0;
 }
@@ -14,7 +14,7 @@ public sealed record PresetColor(string Id, string Name, string Hex, int Price)
 /// <param name="Released">일반 버전에 공개했는지. 아직이면 개발용 빌드에서만 보이고 뽑힌다.</param>
 /// <param name="Accent">무대의 빛·별 색.</param>
 /// <param name="Ink">흰 바탕 위 글자(별·등급) 색.</param>
-public sealed record SkinInfo(RunnerSkin Skin, string Name, int Stars, string Tier, bool Released, string Description, Color Accent, Color Ink);
+public sealed record SkinInfo(RunnerSkin Skin, LocText Name, int Stars, LocText Tier, bool Released, LocText Description, Color Accent, Color Ink);
 
 /// <summary>
 /// 생선 보상 규칙과 가격표.
@@ -31,16 +31,16 @@ public static class RewardCatalog
     /// <summary>그리드 순서 그대로. 무료 → 흔함 → 보통 → 희귀.</summary>
     public static readonly IReadOnlyList<PresetColor> Presets = new PresetColor[]
     {
-        new("black", "까망", "#1E1E22", 0),
-        new("white", "하양", "#ECE7DF", 0),
-        new("cheese", "치즈", "#F4A261", 50),
-        new("mackerel", "고등어", "#6D8BA8", 50),
-        new("gray", "회색", "#9A9AA0", 50),
-        new("calico", "삼색", "#C9825B", 150),
-        new("mint", "민트", "#7FB8A4", 150),
-        new("lemon", "레몬", "#E6C55A", 150),
-        new("lavender", "라벤더", "#AE8FC7", 300),
-        new("cherry", "체리", "#D9626B", 300),
+        new("black", new("까망", "Black"), "#1E1E22", 0),
+        new("white", new("하양", "White"), "#ECE7DF", 0),
+        new("cheese", new("치즈", "Ginger"), "#F4A261", 50),
+        new("mackerel", new("고등어", "Tabby"), "#6D8BA8", 50),
+        new("gray", new("회색", "Gray"), "#9A9AA0", 50),
+        new("calico", new("삼색", "Calico"), "#C9825B", 150),
+        new("mint", new("민트", "Mint"), "#7FB8A4", 150),
+        new("lemon", new("레몬", "Lemon"), "#E6C55A", 150),
+        new("lavender", new("라벤더", "Lavender"), "#AE8FC7", 300),
+        new("cherry", new("체리", "Cherry"), "#D9626B", 300),
     };
 
     /// <summary>아무 색이나 직접 골라 넣는 칸 수.</summary>
@@ -87,22 +87,31 @@ public static class RewardCatalog
     /// 모든 스킨, 도감 순서 그대로. 일반 버전에는 Released인 것만 보인다(AvailableSkins).
     /// 1.0.0에 공개한 것: 유령냥·플래시냥·글리치냥. 얼음냥·줄줄이냥은 아직 개발용 빌드에서만.
     /// </summary>
+    private static readonly LocText Rare = new("레어", "Rare");
+    private static readonly LocText Epic = new("에픽", "Epic");
+    private static readonly LocText Legendary = new("전설", "Legendary");
+
     public static readonly IReadOnlyList<SkinInfo> Skins = new SkinInfo[]
     {
-        new(RunnerSkin.Ghost, "유령냥", 2, "레어", true,
-            "반투명한 몸으로 작업표시줄 위를 둥실둥실 떠다녀요. 고른 색 대신 유령색을 입어요.",
+        new(RunnerSkin.Ghost, new("유령냥", "Ghost Cat"), 2, Rare, true,
+            new("반투명한 몸으로 작업표시줄 위를 둥실둥실 떠다녀요. 고른 색 대신 유령색을 입어요.",
+                "Floats along your taskbar with a see-through body. Wears ghostly white instead of your color."),
             Color.FromRgb(0x8E, 0xC5, 0xFF), Color.FromRgb(0x3D, 0x86, 0xD6)),
-        new(RunnerSkin.Flash, "플래시냥", 3, "에픽", true,
-            "지나온 길에 잔상과 불꽃을 남겨요. 빠를수록 꼬리가 길어져요.",
+        new(RunnerSkin.Flash, new("플래시냥", "Flash Cat"), 3, Epic, true,
+            new("지나온 길에 잔상과 불꽃을 남겨요. 빠를수록 꼬리가 길어져요.",
+                "Leaves afterimages and sparks behind. The faster it runs, the longer the trail."),
             Color.FromRgb(0xFF, 0x8A, 0x1F), Color.FromRgb(0xE0, 0x70, 0x10)),
-        new(RunnerSkin.Ice, "얼음냥", 3, "에픽", false,
-            "얼음빛 몸으로 달리며 발자국마다 서리를 남겨요. 빠를수록 서리가 촘촘하고 오래 남아요.",
+        new(RunnerSkin.Ice, new("얼음냥", "Ice Cat"), 3, Epic, false,
+            new("얼음빛 몸으로 달리며 발자국마다 서리를 남겨요. 빠를수록 서리가 촘촘하고 오래 남아요.",
+                "Runs with an icy body and leaves frost on every step. The faster it runs, the thicker the frost."),
             Color.FromRgb(0x7F, 0xD8, 0xF5), Color.FromRgb(0x1F, 0x9A, 0xC8)),
-        new(RunnerSkin.Glitch, "글리치냥", 4, "전설", true,
-            "가끔 화면이 고장 난 것처럼 지지직거려요. CPU가 바쁠수록 자주요.",
+        new(RunnerSkin.Glitch, new("글리치냥", "Glitch Cat"), 4, Legendary, true,
+            new("가끔 화면이 고장 난 것처럼 지지직거려요. CPU가 바쁠수록 자주요.",
+                "Now and then it flickers like a broken screen. More often when your CPU is busy."),
             Color.FromRgb(0xC0, 0x7B, 0xFF), Color.FromRgb(0x9A, 0x4F, 0xE0)),
-        new(RunnerSkin.Kittens, "줄줄이냥", 4, "전설", false,
-            "새끼 고양이들이 졸졸 따라와요. CPU가 바쁠수록 한 마리씩 늘어나 최대 네 마리까지요.",
+        new(RunnerSkin.Kittens, new("줄줄이냥", "Kitten Parade"), 4, Legendary, false,
+            new("새끼 고양이들이 졸졸 따라와요. CPU가 바쁠수록 한 마리씩 늘어나 최대 네 마리까지요.",
+                "A line of kittens tags along. One more joins as your CPU gets busier, up to four."),
             Color.FromRgb(0xFF, 0x9E, 0xC4), Color.FromRgb(0xE0, 0x5A, 0x95)),
     };
 

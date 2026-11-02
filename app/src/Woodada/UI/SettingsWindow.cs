@@ -16,7 +16,7 @@ namespace Woodada.UI;
 /// <summary>
 /// 맨 위: 가진 생선 · 다음 생선까지 진행 막대.
 /// 고양이 — CPU·메모리 고양이 카드(표시 · 미리보기 · 크기)와 색 칸 20개(기본 10 + 나만의 색 10).
-/// 옷장 — 러너 모음. 기록 — 달린 거리. 일반 — 모니터 · 전체 화면.
+/// 옷장 — 러너 모음. 기록 — 달린 거리. 일반 — 모니터 · 전체 화면 · 언어.
 /// 냥뽑기 — 생선으로 스페셜 스킨 뽑기(꽝 있음). 뽑은 스킨은 고양이 탭 맨 아래 스킨 줄에서 입힌다.
 /// 개발용 빌드는 아직 공개하지 않은 스킨까지 보이고, 뽑기 탭에 개발용 도구가 붙는다.
 /// 바꾸는 즉시 오버레이에 반영하고 저장한다.
@@ -52,8 +52,8 @@ internal sealed class SettingsWindow : Window
     private readonly TextBlock _catsHint = new();
     private readonly StackPanel _trialButtons = new() { Orientation = Orientation.Horizontal, Spacing = 4 };
     private readonly GameButton _trialBuy = new("", primary: true);
-    private readonly GameButton _trialRepick = new("다른 색");
-    private readonly GameButton _trialCancel = new("그만");
+    private readonly GameButton _trialRepick = new(Loc.T("다른 색", "Other color"));
+    private readonly GameButton _trialCancel = new(Loc.T("그만", "Stop"));
     private Trial? _trial;
 
     /// <summary>사기 전에 입어 보는 색. Preset이 없으면 나만의 색 칸(CustomIndex)이다.</summary>
@@ -63,7 +63,7 @@ internal sealed class SettingsWindow : Window
     private readonly List<(RunnerSkin Skin, ShopTile Tile)> _skinTiles = new();
     // 스킨 칸 고양이가 제자리 달리기를 하도록 다시 그리는 타이머. 고양이 탭을 볼 때만 일한다.
     private readonly DispatcherTimer _skinTimer = new() { Interval = TimeSpan.FromMilliseconds(33) };
-    private readonly GameButton _gotoGacha = new("냥뽑기로 가기") { IsVisible = false, Margin = new Thickness(0, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center };
+    private readonly GameButton _gotoGacha = new(Loc.T("냥뽑기로 가기", "Go to Gacha")) { IsVisible = false, Margin = new Thickness(0, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center };
 
     // 냥뽑기 탭
     private readonly GachaStage _stage = new() { Height = 210 };
@@ -71,18 +71,18 @@ internal sealed class SettingsWindow : Window
     private readonly TextBlock _pullTitle = new();
     private readonly TextBlock _pullSub = new();
     private readonly PriceLabel _gachaPrice = new() { Price = RewardCatalog.GachaPrice };
-    private readonly GameButton _pull = new("한 번 뽑기", primary: true) { MinWidth = 96 };
+    private readonly GameButton _pull = new(Loc.T("한 번 뽑기", "Pull once"), primary: true) { MinWidth = 96 };
     private readonly Grid _resultRow = new() { ColumnDefinitions = new ColumnDefinitions("*,Auto"), IsVisible = false };
     private readonly TextBlock _resultName = new();
     private readonly TextBlock _resultStars = new();
     private readonly TextBlock _resultDesc = new();
     private readonly StackPanel _wearButtons = new() { Orientation = Orientation.Horizontal, Spacing = 6 };
-    private readonly GameButton _again = new("한 번 더", primary: true);
+    private readonly GameButton _again = new(Loc.T("한 번 더", "Again"), primary: true);
     private readonly TextBlock _dexCount = new();
     private readonly List<(SkinInfo Info, SkinRunnerView View, TextBlock Name, TextBlock Tier)> _dexSlots = new();
     private readonly ComboBox _devPick = new() { MinWidth = 110 };
     private List<RunnerSkin?> _devPickSkins = new();
-    private readonly CheckBox _devFree = new() { Content = "생선 안 쓰고 뽑기" };
+    private readonly CheckBox _devFree = new() { Content = Loc.T("생선 안 쓰고 뽑기", "Pull without fish") };
     /// <summary>방금 뽑아 연출 중이거나 결과를 보여 주는 스킨. None이면 꽝이다.</summary>
     private RunnerSkin _pulled;
     /// <summary>뽑기 직전의 꽝 연속 횟수. 연출 중에는 이 값을 보여 줘야 결과가 미리 새지 않는다.</summary>
@@ -113,6 +113,14 @@ internal sealed class SettingsWindow : Window
     private readonly ComboBox _monitor = new();
     private List<ScreenCatalog.MonitorItem> _monitorItems = new();
     private readonly CheckBox _hideFullScreen = new();
+    private readonly ComboBox _language = new() { Width = 200 };
+
+    /// <summary>언어 고르기 목록. 각 언어는 제 말로 적어야 못 읽는 언어로 바뀌었을 때도 돌아올 수 있다.</summary>
+    private static readonly (AppLanguage Language, string Label)[] Languages =
+    {
+        (AppLanguage.English, "English"),
+        (AppLanguage.Korean, "한국어"),
+    };
 
     public SettingsWindow(SettingsStore store, StatsStore stats, RewardStore rewards, MetricSampler sampler)
     {
@@ -123,7 +131,7 @@ internal sealed class SettingsWindow : Window
         _working = store.Current.Clone();
         _selectedId = _working.Runners.FirstOrDefault()?.Id ?? "cpu";
 
-        Title = AppInfo.IsDev ? "Woodada (개발용)" : "Woodada";
+        Title = AppInfo.IsDev ? Loc.T("Woodada (개발용)", "Woodada (Dev)") : "Woodada";
         Icon = AppIcon.Window;
         Width = 700;
         // 고양이 탭 맨 아래 스페셜 스킨 줄까지 들어가는 높이.
@@ -215,13 +223,13 @@ internal sealed class SettingsWindow : Window
         Grid.SetRow(_content, 2);
         root.Children.Add(_content);
 
-        AddPage(nav, Page.Cats, "고양이", BuildCatsPage());
-        AddPage(nav, Page.Closet, "옷장", BuildClosetPage());
-        AddPage(nav, Page.Profile, "기록", BuildProfilePage());
-        AddPage(nav, Page.General, "일반", BuildGeneralPage());
-        AddPage(nav, Page.Gacha, "냥뽑기", BuildGachaPage());
+        AddPage(nav, Page.Cats, Loc.T("고양이", "Cats"), BuildCatsPage());
+        AddPage(nav, Page.Closet, Loc.T("옷장", "Closet"), BuildClosetPage());
+        AddPage(nav, Page.Profile, Loc.T("기록", "Stats"), BuildProfilePage());
+        AddPage(nav, Page.General, Loc.T("일반", "General"), BuildGeneralPage());
+        AddPage(nav, Page.Gacha, Loc.T("냥뽑기", "Cat Gacha"), BuildGachaPage());
 
-        var close = new GameButton("닫기") { MinWidth = 80, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(12, 6, 12, 12) };
+        var close = new GameButton(Loc.T("닫기", "Close")) { MinWidth = 80, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(12, 6, 12, 12) };
         close.Click += (_, _) => Close();
         Grid.SetRow(close, 3);
         root.Children.Add(close);
@@ -280,7 +288,7 @@ internal sealed class SettingsWindow : Window
         var page = new StackPanel { Margin = new Thickness(0, 6, 0, 0) };
         page.Children.Add(_cards);
 
-        page.Children.Add(SectionHeader("기본 색", "까망·하양은 처음부터 있어요. 나머지는 생선으로 열어요"));
+        page.Children.Add(SectionHeader(Loc.T("기본 색", "Basic colors"), Loc.T("까망·하양은 처음부터 있어요. 나머지는 생선으로 열어요", "Black and White are free. Unlock the rest with fish")));
         var presets = TileRow();
         foreach (var color in RewardCatalog.Presets)
         {
@@ -295,12 +303,12 @@ internal sealed class SettingsWindow : Window
         }
         page.Children.Add(presets);
 
-        page.Children.Add(SectionHeader("나만의 색", "직접 고른 색을 담아요. 앞 칸부터 열리고, 10칸을 다 열면 색을 바꿀 수 있어요"));
+        page.Children.Add(SectionHeader(Loc.T("나만의 색", "My colors"), Loc.T("직접 고른 색을 담아요. 앞 칸부터 열리고, 10칸을 다 열면 색을 바꿀 수 있어요", "Colors you pick yourself. Slots open in order; open all 10 to recolor them")));
         var customs = TileRow();
         for (int i = 0; i < RewardCatalog.CustomSlotCount; i++)
         {
             int index = i;
-            var tile = ColorTile($"{i + 1}번 칸", null);
+            var tile = ColorTile(Loc.T($"{i + 1}번 칸", $"Slot {i + 1}"), null);
             tile.Price = RewardCatalog.CustomSlotPrice(i);
             tile.Click += (_, _) => OnCustomClicked(index, rightClick: false);
             tile.RightClick += (_, _) => OnCustomClicked(index, rightClick: true);
@@ -447,43 +455,48 @@ internal sealed class SettingsWindow : Window
     {
         if (RewardCatalog.FindPreset(hex) is { } p) return p.Name;
         int i = _rewards.Current.CustomColors.FindIndex(c => SameColor(c, hex));
-        return i >= 0 ? $"나만의 색 {i + 1}" : hex.ToUpperInvariant();
+        return i >= 0 ? Loc.T($"나만의 색 {i + 1}", $"My color {i + 1}") : hex.ToUpperInvariant();
     }
 
     private string DefaultCatsHint() =>
         Selected is { } r
-            ? $"{RunnerName(r)}에게 입힐 색과 스킨을 골라요. 위 카드를 누르면 다른 고양이를 고를 수 있어요."
+            ? Loc.T($"{RunnerName(r)}에게 입힐 색과 스킨을 골라요. 위 카드를 누르면 다른 고양이를 고를 수 있어요.", $"Pick a color and skin for the {RunnerName(r)}. Click a card above to switch cats.")
             : "";
 
     private string PresetHint(PresetColor c)
     {
         if (_rewards.Owns(c))
-            return SameColor(c.Hex, Selected?.Color) ? $"{c.Name} — 지금 입고 있어요" : $"{c.Name} — 눌러서 입혀요";
-        return LockedHint(c.Name, c.Price, "눌러서 입어 보고 살 수 있어요");
+            return SameColor(c.Hex, Selected?.Color)
+                ? Loc.T($"{c.Name} — 지금 입고 있어요", $"{c.Name} — wearing it now")
+                : Loc.T($"{c.Name} — 눌러서 입혀요", $"{c.Name} — click to wear");
+        return LockedHint(c.Name, c.Price, Loc.T("눌러서 입어 보고 살 수 있어요", "Click to try it on and buy"));
     }
 
     private string CustomHint(int index)
     {
-        string name = $"나만의 색 {index + 1}";
+        string name = Loc.T($"나만의 색 {index + 1}", $"My color {index + 1}");
         int opened = _rewards.CustomSlotsOpened;
         if (index < opened)
         {
             bool wearing = SameColor(_rewards.Current.CustomColors[index], Selected?.Color);
             if (!_rewards.CanRecolorCustomSlots)
-                return wearing ? $"{name} — 입고 있어요" : $"{name} — 눌러서 입혀요";
+                return wearing ? Loc.T($"{name} — 입고 있어요", $"{name} — wearing it") : Loc.T($"{name} — 눌러서 입혀요", $"{name} — click to wear");
             return wearing
-                ? $"{name} — 입고 있어요. 한 번 더 누르면 색을 바꿀 수 있어요"
-                : $"{name} — 눌러서 입혀요. 오른쪽 클릭하면 색을 바꿔요";
+                ? Loc.T($"{name} — 입고 있어요. 한 번 더 누르면 색을 바꿀 수 있어요", $"{name} — wearing it. Click again to change its color")
+                : Loc.T($"{name} — 눌러서 입혀요. 오른쪽 클릭하면 색을 바꿔요", $"{name} — click to wear, right-click to change its color");
         }
-        if (index > opened) return $"{name} — 앞 칸을 먼저 열어야 해요 (생선 {GameArt.FormatCount(RewardCatalog.CustomSlotPrice(index))}개)";
-        return LockedHint(name, RewardCatalog.CustomSlotPrice(index), "눌러서 색을 고르면 입어 보고 살 수 있어요");
+        string price = GameArt.FormatCount(RewardCatalog.CustomSlotPrice(index));
+        if (index > opened) return Loc.T($"{name} — 앞 칸을 먼저 열어야 해요 (생선 {price}개)", $"{name} — open the slot before it first ({price} fish)");
+        return LockedHint(name, RewardCatalog.CustomSlotPrice(index), Loc.T("눌러서 색을 고르면 입어 보고 살 수 있어요", "Click to pick a color, try it on, and buy"));
     }
 
     private string LockedHint(string name, int price, string action)
     {
         long fish = _rewards.Fish;
-        string cost = $"{name} — 생선 {GameArt.FormatCount(price)}개";
-        return fish >= price ? $"{cost}. {action}" : $"{cost}. {GameArt.FormatCount(price - fish)}개 더 모으면 열 수 있어요 (입어 보기는 지금도 돼요)";
+        string cost = Loc.T($"{name} — 생선 {GameArt.FormatCount(price)}개", $"{name} — {GameArt.FormatCount(price)} fish");
+        string more = GameArt.FormatCount(price - fish);
+        return fish >= price ? $"{cost}. {action}"
+            : Loc.T($"{cost}. {more}개 더 모으면 열 수 있어요 (입어 보기는 지금도 돼요)", $"{cost}. {more} more to unlock (you can still try it on)");
     }
 
     private void OnPresetClicked(PresetColor color)
@@ -494,10 +507,10 @@ internal sealed class SettingsWindow : Window
             _trial = null; // 다른 칸을 누르면 입어 보던 건 내려놓는다
             Wear(color.Hex);
             UpdateTrialBar();
-            _catsHint.Text = $"{RunnerName(r)}가 {color.Name} 색을 입었어요";
+            _catsHint.Text = Loc.T($"{RunnerName(r)}가 {color.Name} 색을 입었어요", $"The {RunnerName(r)} is now wearing {color.Name}");
             return;
         }
-        StartTrial(new Trial(color.Hex, $"{color.Name} 색", color.Price, color, -1));
+        StartTrial(new Trial(color.Hex, Loc.T($"{color.Name} 색", color.Name), color.Price, color, -1));
     }
 
     private async void OnCustomClicked(int index, bool rightClick)
@@ -513,14 +526,15 @@ internal sealed class SettingsWindow : Window
             {
                 if (!_rewards.CanRecolorCustomSlots)
                 {
-                    _catsHint.Text = $"나만의 색 10칸을 모두 열면 칸의 색을 바꿀 수 있어요 (지금 {opened}/{RewardCatalog.CustomSlotCount}칸)";
+                    _catsHint.Text = Loc.T($"나만의 색 10칸을 모두 열면 칸의 색을 바꿀 수 있어요 (지금 {opened}/{RewardCatalog.CustomSlotCount}칸)",
+                        $"Open all 10 of My colors to recolor slots (now {opened}/{RewardCatalog.CustomSlotCount})");
                     return;
                 }
                 if (await PickColorAsync(hex) is { } picked) Recolor(index, hex, picked);
                 return;
             }
             Wear(hex);
-            _catsHint.Text = $"{RunnerName(r)}가 나만의 색 {index + 1}을 입었어요";
+            _catsHint.Text = Loc.T($"{RunnerName(r)}가 나만의 색 {index + 1}을 입었어요", $"The {RunnerName(r)} is now wearing My color {index + 1}");
             return;
         }
         if (rightClick) return;
@@ -533,7 +547,7 @@ internal sealed class SettingsWindow : Window
         // 색을 고르면 바로 사지 않고 미리보기 고양이에 입혀 본다. 고르다 취소하면 아무것도 바뀌지 않는다.
         string initial = _trial is { Preset: null } t && t.CustomIndex == index ? t.Hex : r.Color;
         if (await PickColorAsync(initial) is not { } chosen) return;
-        StartTrial(new Trial(chosen, "고른 색", RewardCatalog.CustomSlotPrice(index), null, index));
+        StartTrial(new Trial(chosen, Loc.T("고른 색", "the color you picked"), RewardCatalog.CustomSlotPrice(index), null, index));
     }
 
     // ───────── 입어 보기: 사기 전에 미리보기 고양이에만 색을 입혀 본다 ─────────
@@ -569,11 +583,11 @@ internal sealed class SettingsWindow : Window
         bool affordable = fish >= t.Price;
         _trialBuy.IsEnabled = affordable;
         _trialBuy.Text = affordable
-            ? $"생선 {GameArt.FormatCount(t.Price)}개로 사기"
-            : $"생선 {GameArt.FormatCount(t.Price - fish)}개 부족";
+            ? Loc.T($"생선 {GameArt.FormatCount(t.Price)}개로 사기", $"Buy for {GameArt.FormatCount(t.Price)} fish")
+            : Loc.T($"생선 {GameArt.FormatCount(t.Price - fish)}개 부족", $"{GameArt.FormatCount(t.Price - fish)} fish short");
         _trialRepick.IsVisible = t.Preset is null;
-        string what = t.Preset is null ? $"{t.CustomIndex + 1}번 칸에 담을 {t.Label}" : t.Label;
-        _catsHint.Text = $"{RunnerName(r)}가 {what}을 입어 보는 중이에요";
+        string what = t.Preset is null ? Loc.T($"{t.CustomIndex + 1}번 칸에 담을 {t.Label}", $"{t.Label} for slot {t.CustomIndex + 1}") : t.Label;
+        _catsHint.Text = Loc.T($"{RunnerName(r)}가 {what}을 입어 보는 중이에요", $"The {RunnerName(r)} is trying on {what}");
     }
 
     private async void RepickTrial()
@@ -595,12 +609,13 @@ internal sealed class SettingsWindow : Window
         Wear(t.Hex);
         UpdateTrialBar();
         _catsHint.Text = t.Preset is { } p
-            ? $"{p.Name} 색을 얻었어요! {RunnerName(r)}가 입었어요"
-            : $"나만의 색 {t.CustomIndex + 1}번 칸을 열었어요! {RunnerName(r)}가 입었어요";
+            ? Loc.T($"{p.Name} 색을 얻었어요! {RunnerName(r)}가 입었어요", $"Got {p.Name}! The {RunnerName(r)} is wearing it")
+            : Loc.T($"나만의 색 {t.CustomIndex + 1}번 칸을 열었어요! {RunnerName(r)}가 입었어요", $"Opened My color slot {t.CustomIndex + 1}! The {RunnerName(r)} is wearing it");
     }
 
     private Task<bool> ConfirmPurchaseAsync(string question, int price) =>
-        Dialogs.ConfirmAsync(this, "잠금 해제", $"{question}\n\n남는 생선: {GameArt.FormatCount(_rewards.Fish - price)}개");
+        Dialogs.ConfirmAsync(this, Loc.T("잠금 해제", "Unlock"),
+            Loc.T($"{question}\n\n남는 생선: {GameArt.FormatCount(_rewards.Fish - price)}개", $"{question}\n\nFish left: {GameArt.FormatCount(_rewards.Fish - price)}"));
 
     private Task<string?> PickColorAsync(string initial) => Dialogs.PickColorAsync(this, initial);
 
@@ -647,7 +662,7 @@ internal sealed class SettingsWindow : Window
         }
         return new StackPanel
         {
-            Children = { SectionHeader("스페셜 스킨", "뽑기로 얻어요. 색은 그대로 두고 겉모습만 바뀌어요"), row },
+            Children = { SectionHeader(Loc.T("스페셜 스킨", "Special skins"), Loc.T("뽑기로 얻어요. 색은 그대로 두고 겉모습만 바뀌어요", "Win them in the gacha. They change the look and keep your color")), row },
         };
     }
 
@@ -688,8 +703,8 @@ internal sealed class SettingsWindow : Window
         foreach (var (skin, tile) in _skinTiles)
         {
             bool owned = _rewards.OwnsSkin(skin);
-            tile.Caption = skin == RunnerSkin.None ? "기본 모습" : owned ? RewardCatalog.FindSkin(skin)!.Name : "???";
-            tile.LockedNote = owned ? null : "뽑기에서 얻어요";
+            tile.Caption = skin == RunnerSkin.None ? Loc.T("기본 모습", "Default") : owned ? RewardCatalog.FindSkin(skin)!.Name : "???";
+            tile.LockedNote = owned ? null : Loc.T("뽑기에서 얻어요", "From the gacha");
             tile.State = !owned ? TileState.TooExpensive : skin == wearing ? TileState.Equipped : TileState.Owned;
             tile.Redraw();
         }
@@ -702,17 +717,22 @@ internal sealed class SettingsWindow : Window
         _gotoGacha.IsVisible = false;
         if (skin == RunnerSkin.None)
         {
-            _catsHint.Text = wearing ? "기본 모습 — 지금 스킨 없이 달리고 있어요" : "기본 모습 — 눌러서 스킨을 벗어요";
+            _catsHint.Text = wearing
+                ? Loc.T("기본 모습 — 지금 스킨 없이 달리고 있어요", "Default — running without a skin")
+                : Loc.T("기본 모습 — 눌러서 스킨을 벗어요", "Default — click to take the skin off");
             return;
         }
         if (!_rewards.OwnsSkin(skin))
         {
-            _catsHint.Text = $"아직 없는 스킨이에요. 뽑기에서 생선 {GameArt.FormatCount(RewardCatalog.GachaPrice)}개로 뽑을 수 있어요";
+            _catsHint.Text = Loc.T($"아직 없는 스킨이에요. 뽑기에서 생선 {GameArt.FormatCount(RewardCatalog.GachaPrice)}개로 뽑을 수 있어요",
+                $"You don't have this skin yet. Try the gacha for {GameArt.FormatCount(RewardCatalog.GachaPrice)} fish");
             _gotoGacha.IsVisible = true;
             return;
         }
         var info = RewardCatalog.FindSkin(skin)!;
-        _catsHint.Text = wearing ? $"{info.Name} — 지금 입고 있어요" : $"{info.Name} — 눌러서 {RunnerName(r)}에게 입혀요";
+        _catsHint.Text = wearing
+            ? Loc.T($"{info.Name} — 지금 입고 있어요", $"{info.Name} — wearing it now")
+            : Loc.T($"{info.Name} — 눌러서 {RunnerName(r)}에게 입혀요", $"{info.Name} — click to put it on the {RunnerName(r)}");
     }
 
     private void OnSkinClicked(RunnerSkin skin)
@@ -726,8 +746,8 @@ internal sealed class SettingsWindow : Window
         }
         WearSkin(r.Id, skin);
         _catsHint.Text = RewardCatalog.FindSkin(skin) is { } info
-            ? $"{RunnerName(r)}가 {info.Name} 스킨을 입었어요"
-            : $"{RunnerName(r)}가 스킨을 벗었어요";
+            ? Loc.T($"{RunnerName(r)}가 {info.Name} 스킨을 입었어요", $"The {RunnerName(r)} is now wearing {info.Name}")
+            : Loc.T($"{RunnerName(r)}가 스킨을 벗었어요", $"The {RunnerName(r)} took its skin off");
     }
 
     private void WearSkin(string runnerId, RunnerSkin skin) => EditRunner(runnerId, x => x.Skin = RunnerSkins.ToId(skin));
@@ -782,7 +802,7 @@ internal sealed class SettingsWindow : Window
         });
 
         // 도감: 스킨 3칸. 없는 칸은 실루엣과 물음표, 등급은 늘 보인다(확률은 보여 주지 않는다).
-        var dexTitle = Label("도감", GameArt.FontSection, GameArt.Text, FontWeight.Bold);
+        var dexTitle = Label(Loc.T("도감", "Collection"), GameArt.FontSection, GameArt.Text, FontWeight.Bold);
         dexTitle.Margin = new Thickness(0, 12, 8, 4);
         dexTitle.VerticalAlignment = VerticalAlignment.Bottom;
         _dexCount.FontSize = GameArt.FontBody;
@@ -815,13 +835,13 @@ internal sealed class SettingsWindow : Window
     private Control BuildGachaDevBar()
     {
         _devFree.IsCheckedChanged += (_, _) => RefreshGacha();
-        var addFish = new GameButton($"생선 +{GameArt.FormatCount(5000)}");
+        var addFish = new GameButton(Loc.T($"생선 +{GameArt.FormatCount(5000)}", $"Fish +{GameArt.FormatCount(5000)}"));
         addFish.Click += (_, _) => _rewards.DevAddFish(5000);
-        var clear = new GameButton("도감 비우기");
+        var clear = new GameButton(Loc.T("도감 비우기", "Clear collection"));
         clear.Click += (_, _) => ClearSkinsForDev();
 
-        var title = Label("개발용", GameArt.FontBody, Color.FromRgb(0x8A, 0x64, 0x10), FontWeight.Bold);
-        var pickLabel = Label("결과", GameArt.FontBody, GameArt.Text);
+        var title = Label(Loc.T("개발용", "Dev"), GameArt.FontBody, Color.FromRgb(0x8A, 0x64, 0x10), FontWeight.Bold);
+        var pickLabel = Label(Loc.T("결과", "Result"), GameArt.FontBody, GameArt.Text);
         foreach (var c in new Control[] { title, pickLabel, _devPick, _devFree, addFish, clear })
         {
             c.VerticalAlignment = VerticalAlignment.Center;
@@ -855,13 +875,15 @@ internal sealed class SettingsWindow : Window
         bool canPay = free || _rewards.Fish >= RewardCatalog.GachaPrice;
 
         _stage.Complete = done;
-        _pullTitle.Text = done ? "스페셜 스킨을 모두 모았어요" : "스페셜 스킨 뽑기";
-        _pullSub.Text = done ? "새 스킨이 나오면 다시 뽑을 수 있어요"
-            : (left.Count == all.Count ? $"스킨 {left.Count}종 중 하나, 아니면 꽝이 나와요" : $"아직 없는 스킨 {left.Count}종, 아니면 꽝이 나와요")
+        _pullTitle.Text = done ? Loc.T("스페셜 스킨을 모두 모았어요", "You've collected every special skin") : Loc.T("스페셜 스킨 뽑기", "Special skin gacha");
+        _pullSub.Text = done ? Loc.T("새 스킨이 나오면 다시 뽑을 수 있어요", "You can pull again when a new skin comes out")
+            : (left.Count == all.Count
+                ? Loc.T($"스킨 {left.Count}종 중 하나, 아니면 꽝이 나와요", $"One of {left.Count} skins, or a miss")
+                : Loc.T($"아직 없는 스킨 {left.Count}종, 아니면 꽝이 나와요", $"One of the {left.Count} skins you don't have, or a miss"))
               + PityNote();
         _gachaPrice.IsVisible = !done;
         _gachaPrice.Affordable = canPay;
-        _pull.Text = done ? "모두 모았어요" : canPay ? "한 번 뽑기" : "생선이 모자라요";
+        _pull.Text = done ? Loc.T("모두 모았어요", "All collected") : canPay ? Loc.T("한 번 뽑기", "Pull once") : Loc.T("생선이 모자라요", "Not enough fish");
         _pull.IsEnabled = !done && canPay && !_stage.IsPlaying;
         _again.IsVisible = !done;
         _again.IsEnabled = canPay;
@@ -873,11 +895,11 @@ internal sealed class SettingsWindow : Window
             view.InvalidateVisual();
             string stars = new('★', info.Stars);
             name.Text = has ? info.Name : "???";
-            tier.Text = has ? $"모았어요 · {stars} {info.Tier}" : $"{stars} {info.Tier}";
+            tier.Text = has ? Loc.T($"모았어요 · {stars} {info.Tier}", $"Collected · {stars} {info.Tier}") : $"{stars} {info.Tier}";
             tier.Foreground = GameArt.Brush(has ? GameArt.Good : GameArt.SubText);
             tier.FontWeight = has ? FontWeight.SemiBold : FontWeight.Normal;
         }
-        _dexCount.Text = $"{all.Count}칸 중 {all.Count - left.Count}칸";
+        _dexCount.Text = Loc.T($"{all.Count}칸 중 {all.Count - left.Count}칸", $"{all.Count - left.Count} of {all.Count}");
 
         // 결과 고르기: 무작위 · 꽝(None) · 남은 스킨. 남은 스킨이 바뀔 때만 다시 만든다. 매번 만들면 고른 항목이 풀린다.
         var pickable = left.Select(s => (RunnerSkin?)s.Skin).Prepend(RunnerSkin.None).Prepend(null).ToList();
@@ -887,8 +909,8 @@ internal sealed class SettingsWindow : Window
             _devPickSkins = pickable;
             _devPick.ItemsSource = pickable.Select(s => s switch
             {
-                null => "무작위",
-                RunnerSkin.None => "꽝",
+                null => Loc.T("무작위", "Random"),
+                RunnerSkin.None => Loc.T("꽝", "Miss"),
                 { } k => RewardCatalog.FindSkin(k)!.Name,
             }).ToList();
             _devPick.SelectedIndex = Math.Max(0, pickable.IndexOf(keep));
@@ -904,7 +926,10 @@ internal sealed class SettingsWindow : Window
         int streak = _stage.IsPlaying ? _streakBeforePull : _rewards.Current.GachaMissStreak;
         if (streak <= 0) return "";
         int until = Math.Max(1, RewardCatalog.GachaPity + 1 - streak);
-        return until <= 1 ? $" · 꽝 {streak}번, 다음엔 꼭 나와요" : $" · 꽝 {streak}번, {until}번 안에 꼭 나와요";
+        string misses = streak == 1 ? "1 miss" : $"{streak} misses";
+        return until <= 1
+            ? Loc.T($" · 꽝 {streak}번, 다음엔 꼭 나와요", $" · {misses}, the next one is guaranteed")
+            : Loc.T($" · 꽝 {streak}번, {until}번 안에 꼭 나와요", $" · {misses}, guaranteed within {until}");
     }
 
     private void Pull()
@@ -933,12 +958,14 @@ internal sealed class SettingsWindow : Window
         {
             // 꽝: 회색 배지와 무대 문구, 천장까지 남은 횟수.
             _resultBadge.Background = GameArt.Brush(MissBadge);
-            _resultBadgeText.Text = "꽝";
-            _resultName.Text = "앗, 도망갔어요!";
+            _resultBadgeText.Text = Loc.T("꽝", "MISS");
+            _resultName.Text = Loc.T("앗, 도망갔어요!", "Oops, it got away!");
             _resultStars.Text = "";
             int until = _rewards.PullsUntilGuaranteed;
-            string spent = $"생선 {GameArt.FormatCount(RewardCatalog.GachaPrice)}개를 썼어요.";
-            _resultDesc.Text = until <= 1 ? $"{spent} 다음 번엔 꼭 스킨이 나와요" : $"{spent} {until}번 안에 꼭 스킨이 나와요";
+            string spent = Loc.T($"생선 {GameArt.FormatCount(RewardCatalog.GachaPrice)}개를 썼어요.", $"Spent {GameArt.FormatCount(RewardCatalog.GachaPrice)} fish.");
+            _resultDesc.Text = until <= 1
+                ? Loc.T($"{spent} 다음 번엔 꼭 스킨이 나와요", $"{spent} Your next pull is guaranteed a skin")
+                : Loc.T($"{spent} {until}번 안에 꼭 스킨이 나와요", $"{spent} A skin is guaranteed within {until} pulls");
             _wearButtons.Children.Clear();
             RefreshGacha();
             return;
@@ -962,7 +989,9 @@ internal sealed class SettingsWindow : Window
         {
             string id = r.Id;
             bool worn = RunnerSkins.Parse(r.Skin) == _pulled;
-            var button = new GameButton(worn ? $"{RunnerName(r)}가 입었어요" : $"{RunnerName(r)}에 입히기") { IsEnabled = !worn };
+            var button = new GameButton(worn
+                ? Loc.T($"{RunnerName(r)}가 입었어요", $"Worn by {RunnerName(r)}")
+                : Loc.T($"{RunnerName(r)}에 입히기", $"Put on {RunnerName(r)}")) { IsEnabled = !worn };
             button.Click += (_, _) =>
             {
                 WearSkin(id, _pulled);
@@ -996,7 +1025,7 @@ internal sealed class SettingsWindow : Window
     private Control BuildClosetPage()
     {
         var page = new StackPanel { Margin = new Thickness(0, 6, 0, 0) };
-        page.Children.Add(SectionHeader("러너 모음", "생선을 모아 새 친구를 데려오면 고양이 대신 달리게 할 수 있어요"));
+        page.Children.Add(SectionHeader(Loc.T("러너 모음", "Runners"), Loc.T("생선을 모아 새 친구를 데려오면 고양이 대신 달리게 할 수 있어요", "Bring home new friends with fish to run in place of the cat")));
         _runnerTiles.Margin = new Thickness(0, 4, 0, 0);
         _runnerTiles.MaxWidth = 680;
         _runnerTiles.HorizontalAlignment = HorizontalAlignment.Left;
@@ -1006,7 +1035,7 @@ internal sealed class SettingsWindow : Window
     }
 
     private string DefaultClosetHint() =>
-        Selected is { } r ? $"고양이 탭에서 고른 {RunnerName(r)}에게 입혀요." : "";
+        Selected is { } r ? Loc.T($"고양이 탭에서 고른 {RunnerName(r)}에게 입혀요.", $"Applies to the {RunnerName(r)} picked in the Cats tab.") : "";
 
     private void RefreshCloset()
     {
@@ -1038,12 +1067,13 @@ internal sealed class SettingsWindow : Window
 
         // 다음에 나올 러너 자리. 그림이 생기기 전에도 목표가 보이게 한다.
         int next = RewardCatalog.NextUnreleasedRunnerPrice;
-        var soon = RunnerTile("새 친구", (ctx, box, _) => DrawMystery(ctx, box));
+        var soon = RunnerTile(Loc.T("새 친구", "New friend"), (ctx, box, _) => DrawMystery(ctx, box));
         soon.Price = next;
         soon.State = TileState.Unavailable;
         soon.Cursor = Cursor.Default;
         soon.PointerEntered += (_, _) =>
-            _closetHint.Text = $"새 러너를 준비하고 있어요. 생선 {GameArt.FormatCount(next)}개를 모아 두면 나오자마자 데려올 수 있어요";
+            _closetHint.Text = Loc.T($"새 러너를 준비하고 있어요. 생선 {GameArt.FormatCount(next)}개를 모아 두면 나오자마자 데려올 수 있어요",
+                $"A new runner is on the way. Save up {GameArt.FormatCount(next)} fish to bring it home as soon as it's out");
         soon.PointerExited += (_, _) => _closetHint.Text = DefaultClosetHint();
         _runnerTiles.Children.Add(soon);
         _closetHint.Text = DefaultClosetHint();
@@ -1084,7 +1114,8 @@ internal sealed class SettingsWindow : Window
             _closetHint.Text = DefaultClosetHint();
         };
         tile.Click += (_, _) =>
-            _closetHint.Text = $"{WithTopic(sprite.DisplayName)} 아직 연습 중이라 데려올 수 없어요. 조금만 기다려 주세요!";
+            _closetHint.Text = Loc.T($"{WithTopic(sprite.DisplayName)} 아직 연습 중이라 데려올 수 없어요. 조금만 기다려 주세요!",
+                $"The {Lower(sprite.DisplayName)} is still practicing, so it can't come home yet. Hang tight!");
         return tile;
     }
 
@@ -1092,12 +1123,16 @@ internal sealed class SettingsWindow : Window
     {
         string practice = sprite.Id switch
         {
-            "dachshund" => "닥스훈트가 짧은 다리로 열심히 달리기 연습 중이에요",
-            "rabbit" => "토끼가 깡충 뛰기 연습 중이에요",
-            _ => $"{sprite.DisplayName}가 달리기 연습 중이에요",
+            "dachshund" => Loc.T("닥스훈트가 짧은 다리로 열심히 달리기 연습 중이에요", "The dachshund is practicing hard on its short legs"),
+            "rabbit" => Loc.T("토끼가 깡충 뛰기 연습 중이에요", "The rabbit is practicing its hops"),
+            _ => Loc.T($"{sprite.DisplayName}가 달리기 연습 중이에요", $"The {Lower(sprite.DisplayName)} is practicing its run"),
         };
-        return $"{practice}. 곧 출시돼요! 생선 {GameArt.FormatCount(price)}개를 모아 두면 나오자마자 데려올 수 있어요";
+        return Loc.T($"{practice}. 곧 출시돼요! 생선 {GameArt.FormatCount(price)}개를 모아 두면 나오자마자 데려올 수 있어요",
+            $"{practice}. Coming soon! Save up {GameArt.FormatCount(price)} fish to bring it home on day one");
     }
+
+    /// <summary>영어 문장 가운데 들어가는 러너 이름은 소문자로 쓴다("the dachshund").</summary>
+    private static string Lower(string name) => name.ToLowerInvariant();
 
     /// <summary>받침이 있으면 "은", 없으면 "는".</summary>
     private static string WithTopic(string word)
@@ -1139,10 +1174,12 @@ internal sealed class SettingsWindow : Window
         if (_rewards.OwnsRunner(sprite.Id))
         {
             return string.Equals(Selected?.SpriteId, sprite.Id, StringComparison.OrdinalIgnoreCase)
-                ? $"{sprite.DisplayName} — {(Selected is { } r ? RunnerName(r) : "")}로 달리고 있어요"
-                : $"{sprite.DisplayName} — 눌러서 {(Selected is { } r2 ? MetricName(r2.Metric) : "")} 러너로 바꿔요";
+                ? Loc.T($"{sprite.DisplayName} — {(Selected is { } r ? RunnerName(r) : "")}로 달리고 있어요",
+                        $"{sprite.DisplayName} — running as the {(Selected is { } r1 ? RunnerName(r1) : "")}")
+                : Loc.T($"{sprite.DisplayName} — 눌러서 {(Selected is { } r2 ? MetricName(r2.Metric) : "")} 러너로 바꿔요",
+                        $"{sprite.DisplayName} — click to make it the {(Selected is { } r3 ? MetricName(r3.Metric) : "")} runner");
         }
-        return LockedHint(sprite.DisplayName, price, "눌러서 데려와요");
+        return LockedHint(sprite.DisplayName, price, Loc.T("눌러서 데려와요", "Click to bring it home"));
     }
 
     private async void OnRunnerClicked(IRunnerSprite sprite, int price)
@@ -1155,7 +1192,9 @@ internal sealed class SettingsWindow : Window
                 _closetHint.Text = RunnerHint(sprite, price);
                 return;
             }
-            if (!await ConfirmPurchaseAsync($"{sprite.DisplayName}를 생선 {GameArt.FormatCount(price)}개로 데려올까요?", price)) return;
+            string question = Loc.T($"{sprite.DisplayName}를 생선 {GameArt.FormatCount(price)}개로 데려올까요?",
+                $"Bring home the {Lower(sprite.DisplayName)} for {GameArt.FormatCount(price)} fish?");
+            if (!await ConfirmPurchaseAsync(question, price)) return;
             if (!_rewards.TryBuyRunner(sprite.Id)) return;
         }
         EditRunner(r.Id, x => x.SpriteId = sprite.Id);
@@ -1221,14 +1260,14 @@ internal sealed class SettingsWindow : Window
 
         // 줄 높이를 고정하고 남는 높이는 맨 아래 빈 줄에 몰아준다.
         _runnerStats.RowDefinitions = new RowDefinitions("24," + string.Concat(_working.Runners.Select(_ => "40,")) + "*");
-        Place(StatHeader("오늘"), 0, 2);
-        Place(StatHeader("지금까지"), 0, 3);
+        Place(StatHeader(Loc.T("오늘", "Today")), 0, 2);
+        Place(StatHeader(Loc.T("지금까지", "All time")), 0, 3);
 
         int row = 1;
         foreach (var r in _working.Runners)
         {
             Place(new RunnerIcon(r) { Width = 48, Height = 34, HorizontalAlignment = HorizontalAlignment.Left }, row, 0);
-            Place(StatCell(RunnerName(r) + (r.Enabled ? "" : " (숨김)"), TextAlignment.Left), row, 1);
+            Place(StatCell(RunnerName(r) + (r.Enabled ? "" : Loc.T(" (숨김)", " (hidden)")), TextAlignment.Left), row, 1);
             var today = StatCell("", TextAlignment.Right);
             var total = StatCell("", TextAlignment.Right);
             Place(today, row, 2);
@@ -1260,8 +1299,10 @@ internal sealed class SettingsWindow : Window
     private void RefreshProfile()
     {
         double today = _stats.TodayMillimeters();
-        _todayHeadline.Text = today > 0 ? $"오늘 {DistanceText.Format(today)} 달렸어요" : "오늘은 아직 쉬는 중이에요";
-        _todayCompare.Text = today > 0 ? DistanceText.Compare(today) : "고양이가 달리기 시작하면 여기 쌓여요";
+        _todayHeadline.Text = today > 0
+            ? Loc.T($"오늘 {DistanceText.Format(today)} 달렸어요", $"Ran {DistanceText.Format(today)} today")
+            : Loc.T("오늘은 아직 쉬는 중이에요", "Resting so far today");
+        _todayCompare.Text = today > 0 ? DistanceText.Compare(today) : Loc.T("고양이가 달리기 시작하면 여기 쌓여요", "Distance adds up here once the cats start running");
 
         foreach (var (id, labels) in _runnerStatLabels)
         {
@@ -1270,10 +1311,10 @@ internal sealed class SettingsWindow : Window
         }
 
         double total = _stats.TotalMillimeters();
-        _totalLine.Text = $"지금까지 총 {DistanceText.Format(total)}";
+        _totalLine.Text = Loc.T($"지금까지 총 {DistanceText.Format(total)}", $"{DistanceText.Format(total)} in total");
         _totalCompare.Text = DistanceText.Compare(total);
-        _fishLine.Text = $"지금까지 생선 {GameArt.FormatCount(_rewards.EarnedFish)}개를 모았고, " +
-                         $"{GameArt.FormatCount(_rewards.Current.SpentFish)}개를 썼어요";
+        string earned = GameArt.FormatCount(_rewards.EarnedFish), spentFish = GameArt.FormatCount(_rewards.Current.SpentFish);
+        _fishLine.Text = Loc.T($"지금까지 생선 {earned}개를 모았고, {spentFish}개를 썼어요", $"Earned {earned} fish so far and spent {spentFish}");
 
         if (ScreenCatalog.Resolve(Screens, _working.MonitorDeviceName) is not { } screen)
         {
@@ -1282,8 +1323,10 @@ internal sealed class SettingsWindow : Window
         }
         var pitch = MonitorPitch.For(screen);
         _pitchNote.Text = pitch.Measured
-            ? $"{pitch.MonitorName ?? "모니터"} 실제 크기({pitch.WidthMm} × {pitch.HeightMm} mm)로 계산했어요 · 1px = {pitch.MillimetersPerPixel:0.000} mm"
-            : $"모니터 크기를 알 수 없어 화면 배율로 추정했어요 · 1px ≈ {pitch.MillimetersPerPixel:0.000} mm";
+            ? Loc.T($"{pitch.MonitorName ?? "모니터"} 실제 크기({pitch.WidthMm} × {pitch.HeightMm} mm)로 계산했어요 · 1px = {pitch.MillimetersPerPixel:0.000} mm",
+                    $"Measured from {pitch.MonitorName ?? "the monitor"}'s real size ({pitch.WidthMm} × {pitch.HeightMm} mm) · 1px = {pitch.MillimetersPerPixel:0.000} mm")
+            : Loc.T($"모니터 크기를 알 수 없어 화면 배율로 추정했어요 · 1px ≈ {pitch.MillimetersPerPixel:0.000} mm",
+                    $"Monitor size unknown, estimated from display scaling · 1px ≈ {pitch.MillimetersPerPixel:0.000} mm");
     }
 
     // ───────────────────────── 일반 탭 ─────────────────────────
@@ -1293,10 +1336,10 @@ internal sealed class SettingsWindow : Window
         var grid = new Grid
         {
             ColumnDefinitions = new ColumnDefinitions("Auto,*"),
-            RowDefinitions = new RowDefinitions("Auto,Auto"),
+            RowDefinitions = new RowDefinitions("Auto,Auto,Auto"),
         };
 
-        var label = Label("달릴 모니터", GameArt.FontBody, GameArt.Text, FontWeight.Bold);
+        var label = Label(Loc.T("달릴 모니터", "Monitor"), GameArt.FontBody, GameArt.Text, FontWeight.Bold);
         label.VerticalAlignment = VerticalAlignment.Center;
         label.Margin = new Thickness(0, 0, 16, 0);
         grid.Children.Add(label);
@@ -1308,14 +1351,14 @@ internal sealed class SettingsWindow : Window
             _working.MonitorDeviceName = _monitorItems[_monitor.SelectedIndex].Key;
             Commit();
         };
-        var refresh = new GameButton("다시 찾기") { Margin = new Thickness(6, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+        var refresh = new GameButton(Loc.T("다시 찾기", "Refresh")) { Margin = new Thickness(6, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
         refresh.Click += (_, _) => LoadMonitors();
         var monitorRow = new StackPanel { Orientation = Orientation.Horizontal, Children = { _monitor, refresh } };
         Grid.SetColumn(monitorRow, 1);
         grid.Children.Add(monitorRow);
 
         // 전체 화면 앱을 알아챌 수 없는 OS(macOS)에서는 옵션을 숨긴다. 그곳에서는 전체 화면 앱이 따로 데스크톱을 써서 알아서 가려진다.
-        _hideFullScreen.Content = "전체 화면 앱(게임·발표) 실행 중에는 숨기기";
+        _hideFullScreen.Content = Loc.T("전체 화면 앱(게임·발표) 실행 중에는 숨기기", "Hide while a full-screen app (game, presentation) is running");
         _hideFullScreen.Margin = new Thickness(0, 10, 0, 0);
         _hideFullScreen.IsVisible = _platform.CanDetectFullScreen;
         _hideFullScreen.IsCheckedChanged += (_, _) =>
@@ -1327,6 +1370,25 @@ internal sealed class SettingsWindow : Window
         Grid.SetRow(_hideFullScreen, 1);
         Grid.SetColumn(_hideFullScreen, 1);
         grid.Children.Add(_hideFullScreen);
+
+        // 언어를 바꾸면 메뉴 글자가 바뀌고, 설정 창은 같은 자리에서 새 언어로 다시 열린다(TrayApp).
+        var languageLabel = Label(Loc.T("언어", "Language"), GameArt.FontBody, GameArt.Text, FontWeight.Bold);
+        languageLabel.VerticalAlignment = VerticalAlignment.Center;
+        languageLabel.Margin = new Thickness(0, 12, 16, 0);
+        Grid.SetRow(languageLabel, 2);
+        grid.Children.Add(languageLabel);
+
+        _language.ItemsSource = Languages.Select(l => l.Label).ToList();
+        _language.Margin = new Thickness(0, 12, 0, 0);
+        _language.SelectionChanged += (_, _) =>
+        {
+            if (_loading || _language.SelectedIndex < 0 || _language.SelectedIndex >= Languages.Length) return;
+            _working.Language = Loc.ToId(Languages[_language.SelectedIndex].Language);
+            Commit();
+        };
+        Grid.SetRow(_language, 2);
+        Grid.SetColumn(_language, 1);
+        grid.Children.Add(_language);
 
         var card = new CardPanel { Padding = new Thickness(16, 14, 16, 12), Child = grid, VerticalAlignment = VerticalAlignment.Top };
         return new StackPanel { Margin = new Thickness(0, 12, 0, 0), Children = { card } };
@@ -1342,6 +1404,7 @@ internal sealed class SettingsWindow : Window
             if (_working.Runners.All(r => r.Id != _selectedId)) _selectedId = _working.Runners.FirstOrDefault()?.Id ?? "cpu";
             BuildRunnerCards();
             _hideFullScreen.IsChecked = _working.HideInFullScreen;
+            _language.SelectedIndex = Array.FindIndex(Languages, l => l.Language == Loc.Parse(_working.Language));
             LoadMonitors();
         }
         finally
@@ -1439,7 +1502,7 @@ internal sealed class SettingsWindow : Window
     public static string MetricName(MetricKind m) => m switch
     {
         MetricKind.Cpu => "CPU",
-        MetricKind.Memory => "메모리",
+        MetricKind.Memory => Loc.T("메모리", "Memory"),
         _ => m.ToString(),
     };
 }

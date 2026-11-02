@@ -22,8 +22,8 @@ internal sealed class MacPlatform : IPlatform
     public string DataRoot =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library", "Application Support");
 
-    public string BarName => "독";
-    public string StartupMenuLabel => "로그인 시 실행";
+    public string BarName => Loc.T("독", "Dock");
+    public string StartupMenuLabel => Loc.T("로그인 시 실행", "Open at Login");
 
     /// <summary>전체 화면 앱은 따로 데스크톱(Space)을 차지하고, 오버레이는 그곳에 따라가지 않으니 알아서 숨는다.</summary>
     public bool CanDetectFullScreen => false;

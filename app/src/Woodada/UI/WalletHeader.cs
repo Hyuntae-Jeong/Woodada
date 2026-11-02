@@ -69,7 +69,7 @@ internal sealed class WalletHeader : Control
         double countX = pad + fishW + 10;
         double countY = (height - count.Height) / 2 - 2;
         ctx.DrawText(count, new Point(countX, countY));
-        var label = GameArt.Format("생선", GameArt.FontBody, GameArt.SubText);
+        var label = GameArt.Format(Loc.T("생선", "fish"), GameArt.FontBody, GameArt.SubText);
         // 숫자 아랫줄에 맞춘다.
         double baseline = countY + count.Baseline;
         ctx.DrawText(label, new Point(countX + count.Width + 6, baseline - label.Baseline));
@@ -90,7 +90,7 @@ internal sealed class WalletHeader : Control
         const double barW = 200, barH = 12;
         double barX = width - pad - barW;
         double barY = height / 2 + 2;
-        var caption = GameArt.Format("다음 생선까지", GameArt.FontNote, GameArt.SubText);
+        var caption = GameArt.Format(Loc.T("다음 생선까지", "Next fish"), GameArt.FontNote, GameArt.SubText);
         ctx.DrawText(caption, new Point(barX, barY - 20));
         var percent = GameArt.Format($"{_progress:0%}", GameArt.FontNote, GameArt.Text);
         ctx.DrawText(percent, new Point(barX + barW - percent.Width, barY - 20));

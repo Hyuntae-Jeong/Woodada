@@ -32,9 +32,16 @@ public sealed class AppSettings
     /// </summary>
     public bool StartupDefaultApplied { get; set; } = true;
 
+    /// <summary>
+    /// 화면 언어("en"·"ko"). 이 값이 없는 예전 설정 파일은 한국어만 있던 시절부터 쓰던 사용자라 "ko"로 읽힌다.
+    /// 새 설치만 CreateDefault의 "en"으로 시작한다. 자동 업데이트는 설정 파일을 건드리지 않으니 쓰던 언어가 그대로 남는다.
+    /// </summary>
+    public string Language { get; set; } = Loc.KoreanId;
+
     public static AppSettings CreateDefault() => new()
     {
         StartupDefaultApplied = false,
+        Language = Loc.EnglishId,
         Runners =
         {
             // 처음부터 갖고 있는 색은 까망·하양뿐이다. 나머지는 생선으로 잠금 해제한다(RewardCatalog).
@@ -64,6 +71,7 @@ public sealed class AppSettings
             if (!Rewards.RewardCatalog.IsAvailable(Sprites.RunnerSkins.Parse(r.Skin))) r.Skin = null;
         }
         FramesPerSecond = Math.Clamp(FramesPerSecond, 10, 60);
+        Language = Loc.ToId(Loc.Parse(Language));
     }
 
     public AppSettings Clone() => SettingsStore.Deserialize(SettingsStore.Serialize(this));
