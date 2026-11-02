@@ -18,7 +18,7 @@ public sealed class ThemePalette
     public Color OnAccent { get; init; } = Colors.White;
     public Color AccentSoft { get; init; } = Color.FromRgb(231, 240, 250);
     public Color Text { get; init; } = Color.FromRgb(43, 48, 56);
-    public Color SubText { get; init; } = Color.FromRgb(123, 132, 146);
+    public Color SubText { get; init; } = Color.FromRgb(96, 105, 119);
     public Color Good { get; init; } = Color.FromRgb(76, 160, 110);
 
     /// <summary>생선(재화) 색. 테마가 바뀌어도 생선은 파랑 계열로 둔다.</summary>

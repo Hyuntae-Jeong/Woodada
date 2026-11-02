@@ -28,9 +28,10 @@ internal static class GameArt
     public static Color Mystery => P.Mystery;
 
     // 글자 크기(논리 픽셀). 예전 WinForms 버전의 포인트 크기 × 4/3 이다.
-    public const double FontSmall = 11;      // 8.25pt: 칸 이름·가격
-    public const double FontNote = 11.3;     // 8.5pt
-    public const double FontBody = 12;       // 9pt: 기본
+    // 작은 글자 셋은 Windows 100% 배율에서 Skia 글자가 가늘고 흐려 보여 1px씩(메모는 0.7px) 키웠다.
+    public const double FontSmall = 12;      // 8.25pt + 1px: 칸 이름·가격
+    public const double FontNote = 12;       // 8.5pt + 0.7px
+    public const double FontBody = 13;       // 9pt + 1px: 기본
     public const double FontLarge = 13.3;    // 10pt: 탭·설명
     public const double FontSection = 14;    // 10.5pt: 구역 제목
     public const double FontTitle = 15.3;    // 11.5pt: 카드 제목

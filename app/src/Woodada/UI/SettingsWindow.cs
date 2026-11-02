@@ -818,7 +818,7 @@ internal sealed class SettingsWindow : Window
             var info = skinsInDex[i];
             var view = new SkinRunnerView { Skin = info.Skin, Height = 54 };
             var name = new TextBlock { FontWeight = FontWeight.Bold, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 5, 0, 0) };
-            var tier = new TextBlock { FontSize = GameArt.FontSmall, HorizontalAlignment = HorizontalAlignment.Center };
+            var tier = new TextBlock { FontSize = GameArt.FontSmall, HorizontalAlignment = HorizontalAlignment.Center, TextAlignment = TextAlignment.Center };
             var slot = new CardPanel { Padding = new Thickness(6), Child = new StackPanel { Children = { view, name, tier } } };
             Grid.SetColumn(slot, i * 2);
             dex.Children.Add(slot);
@@ -895,7 +895,8 @@ internal sealed class SettingsWindow : Window
             view.InvalidateVisual();
             string stars = new('★', info.Stars);
             name.Text = has ? info.Name : "???";
-            tier.Text = has ? Loc.T($"모았어요 · {stars} {info.Tier}", $"Collected · {stars} {info.Tier}") : $"{stars} {info.Tier}";
+            // 한 줄로 쓰면 "Collected · ★★★★ Legendary"가 칸 폭을 넘어 잘리므로 두 줄로 나눈다.
+            tier.Text = has ? Loc.T($"모았어요\n{stars} {info.Tier}", $"Collected\n{stars} {info.Tier}") : $"{stars} {info.Tier}";
             tier.Foreground = GameArt.Brush(has ? GameArt.Good : GameArt.SubText);
             tier.FontWeight = has ? FontWeight.SemiBold : FontWeight.Normal;
         }
