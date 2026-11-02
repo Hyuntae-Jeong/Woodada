@@ -4,9 +4,9 @@
 
 <h1><b>Woodada</b></h1>
 
-**작업표시줄·독 위를 우다다 달리는 CPU·메모리 고양이**
+**작업표시줄 위를 우다다 달리는 고양이**
 
-컴퓨터가 바빠질수록 고양이도 더 빨리 달립니다.
+컴퓨터가 바쁠수록 고양이도 더 빨리 달려요.
 
 ![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?logo=windows&logoColor=white) ![macOS](https://img.shields.io/badge/macOS-12%2B-000000?logo=apple&logoColor=white) ![.NET](https://img.shields.io/badge/.NET-9.0-512BD4?logo=dotnet&logoColor=white) ![Avalonia](https://img.shields.io/badge/UI-Avalonia-8B44AC) ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 
@@ -18,249 +18,107 @@
 <!-- 앱 아이콘처럼 왼쪽 검정(Windows)·오른쪽 크림(macOS) 반반 버튼. 두 링크 사이에 공백이 없어야 한 알약처럼 붙는다. -->
 <a href="https://github.com/Hyuntae-Jeong/Woodada/releases/latest/download/Woodada.exe"><img src="docs/download-windows.svg" alt="Windows용 다운로드" height="64"></a><a href="https://github.com/Hyuntae-Jeong/Woodada/releases/latest/download/Woodada-mac-arm64.dmg"><img src="docs/download-macos.svg" alt="macOS용 다운로드 (Apple 실리콘)" height="64"></a>
 
-인텔 맥은 [Woodada-mac-x64.dmg](https://github.com/Hyuntae-Jeong/Woodada/releases/latest/download/Woodada-mac-x64.dmg)
+인텔 맥은 [여기](https://github.com/Hyuntae-Jeong/Woodada/releases/latest/download/Woodada-mac-x64.dmg)에서 받으세요
 
 </div>
 
 <br>
 
-## ✨ 특징
+## 🐈 이런 앱이에요
 
-- 🐈 **CPU 고양이 · 메모리 고양이** — 사용률이 높을수록 빨리 달리고, 화면 끝에 닿으면 돌아서 왕복합니다.
-- 🐟 **생선 보상** — 고양이가 달린 만큼 생선이 쌓이고, 생선으로 새 색과 새 러너를 잠금 해제합니다.
-- 🎨 **고양이 꾸미기** — 고양이마다 색(기본 팔레트 10칸 + 직접 고르는 나만의 색 10칸)과 크기(16~72px)를 따로 정하고, 미리보기로 바로 확인합니다.
-- 🎰 **냥뽑기** — 생선 500개로 스페셜 스킨(유령냥 · 플래시냥 · 글리치냥)을 뽑습니다. 꽝도 나오지만 6번 연속 꽝이면 다음엔 꼭 나옵니다.
-- 🖥️ **멀티 모니터** — 달릴 모니터를 고를 수 있고, 작업표시줄이 아래·위·왼쪽·오른쪽 어디에 있어도 그 가장자리를 따라 달립니다.
-- 🍎 **macOS 지원** — 독이 보이면 독 위를, 독을 숨겨 두면 화면 바닥을 달립니다. 독이 왼쪽·오른쪽에 있으면 독을 피해 화면 바닥을 달립니다.
-- 🎮 **전체 화면에서는 숨기** — 게임이나 발표 중에는 알아서 사라집니다(macOS는 전체 화면 앱이 따로 데스크톱을 써서 늘 가려집니다).
-- 🪶 **가볍게 상주** — 트레이 아이콘(macOS는 메뉴 막대 아이콘)으로만 떠 있고, 클릭은 고양이를 통과해 아래 창으로 그대로 전달됩니다.
-- 🔄 **자동 업데이트** — 켜질 때와 켜져 있는 동안 6시간마다 새 릴리즈를 확인해, 있으면 알아서 바꿔 끼우고 다시 실행합니다(Windows·macOS).
-- 📏 **달린 거리 기록** — 모니터 실제 크기로 환산해 "오늘 1.2 km 달렸어요"처럼 고양이별·전체 거리를 보여줍니다.
+- 🏃 **바쁠수록 빨라지는 고양이** — CPU 고양이와 메모리 고양이가 작업표시줄(맥은 독) 위를 왔다 갔다 달려요.
+- 🐟 **달린 만큼 생선** — 고양이가 달리면 생선이 쌓이고, 생선으로 새 색과 새 친구를 데려와요.
+- 🎨 **내 맘대로 꾸미기** — 고양이마다 색 20가지 중에 고르고, 크기도 바꿀 수 있어요.
+- 🎰 **냥뽑기** — 생선을 모아 특별한 고양이를 뽑아 보세요.
+- 📏 **오늘 몇 km 달렸을까** — 모니터 실제 크기로 계산해 "오늘 1.2 km 달렸어요"처럼 알려 줘요.
+- 🪶 **방해하지 않아요** — 고양이 위를 클릭해도 아래 창이 그대로 눌리고, 게임·발표처럼 전체 화면일 땐 알아서 숨어요.
+- 🔄 **알아서 최신 버전** — 새 버전이 나오면 스스로 업데이트해요.
 
-## 🚀 시작하기
+### 🎰 냥뽑기에서 만날 수 있는 고양이
 
-### 내려받기 (Windows)
+| | 고양이 | 모습 |
+|:-:|---|---|
+| ★★ | **유령냥** | 반투명한 몸으로 둥실둥실 떠다녀요 |
+| ★★★ | **플래시냥** | 지나온 길에 잔상과 불꽃을 남겨요. 빠를수록 꼬리가 길어져요 |
+| ★★★★ | **글리치냥** | 가끔 화면이 고장 난 것처럼 지지직거려요 |
 
-[최신 `Woodada.exe`](https://github.com/Hyuntae-Jeong/Woodada/releases/latest/download/Woodada.exe)를 받아 원하는 폴더에 두고 실행합니다. 지난 버전은 [Releases](https://github.com/Hyuntae-Jeong/Woodada/releases)에 있습니다.
-.NET 런타임까지 exe 하나에 들어 있어서 따로 설치할 것은 없습니다.
+닥스훈트와 토끼도 곧 함께 달릴 예정이에요. 🐕 🐇
 
-그다음부터는 켜질 때마다, 그리고 켜져 있는 동안 6시간마다 새 버전이 있는지 확인해 묻지 않고 업데이트합니다(설정 창이 열려 있으면 닫을 때까지 기다립니다).
-exe는 쓰기 권한이 있는 폴더(예: 바탕 화면, `%LOCALAPPDATA%`)에 두세요. `Program Files`처럼 권한이 없는 곳에서는 업데이트를 건너뜁니다.
-확인·업데이트 기록은 `%APPDATA%\Woodada\update.log`에 남습니다.
+<br>
 
-### 내려받기 (macOS)
+## 📥 설치
 
-애플 실리콘(M1 이후)은 [`Woodada-mac-arm64.dmg`](https://github.com/Hyuntae-Jeong/Woodada/releases/latest/download/Woodada-mac-arm64.dmg), 인텔 맥은 [`Woodada-mac-x64.dmg`](https://github.com/Hyuntae-Jeong/Woodada/releases/latest/download/Woodada-mac-x64.dmg)를 받아 열고, Woodada를 응용 프로그램 폴더로 끌어다 놓습니다.
+### Windows
 
-- Apple 개발자 서명이 없어서 처음 열 때 "확인되지 않은 개발자" 경고가 뜹니다. 시스템 설정 → 개인정보 보호 및 보안에서 **그래도 열기**를 누르세요.
-  터미널에서 `xattr -dr com.apple.quarantine /Applications/Woodada.app`을 실행해도 됩니다.
-- 독에는 아이콘이 생기지 않고 메뉴 막대에만 아이콘이 생깁니다.
-- 그다음부터는 켜질 때마다, 그리고 켜져 있는 동안 6시간마다 새 버전이 있는지 확인해 묻지 않고 업데이트합니다(설정 창이 열려 있으면 닫을 때까지 기다립니다). 업데이트한 앱을 열 때는 경고가 다시 뜨지 않습니다.
-  릴리즈의 `auto-update-mac-*.zip`은 앱이 업데이트에 쓰는 파일이라 받지 않아도 됩니다.
-  응용 프로그램 폴더에 쓸 권한이 없는 계정이거나 `.dmg` 안에서 바로 실행했으면 업데이트를 건너뛰고, 알림과 메뉴 막대 메뉴의 "새 버전 받기"로 알려 줍니다.
-  확인·업데이트 기록은 `~/Library/Application Support/Woodada/update.log`에 남습니다.
-- 설정·기록은 `~/Library/Application Support/Woodada`에 저장됩니다.
+1. 위의 **Windows** 버튼으로 `Woodada.exe`를 받아요.
+2. 바탕 화면처럼 편한 곳에 두고 더블클릭하면 끝! 따로 설치할 건 없어요.
+3. 작업표시줄에 고양이가 나타나요. 오른쪽 아래 트레이의 고양이 아이콘을 누르면 설정이 열려요.
 
-### 직접 빌드하기
+> [!TIP]
+> "Windows의 PC 보호" 창이 뜨면 **추가 정보 → 실행**을 누르세요.
+> `Program Files`처럼 권한이 필요한 폴더에 두면 자동 업데이트가 되지 않아요.
 
-필요한 것:
+### macOS
 
-- Windows 10 / 11 또는 macOS 12 이상
-- [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0) (없으면 `dev.cmd`·`dev.sh`가 개발용 폴더에 받아 쓸지 물어봅니다)
+1. 위의 **macOS** 버튼으로 `.dmg`를 받아요. (인텔 맥은 버튼 아래 링크)
+2. `.dmg`를 열고 Woodada를 응용 프로그램 폴더로 끌어다 놓아요.
+3. 실행하면 독 위에 고양이가 나타나요. 메뉴 막대의 고양이 아이콘으로 설정을 열 수 있어요.
 
-#### 개발용으로 실행 (`dev.cmd`)
+> [!TIP]
+> 처음 열 때 "확인되지 않은 개발자" 경고가 뜨면 **시스템 설정 → 개인정보 보호 및 보안**에서 **그래도 열기**를 누르세요. 한 번만 하면 돼요.
 
-저장소 루트의 `dev.cmd`를 더블클릭하면 지금 소스를 Debug로 빌드해 **개발용 Woodada**를 설정 창과 함께 띄웁니다.
-이미 떠 있는 개발용 앱은 닫고 새로 띄우므로, 고친 뒤 다시 누르기만 하면 됩니다.
+<br>
 
-```bash
-.\dev.cmd
-```
+## 💬 자주 묻는 질문
 
-macOS에서는 `dev.sh`를 씁니다. 하는 일은 같습니다.
+<details>
+<summary><b>컴퓨터 켤 때 같이 켜지게 할 수 있나요?</b></summary>
 
-```bash
-./dev.sh
-```
+<br>
 
-개발용 앱(Debug 빌드)은 설치해서 쓰는 Woodada와 동시에 띄울 수 있도록 따로 동작합니다.
+네. 트레이(맥은 메뉴 막대) 아이콘 메뉴에서 **Windows 시작 시 실행**(맥은 **로그인 시 실행**)을 켜 주세요.
+</details>
 
-| | 설치된 앱 (Release) | 개발용 앱 (Debug) |
-|---|---|---|
-| 설정·달린 기록 | `%APPDATA%\Woodada` (macOS: `~/Library/Application Support/Woodada`) | 같은 곳의 `Woodada-dev` (처음 한 번 설치된 앱의 설정을 복사) |
-| 시작 시 실행 | `Woodada` | `Woodada-dev` (서로 덮어쓰지 않음) |
-| 자동 업데이트 | 함 | 안 함 |
-| 표시 | — | 트레이·메뉴 막대 툴팁 `[DEV]`, 창 제목 "(개발용)" |
+<details>
+<summary><b>업데이트는 어떻게 하나요?</b></summary>
 
-#### 바로 실행
+<br>
 
-```bash
-dotnet run --project src/Woodada
-```
+할 필요 없어요. 앱이 켜질 때마다 새 버전을 확인해서 알아서 바꿔 끼워요.
+</details>
 
-설정 창을 바로 열고 싶으면 `--settings`를 붙입니다.
+<details>
+<summary><b>모니터가 여러 대인데요?</b></summary>
 
-```bash
-dotnet run --project src/Woodada -- --settings
-```
+<br>
 
-#### exe 하나로 만들기 (Windows)
+설정의 **일반** 탭에서 고양이가 달릴 모니터를 고를 수 있어요. 작업표시줄이 위·아래·왼쪽·오른쪽 어디에 있어도 따라 달려요.
+</details>
 
-```bash
-dotnet publish src/Woodada -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true
-```
+<details>
+<summary><b>macOS에서 독을 숨겨 뒀어요.</b></summary>
 
-`src/Woodada/bin/Release/net9.0/win-x64/publish/Woodada.exe`가 만들어집니다. 릴리즈와 같은 방식으로, .NET 런타임이 들어 있어 어느 PC에서나 exe 하나로 실행됩니다(약 46MB).
+<br>
 
-#### .app·.dmg 만들기 (macOS)
+독이 숨어 있거나 옆에 있으면 화면 바닥을 따라 달려요.
+</details>
 
-```bash
-build/mac/build-app.sh osx-arm64
-```
+<details>
+<summary><b>지우고 싶어요.</b></summary>
 
-`publish/mac-osx-arm64/Woodada.app`과 `Woodada-mac-arm64.dmg`가 만들어집니다. 인텔 맥용은 `osx-x64`를 넘깁니다.
+<br>
 
-`.dmg`를 열면 나오는 창(배경 그림, 창 크기, 아이콘 자리)은 저장소의 틀 `build/mac/dmg/template.dmg`에 들어 있고, `build-app.sh`는 이 틀에 앱만 넣어 압축합니다.
-배경 그림이나 배치를 바꿀 때만 맥에서 아래 두 단계를 거쳐 틀을 다시 만들고 커밋합니다.
+- **Windows** — 트레이 아이콘에서 종료한 뒤 `Woodada.exe`를 지우세요. 기록까지 지우려면 `%APPDATA%\Woodada` 폴더도 지우면 돼요.
+- **macOS** — 메뉴 막대 아이콘에서 종료한 뒤 응용 프로그램 폴더의 Woodada를 휴지통에 버리세요. 기록은 `~/Library/Application Support/Woodada`에 있어요.
+</details>
 
-```bash
-python tools/draw_dmg_background.py
-```
-
-```bash
-build/mac/make-dmg-template.sh
-```
-
-DMG 창 배경은 공식 API가 없는 Finder 기능이라, macOS 26(Tahoe)의 Finder는 예전 도구(dmgbuild 등)로 넣은 배경을 보여 주지 않습니다.
-그래서 `make-dmg-template.sh`는 Finder에게 직접 배경을 지정하게 하며, 처음 실행할 때 터미널이 Finder를 제어해도 되는지 macOS가 묻습니다.
-
-## 🕹️ 사용법
-
-| 동작 | 결과 |
-|---|---|
-| 트레이 아이콘 **왼쪽 클릭** (Windows) | 설정 창 열기 |
-| 트레이 아이콘 **오른쪽 클릭** (Windows) | 설정 · Windows 시작 시 실행 · 종료 |
-| 메뉴 막대 아이콘 **클릭** (macOS) | 설정 · 로그인 시 실행 · 종료 |
-
-**설정 창**
-
-맨 위에 가진 생선 수와 다음 생선까지 남은 정도가 보입니다.
-
-- **고양이** — CPU·메모리 고양이 카드(표시 여부, 실시간 미리보기, 크기)와 색 칸 20개, 맨 아래 스페셜 스킨 줄. 카드를 눌러 고양이를 고르고, 칸을 눌러 색·스킨을 입히거나 색을 입어 본 뒤 잠금 해제합니다.
-- **옷장** — 러너 모음. 새 러너를 생선으로 데려와 고양이 대신 달리게 합니다. 준비 중인 닥스훈트·토끼는 "COMING SOON" 칸으로 먼저 보이고, 마우스를 올리면 달리기 연습하는 모습을 볼 수 있습니다.
-- **기록** — 달린 거리와 모은 생선
-- **일반** — 달릴 모니터, 전체 화면 앱 실행 중 숨기기(Windows)
-- **냥뽑기** — 생선으로 스페셜 스킨 뽑기와 도감
-
-**생선 보상**
-
-| 항목 | 생선 |
-|---|---|
-| 몸 길이 1,000번 달리기 (기본 크기로 약 4만 px) | +1 |
-| 기본 색 — 까망 · 하양 | 처음부터 있음 |
-| 기본 색 — 치즈 · 고등어 · 회색 | 50 |
-| 기본 색 — 삼색 · 민트 · 레몬 | 150 |
-| 기본 색 — 라벤더 · 체리 | 300 |
-| 나만의 색 칸 (앞 칸부터 차례로) | 500, 600, … 1,400 |
-| 새 러너 (나온 순서대로) | 1,000, 2,000, 3,000 … |
-| 냥뽑기 한 번 (꽝 있음) | 500 |
-
-- 픽셀이 아니라 몸 길이로 세므로 고양이를 키워도 생선이 빨리 쌓이지 않습니다. 평소(CPU 10%, 메모리 50%)에는 두 고양이를 합쳐 시간당 20개 남짓 모입니다.
-- 생선은 따로 저장하지 않고 "지금까지 달린 몸 길이 ÷ 1,000 − 쓴 생선"으로 계산합니다. 그래서 보상이 생기기 전에 달린 기록도 생선이 됩니다.
-- 보상이 생기기 전부터 쓰던 색은 처음 실행할 때 그대로 갖게 됩니다(직접 고른 색이었다면 나만의 색 1칸을 무료로).
-- 잠긴 색은 사기 전에 입어 볼 수 있습니다. 칸을 누르면(나만의 색은 색을 고르면) 카드의 미리보기 고양이만 그 색으로 바뀌고, 안내 상자의 "사기" 버튼으로 삽니다. 생선이 모자라도 입어 보기는 됩니다.
-- 나만의 색 칸의 색은 10칸을 모두 연 뒤에만 바꿀 수 있습니다(입고 있는 칸을 한 번 더 누르거나 오른쪽 클릭, 생선은 들지 않음). 그 전에는 칸을 열 때 고른 색 그대로입니다.
-
-**냥뽑기와 스페셜 스킨**
-
-| 스킨 | 등급 | 모습 |
-|---|---|---|
-| 유령냥 | ★★ 레어 | 반투명한 몸으로 작업표시줄 위를 둥실둥실 떠다닙니다. 고른 색 대신 유령색을 입습니다. |
-| 플래시냥 | ★★★ 에픽 | 지나온 길에 잔상과 불꽃을 남깁니다. 빠를수록 꼬리가 길어집니다. |
-| 글리치냥 | ★★★★ 전설 | 가끔 화면이 고장 난 것처럼 지지직거립니다. CPU가 바쁠수록 자주 그럽니다. |
-
-- 한 번에 생선 500개. 스킨이 나오거나 꽝이 나옵니다. 이미 가진 스킨은 다시 나오지 않습니다.
-- 꽝이 6번 이어지면 다음 뽑기는 꼭 스킨이 나옵니다. 뽑기 줄에 남은 횟수가 보입니다.
-- 뽑은 스킨은 결과 화면이나 고양이 탭 맨 아래 스킨 줄에서 CPU·메모리 고양이에게 입힙니다. 겉모습만 바뀌고 속도와 생선은 그대로입니다.
-
-**기록 탭**
-
-- 오늘 달린 거리와 지금까지 달린 거리를 고양이별·전체로 보여줍니다.
-- 거리는 모니터가 알려주는 실제 패널 크기(Windows는 EDID, macOS는 CoreGraphics)를 지금 해상도로 나눠 1px의 길이를 구해 계산합니다. 크기를 알 수 없는 화면(TV·프로젝터·원격 데스크톱 등)은 화면 배율로 추정합니다.
-
-설정은 바꾸는 즉시 반영되고 `%APPDATA%\Woodada\settings.json`(macOS는 `~/Library/Application Support/Woodada/settings.json`)에 저장됩니다. 달린 기록은 `%APPDATA%\Woodada\stats.json`에 30초마다, 그리고 종료할 때 저장됩니다. 잠금 해제한 색·러너와 쓴 생선은 `%APPDATA%\Woodada\rewards.json`에 살 때마다 저장됩니다.
-
-## 🧩 구조
-
-UI는 [Avalonia](https://avaloniaui.net/)로 만들어 Windows와 macOS가 같은 코드로 돌아갑니다.
-OS마다 달라야 하는 일(어디서 달릴지, CPU·메모리 읽기, 클릭 통과 창, 시작 시 실행)만 `Platform/IPlatform` 뒤에 두고 OS별로 하나씩 구현합니다.
-
-| 위치 | 역할 |
-|---|---|
-| `Platform/IPlatform` | OS마다 다른 일의 목록. 나머지 코드는 이것만 부른다 |
-| `Platform/Windows/WindowsPlatform` | 작업표시줄(`Shell_TrayWnd` / `Shell_SecondaryTrayWnd`) 위치, `GetSystemTimes`·`GlobalMemoryStatusEx`, EDID, 레지스트리 시작 프로그램, 클릭 통과 창 스타일 |
-| `Platform/Mac/MacPlatform` | 독 위치(NSScreen `frame` − `visibleFrame`), mach `host_statistics`, CoreGraphics 패널 크기, LaunchAgent, NSWindow 클릭 통과·모든 데스크톱에 표시 |
-| `Platform/MonitorPitch` | 패널 크기(mm) ÷ 현재 해상도로 1px 길이 계산, 없으면 화면 배율로 추정. `ScreenCatalog`(모니터 목록) |
-| `Core/MetricSampler` | CPU/메모리 % 계산 (0.5초 주기) |
-| `Core/RunnerState.Advance` | 사용률 → 속도 환산, 왕복(벽 반사), 이동 거리 기반 보행 위상 |
-| `Core/Track` | 작업표시줄·독 위치(아래/위/좌/우)별 달리기 띠, 속도 프로파일 |
-| `Rendering/OverlayController` | 30fps 프레임 루프, 전체 화면 앱 감지 시 숨김 |
-| `Rendering/OverlayWindow` | 작업표시줄·독 위에 깔리는 투명 창과 러너 그리기 |
-| `Sprites/FrameSprite` | 실루엣 PNG 프레임(고양이·닥스훈트·토끼)을 알파 마스크로 써서 원하는 색으로 칠함, 눈 구멍은 흰색으로 채움 |
-| `Sprites/SpriteRegistry` | 러너 종류 목록과 출시 예정 러너 목록. 등록하면 옷장에 나타나고, 출시 예정이면 "COMING SOON" 칸으로만 보임 |
-| `Stats/StatsStore` | 러너별 달린 양(px·몸 길이·mm)과 날짜별 거리 누적·저장 |
-| `Rewards/RewardCatalog` | 생선 환산 기준(몸 길이 1,000 = 생선 1)과 색·나만의 색 칸·러너 가격표 |
-| `Rewards/RewardStore` | 생선 잔고 계산, 잠금 해제 · 구매 저장(`rewards.json`), 기존 사용자의 색 지급 |
-| `UI/SettingsWindow` | 생선 지갑 띠 · 고양이(카드·색 칸 20개) · 옷장(러너 모음) · 기록 · 일반 |
-| `TrayApp` | 트레이·메뉴 막대 아이콘과 메뉴, 설정 창 열기, 업데이트 확인(켜질 때 바로 한 번, 그 뒤로는 켜져 있는 동안 6시간마다 한 번) |
-| `Update/Updater` | 시작 시 최신 릴리즈 확인. Windows: 새 `Woodada.exe`를 임시 폴더에 받아 검증(크기·SHA-256·버전) → 설치 모드로 띄우고 종료 → 설치 위치의 exe를 교체하고 재실행 |
-| `Update/Updater.Mac` | macOS: 새 `auto-update-mac-<arch>.zip`을 받아 풀고 검증(크기·SHA-256·버전·서명) → 설치 모드를 `open`으로 띄우고 종료 → 옆에 복사한 새 `.app`과 이름을 바꿔치기하고 재실행. 바꿔 끼울 수 없는 곳이면 알림만 |
-| `build/mac/build-app.sh` | `Woodada.app` 만들기(Info.plist·아이콘·임시 서명)와, DMG 틀에 앱을 넣어 `.dmg` 묶기, 자동 업데이트용 `.zip` 묶기 |
-| `build/mac/make-dmg-template.sh` | DMG 틀(`build/mac/dmg/template.dmg`) 만들기. Finder로 배경 그림·창 크기·아이콘 자리를 설정한다 |
-
-### 새 러너 추가하기
-
-1. 오른쪽을 보는 검은 실루엣 PNG 프레임을 만들고, 눈은 머리 쪽의 작은 투명 구멍으로 둡니다 (`tools/draw_*.py` 참고).
-2. `Woodada.csproj`에 임베디드 리소스로 넣고, `Sprites/SpriteRegistry`에 `FrameSprite`로 등록합니다. 그림을 직접 그리는 러너라면 `Sprites/IRunnerSprite`를 구현해도 됩니다 (`Measure`, `Draw`).
-3. 아직 내놓지 않을 러너는 `SpriteRegistry`의 출시 예정 목록(`Upcoming`)에 넣습니다. 옷장에 "COMING SOON" 칸으로 보이기만 하고 데려올 수 없습니다. 출시할 때 목록에서 빼면 됩니다.
-
-등록한 러너는 옷장에 자동으로 나타나고, 등록 순서대로 생선 1,000 → 2,000 → 3,000 …에 잠금 해제됩니다(`Rewards/RewardCatalog.RunnerPrice`). 출시 예정 러너도 이 순서에 자리를 차지하므로, 닥스훈트는 1,000, 토끼는 2,000으로 예고됩니다.
-
-## 📦 릴리즈
-
-`vX.Y.Z` 형식의 태그를 푸시하면 GitHub Actions(`.github/workflows/release.yml`)가 `Woodada.exe`(Windows)와 `Woodada-mac-arm64.dmg`·`Woodada-mac-x64.dmg`(macOS, 처음 설치용)와 `auto-update-mac-arm64.zip`·`auto-update-mac-x64.zip`(macOS, 자동 업데이트용)을 빌드해 릴리즈에 올립니다.
-
-```bash
-git tag v1.0.0
-```
-
-```bash
-git push origin v1.0.0
-```
-
-- 태그 버전이 앱 버전이 됩니다. 저장소의 기본 버전은 `0.0.0`이고, 이 버전인 로컬 빌드는 자동 업데이트를 하지 않습니다.
-- 릴리즈 노트는 이전 태그 이후의 커밋 제목으로 채워집니다.
-- Actions 탭에서 수동 실행(workflow_dispatch)하면 릴리즈 없이 빌드만 점검합니다.
-
-## 📌 알아둘 점
-
-- 보조 모니터에 작업표시줄이 없으면("모든 디스플레이에 작업 표시줄 표시" 꺼짐) 그 모니터 화면 아래를 따라 달립니다.
-- macOS는 독이 차지한 높이만 알려 주고 독의 가로 폭은 알려 주지 않아서, 고양이는 독 윗선 높이에서 화면 너비 전체를 달립니다.
-- 크기(px)는 Windows에서는 물리 픽셀, macOS에서는 포인트 단위라 레티나 화면에서도 같은 크기로 보입니다.
-- 선택한 모니터를 분리하면 주 모니터로 대체됩니다.
-- 두 번 실행해도 고양이가 겹치지 않도록 한 번에 하나만 실행됩니다.
+<br>
 
 ## 🙏 크레딧
 
-고양이 이미지(`src/Woodada/Assets/RunCat/cat_running_*.png`)는
-[RunCat365](https://github.com/runcat-dev/RunCat365) (runcat-dev, Apache License 2.0)에서 가져왔습니다.
-라이선스 전문: `src/Woodada/Assets/RunCat/LICENSE` (빌드 시 `ThirdParty/RunCat365-LICENSE.txt`로 복사)
-macOS 메뉴 막대 아이콘(`src/Woodada/Assets/Icon/MenuBarTemplate.png`)은 이 고양이 프레임을 줄이고 밑줄을 더해 만들었고, `tools/draw_menubar_icon.py`로 다시 만들 수 있습니다.
-macOS 설치 DMG 창의 배경(`build/mac/dmg/background*.png`)도 이 고양이 프레임에 색을 입혀 만들었고, `tools/draw_dmg_background.py`로 다시 만들 수 있습니다.
-
-닥스훈트(`src/Woodada/Assets/Dog/dog_running_*.png`)와 토끼(`src/Woodada/Assets/Rabbit/rabbit_running_*.png`) 이미지는 고양이 그림체에 맞춰 직접 그렸고, `tools/draw_dachshund.py`, `tools/draw_rabbit.py`로 다시 만들 수 있습니다. 소스 코드와 같은 MIT License를 따릅니다.
+고양이 그림은 [RunCat365](https://github.com/runcat-dev/RunCat365)(runcat-dev, Apache License 2.0)에서 가져왔어요.
+닥스훈트와 토끼는 고양이 그림체에 맞춰 직접 그렸어요.
 
 ## 📄 라이선스
 
-Woodada의 소스 코드는 [MIT License](LICENSE)로 배포합니다.
-단, 위 고양이 이미지는 원본 라이선스(Apache License 2.0)를 따릅니다.
+Woodada는 [MIT License](LICENSE)로 배포하는 무료 오픈소스예요. 단, 고양이 그림은 원본 라이선스(Apache License 2.0, `src/Woodada/Assets/RunCat/LICENSE`)를 따라요.
