@@ -1,9 +1,6 @@
+<p align="right">🌐 <a href="README.md">English</a> · <b>한국어</b></p>
+
 <div align="center">
-
-<!-- 언어 바꾸기 버튼. 지금 보고 있는 언어가 파란색. 영어판(기본)은 README.md -->
-<a href="README.md"><img src="https://img.shields.io/badge/English-6E7681?style=for-the-badge" alt="English"></a> <a href="README.ko.md"><img src="https://img.shields.io/badge/%ED%95%9C%EA%B5%AD%EC%96%B4-1F6FEB?style=for-the-badge" alt="한국어"></a>
-
-<br><br>
 
 <img src="app/docs/icon.png" alt="Woodada 아이콘" width="128" height="128">
 
