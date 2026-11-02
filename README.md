@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/icon.png" alt="Woodada 아이콘" width="128" height="128">
+<img src="app/docs/icon.png" alt="Woodada 아이콘" width="128" height="128">
 
 <h1><b>Woodada</b></h1>
 
@@ -11,12 +11,12 @@
 ![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?logo=windows&logoColor=white) ![macOS](https://img.shields.io/badge/macOS-12%2B-000000?logo=apple&logoColor=white) ![.NET](https://img.shields.io/badge/.NET-9.0-512BD4?logo=dotnet&logoColor=white) ![Avalonia](https://img.shields.io/badge/UI-Avalonia-8B44AC) ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 <br>
-<img src="docs/demo.gif" alt="작업표시줄 위를 달리는 Woodada 고양이" width="100%">
+<img src="app/docs/demo.gif" alt="작업표시줄 위를 달리는 Woodada 고양이" width="100%">
 
 <br><br>
 
 <!-- 앱 아이콘처럼 왼쪽 검정(Windows)·오른쪽 크림(macOS) 반반 버튼. 두 링크 사이에 공백이 없어야 한 알약처럼 붙는다. -->
-<a href="https://github.com/Hyuntae-Jeong/Woodada/releases/latest/download/Woodada.exe"><img src="docs/download-windows.svg" alt="Windows용 다운로드" height="64"></a><a href="https://github.com/Hyuntae-Jeong/Woodada/releases/latest/download/Woodada-mac-arm64.dmg"><img src="docs/download-macos.svg" alt="macOS용 다운로드 (Apple 실리콘)" height="64"></a>
+<a href="https://github.com/Hyuntae-Jeong/Woodada/releases/latest/download/Woodada.exe"><img src="app/docs/download-windows.svg" alt="Windows용 다운로드" height="64"></a><a href="https://github.com/Hyuntae-Jeong/Woodada/releases/latest/download/Woodada-mac-arm64.dmg"><img src="app/docs/download-macos.svg" alt="macOS용 다운로드 (Apple 실리콘)" height="64"></a>
 
 인텔 맥은 [여기](https://github.com/Hyuntae-Jeong/Woodada/releases/latest/download/Woodada-mac-x64.dmg)에서 받으세요
 
@@ -121,4 +121,4 @@
 
 ## 📄 라이선스
 
-Woodada는 [MIT License](LICENSE)로 배포하는 무료 오픈소스예요. 단, 고양이 그림은 원본 라이선스(Apache License 2.0, `src/Woodada/Assets/RunCat/LICENSE`)를 따라요.
+Woodada는 [MIT License](LICENSE)로 배포하는 무료 오픈소스예요. 단, 고양이 그림은 원본 라이선스(Apache License 2.0, `app/src/Woodada/Assets/RunCat/LICENSE`)를 따라요.

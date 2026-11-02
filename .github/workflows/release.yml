@@ -2,8 +2,8 @@ name: Release
 
 # vX.Y.Z 태그를 푸시하면 Windows용 Woodada.exe와 macOS용 .dmg(애플 실리콘·인텔)를 빌드해 GitHub 릴리즈에 올립니다.
 # Windows 앱은 켜져 있는 동안 6시간마다 최신 릴리즈를 확인해 이 exe로 스스로 바꿔 끼웁니다
-# (src/Woodada/Update/Updater.cs — 릴리즈 파일 이름 Woodada.exe가 양쪽에서 같아야 합니다).
-# macOS 앱도 같은 방식으로 auto-update-mac-<arm64|x64>.zip을 받아 .app을 바꿔 끼웁니다(src/Woodada/Update/Updater.Mac.cs).
+# (app/src/Woodada/Update/Updater.cs — 릴리즈 파일 이름 Woodada.exe가 양쪽에서 같아야 합니다).
+# macOS 앱도 같은 방식으로 auto-update-mac-<arm64|x64>.zip을 받아 .app을 바꿔 끼웁니다(app/src/Woodada/Update/Updater.Mac.cs).
 # workflow_dispatch로 수동 실행하면 빌드만 하고 릴리즈는 건너뜁니다 — 빌드 점검용.
 on:
   push:
@@ -40,6 +40,9 @@ jobs:
   windows:
     needs: version
     runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: app   # 앱 소스는 저장소의 app 폴더에 있습니다
     steps:
       - uses: actions/checkout@v4
 
@@ -60,7 +63,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: Woodada-windows
-          path: publish/Woodada.exe
+          path: app/publish/Woodada.exe
 
   mac:
     needs: version
@@ -68,6 +71,9 @@ jobs:
     strategy:
       matrix:
         rid: [osx-arm64, osx-x64]
+    defaults:
+      run:
+        working-directory: app
     steps:
       - uses: actions/checkout@v4
 
@@ -84,8 +90,8 @@ jobs:
         with:
           name: Woodada-${{ matrix.rid }}
           path: |
-            publish/mac-${{ matrix.rid }}/*.dmg
-            publish/mac-${{ matrix.rid }}/*.zip
+            app/publish/mac-${{ matrix.rid }}/*.dmg
+            app/publish/mac-${{ matrix.rid }}/*.zip
 
   release:
     needs: [version, windows, mac]
@@ -129,7 +135,7 @@ jobs:
             echo "그다음부터는 6시간마다 새 버전을 확인해 자동으로 업데이트합니다."
             echo "\`auto-update-\`로 시작하는 파일은 앱이 자동 업데이트에 쓰는 파일이라 받지 않아도 됩니다."
             echo
-            echo "고양이 이미지는 [RunCat365](https://github.com/runcat-dev/RunCat365)에서 가져왔으며 [Apache License 2.0](https://github.com/$GITHUB_REPOSITORY/blob/$tag/src/Woodada/Assets/RunCat/LICENSE)을 따릅니다."
+            echo "고양이 이미지는 [RunCat365](https://github.com/runcat-dev/RunCat365)에서 가져왔으며 [Apache License 2.0](https://github.com/$GITHUB_REPOSITORY/blob/$tag/app/src/Woodada/Assets/RunCat/LICENSE)을 따릅니다."
             echo
             echo "**전체 변경 내역**: $compare"
           } > RELEASE_BODY.md
