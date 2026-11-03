@@ -506,6 +506,25 @@
     document.addEventListener('visibilitychange', () => { if (!document.hidden && visible) start(); });
   }
 
+  /* ───────── 다운로드 클릭 통계 ───────── */
+  // 다운로드 링크를 누르면 GA에 app_download 이벤트를 보낸다. GA가 꺼진 곳(유럽·로컬)에서는 아무것도 안 한다.
+  // platform: windows / mac_arm64 / mac_x64, link_location: 누른 위치(hero, install, cta …)
+  function platformOf(href) {
+    if (/\.exe$/i.test(href)) return 'windows';
+    if (/arm64\.dmg$/i.test(href)) return 'mac_arm64';
+    if (/x64\.dmg$/i.test(href)) return 'mac_x64';
+    return 'other';
+  }
+  document.addEventListener('click', e => {
+    const a = e.target.closest('a[href*="/releases/latest/download/"]');
+    if (!a || typeof window.gtag !== 'function') return;
+    const sec = a.closest('section');
+    window.gtag('event', 'app_download', {
+      platform: platformOf(a.getAttribute('href')),
+      link_location: sec ? (sec.id || sec.classList[0] || 'page') : 'page',
+    });
+  });
+
   /* ───────── 시작 ───────── */
   applyLang(lang);
   loadMasks().then(masks => {
