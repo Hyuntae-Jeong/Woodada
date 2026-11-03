@@ -23,5 +23,8 @@ Thumbs.db
 Desktop.ini
 .DS_Store
 
-# 로컬 Claude 설정
-.claude/settings.local.json
+# 로컬 Claude 설정 — 이 PC 경로가 들어간 실행 설정·잠금 파일뿐이라 폴더째 뺀다
+.claude/
+
+# 루트 tools/는 로컬 작업용. 앞의 /가 없으면 저장소에 올라가 있는 app/tools/까지 막힌다
+/tools/
