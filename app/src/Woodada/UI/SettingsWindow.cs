@@ -1447,7 +1447,7 @@ internal sealed class SettingsWindow : Window
     private void RefreshWallet()
     {
         long fish = _rewards.Fish;
-        _header.SetWallet(fish, _rewards.NextFishProgress);
+        _header.SetWallet(fish, _rewards.NextFishProgress, _rewards.SecondsPerFish);
         if (fish == _lastFish) return;
         _lastFish = fish;
         // 생선이 늘면 잠긴 칸이 "살 수 있음"으로, 입어 보던 색의 사기 버튼이 켜짐으로 바뀔 수 있다.

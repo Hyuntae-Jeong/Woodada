@@ -7,13 +7,14 @@ using Woodada.Settings;
 
 namespace Woodada.UI;
 
-/// <summary>설정 창 맨 위 띠. 가진 생선 수와 다음 생선까지 남은 정도를 보여준다.</summary>
+/// <summary>설정 창 맨 위 띠. 가진 생선 수, 다음 생선까지 남은 정도, 생선 1마리에 걸리는 시간을 보여준다.</summary>
 internal sealed class WalletHeader : Control
 {
     private readonly DispatcherTimer _animation = new() { Interval = TimeSpan.FromMilliseconds(33) };
     private readonly Stopwatch _clock = Stopwatch.StartNew();
     private long _fish = -1;
     private double _progress;
+    private string _pace = "";
     private long _gained;
     private double _gainedAt = double.NegativeInfinity;
 
@@ -30,8 +31,9 @@ internal sealed class WalletHeader : Control
     }
 
     /// <summary>생선이 늘었으면 "+n"을 잠깐 띄운다. 처음 값은 그냥 보여준다.</summary>
-    public void SetWallet(long fish, double progress)
+    public void SetWallet(long fish, double progress, double? secondsPerFish)
     {
+        string pace = PaceText(secondsPerFish);
         if (_fish >= 0 && fish > _fish)
         {
             // 띄워 둔 사이에 또 늘면 합쳐서 보여준다.
@@ -40,10 +42,33 @@ internal sealed class WalletHeader : Control
             _gainedAt = _clock.Elapsed.TotalSeconds;
             _animation.Start();
         }
-        if (fish == _fish && Math.Abs(progress - _progress) < 0.002) return;
+        if (fish == _fish && Math.Abs(progress - _progress) < 0.002 && pace == _pace) return;
         _fish = fish;
         _progress = progress;
+        _pace = pace;
         InvalidateVisual();
+    }
+
+    /// <summary>
+    /// 1분 안쪽은 5초, 1시간 안쪽은 1분, 그 위는 10분 단위로 반올림한다.
+    /// 정확한 숫자보다 대략 얼마나 걸리는지 감만 주려는 것이다.
+    /// </summary>
+    private static string PaceText(double? secondsPerFish)
+    {
+        if (secondsPerFish is not { } s) return Loc.T("속도 재는 중…", "Measuring pace…");
+        if (s >= 24 * 3600) return Loc.T("고양이가 쉬고 있어요", "Cats are resting");
+
+        double sec = Math.Max(5, Math.Round(s / 5) * 5);
+        if (sec < 60) return Loc.T($"생선 1마리에 약 {sec:0}초", $"About {sec:0}s per fish");
+
+        double min = Math.Round(s / 60);
+        if (min < 60) return Loc.T($"생선 1마리에 약 {min:0}분", $"About {min:0} min per fish");
+
+        int total = (int)(Math.Round(s / 600) * 10);
+        int h = total / 60, m = total % 60;
+        return m == 0
+            ? Loc.T($"생선 1마리에 약 {h}시간", $"About {h}h per fish")
+            : Loc.T($"생선 1마리에 약 {h}시간 {m}분", $"About {h}h {m}m per fish");
     }
 
     public override void Render(DrawingContext ctx)
@@ -86,14 +111,16 @@ internal sealed class WalletHeader : Control
             ctx.DrawText(gain, new Point(gx, gy));
         }
 
-        // 오른쪽: 다음 생선까지 진행 막대
+        // 오른쪽: 다음 생선까지 진행 막대, 그 아래 생선 1마리에 걸리는 시간
         const double barW = 200, barH = 12;
         double barX = width - pad - barW;
-        double barY = height / 2 + 2;
+        double barY = height / 2 - 9;
         var caption = GameArt.Format(Loc.T("다음 생선까지", "Next fish"), GameArt.FontNote, GameArt.SubText);
-        ctx.DrawText(caption, new Point(barX, barY - 20));
+        ctx.DrawText(caption, new Point(barX, barY - 19));
         var percent = GameArt.Format($"{_progress:0%}", GameArt.FontNote, GameArt.Text);
-        ctx.DrawText(percent, new Point(barX + barW - percent.Width, barY - 20));
+        ctx.DrawText(percent, new Point(barX + barW - percent.Width, barY - 19));
+        var pace = GameArt.Format(_pace, GameArt.FontNote, GameArt.SubText);
+        ctx.DrawText(pace, new Point(barX, barY + barH + 4));
 
         var track = new Rect(barX, barY, barW, barH);
         GameArt.FillRound(ctx, track, barH / 2, UI.Theme.Current.ProgressTrack, GameArt.CardBorder);

@@ -75,6 +75,21 @@ public sealed class RewardStore
         }
     }
 
+    /// <summary>
+    /// 최근 30분 평균으로 생선 1마리에 걸리는 초. 잰 지 1분이 안 됐으면 null,
+    /// 그동안 고양이가 거의 안 달렸으면 무한대다.
+    /// </summary>
+    public double? SecondsPerFish
+    {
+        get
+        {
+            var pace = _stats.Pace;
+            if (pace.Seconds < 60) return null;
+            if (pace.BodyLengths <= 0) return double.PositiveInfinity;
+            return pace.Seconds * RewardCatalog.BodyLengthsPerFish / pace.BodyLengths;
+        }
+    }
+
     // ───────────────────────── 색 ─────────────────────────
 
     public bool Owns(PresetColor color) =>

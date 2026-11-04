@@ -53,6 +53,9 @@ public sealed class StatsStore
 
     public RunStats Current { get; }
 
+    /// <summary>최근 30분 속도. 시간은 프레임 루프가 <see cref="PaceMeter.Tick"/>으로 넣는다.</summary>
+    public PaceMeter Pace { get; } = new();
+
     public static string TodayKey => DateTime.Now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
     public void Add(string runnerId, double pixels, double bodyLengths, double millimeters)
@@ -64,6 +67,7 @@ public sealed class StatsStore
         totals.Pixels += pixels;
         totals.BodyLengths += bodyLengths;
         totals.Millimeters += millimeters;
+        Pace.Add(bodyLengths);
 
         // 자정을 넘기면 다음 프레임부터 새 날짜에 쌓인다.
         string today = TodayKey;

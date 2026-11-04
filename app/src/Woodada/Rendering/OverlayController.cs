@@ -100,6 +100,8 @@ internal sealed class OverlayController : IDisposable
         double now = _clock.Elapsed.TotalSeconds;
         double dt = Math.Min(now - _last, MaxFrameDelta);
         _last = now;
+        // 고양이가 숨어 있는 시간도 센다. 그동안 생선이 안 모이는 것까지 속도에 들어가야 한다.
+        _stats.Pace.Tick(dt);
 
         _sampleAcc += dt;
         if (_sampleAcc >= SampleInterval)
