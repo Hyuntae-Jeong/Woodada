@@ -25,8 +25,8 @@ internal sealed class MacPlatform : IPlatform
     public string BarName => Loc.T("독", "Dock");
     public string StartupMenuLabel => Loc.T("로그인 시 실행", "Open at Login");
 
-    /// <summary>전체 화면 앱은 따로 데스크톱(Space)을 차지하고, 오버레이는 그곳에 따라가지 않으니 알아서 숨는다.</summary>
-    public bool CanDetectFullScreen => false;
+    /// <summary>오버레이는 모든 데스크톱에 붙어 있어 전체 화면 앱의 데스크톱에도 보인다. 창 목록으로 알아내 숨긴다(MacFullScreen).</summary>
+    public bool CanDetectFullScreen => true;
 
     // ───────── 어디서 달릴지 ─────────
 
@@ -122,7 +122,11 @@ internal sealed class MacPlatform : IPlatform
         }
     }
 
-    public bool IsFullScreenAppActive() => false;
+    public bool IsFullScreenAppActive()
+    {
+        try { return MacFullScreen.IsActive(); }
+        catch (Exception) { return false; } // 못 읽으면 숨기지 않고 계속 달린다
+    }
 
     /// <summary>독은 시스템 화면 모드(라이트/다크)를 따른다. Avalonia가 읽어 둔 OS 테마를 그대로 쓴다.</summary>
     public bool IsBarLight() =>

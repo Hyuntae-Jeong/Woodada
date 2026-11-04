@@ -1359,7 +1359,7 @@ internal sealed class SettingsWindow : Window
         Grid.SetColumn(monitorRow, 1);
         grid.Children.Add(monitorRow);
 
-        // 전체 화면 앱을 알아챌 수 없는 OS(macOS)에서는 옵션을 숨긴다. 그곳에서는 전체 화면 앱이 따로 데스크톱을 써서 알아서 가려진다.
+        // 전체 화면 앱을 알아챌 수 없는 OS가 생기면 옵션을 숨긴다(지금은 Windows·macOS 모두 알아챈다).
         _hideFullScreen.Content = Loc.T("전체 화면 앱(게임·발표) 실행 중에는 숨기기", "Hide while a full-screen app (game, presentation) is running");
         _hideFullScreen.Margin = new Thickness(0, 10, 0, 0);
         _hideFullScreen.IsVisible = _platform.CanDetectFullScreen;
