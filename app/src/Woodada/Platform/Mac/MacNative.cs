@@ -118,6 +118,15 @@ internal static class MacNative
     public static extern nuint SendReturnNUInt(IntPtr receiver, IntPtr selector);
 
     [DllImport(LibObjC, EntryPoint = "objc_msgSend")]
+    public static extern byte SendReturnBool(IntPtr receiver, IntPtr selector, IntPtr arg);
+
+    [DllImport(LibObjC, EntryPoint = "objc_msgSend")]
+    public static extern void SendDouble(IntPtr receiver, IntPtr selector, double value);
+
+    [DllImport(LibObjC)]
+    public static extern IntPtr object_getClassName(IntPtr obj);
+
+    [DllImport(LibObjC, EntryPoint = "objc_msgSend")]
     public static extern uint SendReturnUInt(IntPtr receiver, IntPtr selector);
 
     [StructLayout(LayoutKind.Sequential)]

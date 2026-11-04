@@ -18,6 +18,9 @@ public sealed class AppSettings
     /// <summary>전체 화면 앱(게임·발표)이 떠 있으면 숨김.</summary>
     public bool HideInFullScreen { get; set; } = true;
 
+    /// <summary>macOS 메뉴 막대 아이콘 옆에 지금 가진 생선 수를 보여 준다. 메뉴 막대 자리를 차지하니 기본은 끔.</summary>
+    public bool ShowFishInMenuBar { get; set; }
+
     /// <summary>
     /// 러너가 달릴 모니터(IPlatform.ScreenKey: Windows는 \.\DISPLAY2 같은 장치 이름, macOS는 display:ID).
     /// null이거나 지금 없는 모니터면 주 모니터. 이름은 예전 설정 파일과 맞추려고 그대로 둔다.

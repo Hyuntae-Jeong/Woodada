@@ -16,7 +16,7 @@ namespace Woodada.UI;
 /// <summary>
 /// 맨 위: 가진 생선 · 다음 생선까지 진행 막대.
 /// 고양이 — CPU·메모리 고양이 카드(표시 · 미리보기 · 크기)와 색 칸 20개(기본 10 + 나만의 색 10).
-/// 옷장 — 러너 모음. 기록 — 달린 거리. 일반 — 모니터 · 전체 화면 · 언어.
+/// 옷장 — 러너 모음. 기록 — 달린 거리. 일반 — 모니터 · 전체 화면 · 메뉴 막대 생선 수 · 언어.
 /// 냥뽑기 — 생선으로 스페셜 스킨 뽑기(꽝 있음). 뽑은 스킨은 고양이 탭 맨 아래 스킨 줄에서 입힌다.
 /// 개발용 빌드는 아직 공개하지 않은 스킨까지 보이고, 뽑기 탭에 개발용 도구가 붙는다.
 /// 바꾸는 즉시 오버레이에 반영하고 저장한다.
@@ -113,6 +113,7 @@ internal sealed class SettingsWindow : Window
     private readonly ComboBox _monitor = new();
     private List<ScreenCatalog.MonitorItem> _monitorItems = new();
     private readonly CheckBox _hideFullScreen = new();
+    private readonly CheckBox _menuBarFish = new();
     private readonly ComboBox _language = new() { Width = 200 };
 
     /// <summary>언어 고르기 목록. 각 언어는 제 말로 적어야 못 읽는 언어로 바뀌었을 때도 돌아올 수 있다.</summary>
@@ -1337,7 +1338,7 @@ internal sealed class SettingsWindow : Window
         var grid = new Grid
         {
             ColumnDefinitions = new ColumnDefinitions("Auto,*"),
-            RowDefinitions = new RowDefinitions("Auto,Auto,Auto"),
+            RowDefinitions = new RowDefinitions("Auto,Auto,Auto,Auto"),
         };
 
         var label = Label(Loc.T("달릴 모니터", "Monitor"), GameArt.FontBody, GameArt.Text, FontWeight.Bold);
@@ -1372,11 +1373,25 @@ internal sealed class SettingsWindow : Window
         Grid.SetColumn(_hideFullScreen, 1);
         grid.Children.Add(_hideFullScreen);
 
+        // Windows 트레이 아이콘은 작은 정사각형이라 숫자를 붙일 자리가 없어 macOS에서만 보인다.
+        _menuBarFish.Content = Loc.T("메뉴 막대 아이콘 옆에 생선 수 보여 주기", "Show fish count next to the menu bar icon");
+        _menuBarFish.Margin = new Thickness(0, 10, 0, 0);
+        _menuBarFish.IsVisible = OperatingSystem.IsMacOS();
+        _menuBarFish.IsCheckedChanged += (_, _) =>
+        {
+            if (_loading) return;
+            _working.ShowFishInMenuBar = _menuBarFish.IsChecked == true;
+            Commit();
+        };
+        Grid.SetRow(_menuBarFish, 2);
+        Grid.SetColumn(_menuBarFish, 1);
+        grid.Children.Add(_menuBarFish);
+
         // 언어를 바꾸면 메뉴 글자가 바뀌고, 설정 창은 같은 자리에서 새 언어로 다시 열린다(TrayApp).
         var languageLabel = Label(Loc.T("언어", "Language"), GameArt.FontBody, GameArt.Text, FontWeight.Bold);
         languageLabel.VerticalAlignment = VerticalAlignment.Center;
         languageLabel.Margin = new Thickness(0, 12, 16, 0);
-        Grid.SetRow(languageLabel, 2);
+        Grid.SetRow(languageLabel, 3);
         grid.Children.Add(languageLabel);
 
         _language.ItemsSource = Languages.Select(l => l.Label).ToList();
@@ -1387,7 +1402,7 @@ internal sealed class SettingsWindow : Window
             _working.Language = Loc.ToId(Languages[_language.SelectedIndex].Language);
             Commit();
         };
-        Grid.SetRow(_language, 2);
+        Grid.SetRow(_language, 3);
         Grid.SetColumn(_language, 1);
         grid.Children.Add(_language);
 
@@ -1405,6 +1420,7 @@ internal sealed class SettingsWindow : Window
             if (_working.Runners.All(r => r.Id != _selectedId)) _selectedId = _working.Runners.FirstOrDefault()?.Id ?? "cpu";
             BuildRunnerCards();
             _hideFullScreen.IsChecked = _working.HideInFullScreen;
+            _menuBarFish.IsChecked = _working.ShowFishInMenuBar;
             _language.SelectedIndex = Array.FindIndex(Languages, l => l.Language == Loc.Parse(_working.Language));
             LoadMonitors();
         }

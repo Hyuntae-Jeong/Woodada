@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 using Woodada.Platform;
+using Woodada.Platform.Mac;
 using Woodada.Rendering;
 using Woodada.Rewards;
 using Woodada.Settings;
@@ -31,6 +32,9 @@ internal sealed class TrayApp : IDisposable
     private readonly DispatcherTimer _tooltipTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly CancellationTokenSource _updateCts = new();
     private SettingsWindow? _settingsWindow;
+
+    /// <summary>메뉴 막대 아이콘에 지금 그려 둔 생선 수 글자. null이면 고양이만 있는 기본 아이콘이다.</summary>
+    private string? _menuBarCount;
 
     /// <summary>
     /// 다음 업데이트 확인 때 한 번 울리는 타이머. 울리면 멈추고, 확인을 마친 뒤 6시간 뒤로 다시 건다.
@@ -83,11 +87,17 @@ internal sealed class TrayApp : IDisposable
         };
         // 아이콘을 넣은 뒤에 켜야 그 그림에 템플릿 표시가 붙는다.
         if (OperatingSystem.IsMacOS()) MacOSProperties.SetIsTemplateIcon(_tray, true);
+        UpdateMenuBarCount();
+        _store.Changed += (_, _) => UpdateMenuBarCount();
+        _rewards.Changed += (_, _) => UpdateMenuBarCount(); // 생선을 쓰면 1초를 기다리지 않고 바로 줄인다
         // Windows에서 아이콘을 왼쪽 클릭하면 설정을 연다. macOS는 누르면 메뉴가 열린다.
         _tray.Clicked += (_, _) => ShowSettings();
 
         _tooltipTimer.Tick += (_, _) =>
+        {
             _tray.ToolTipText = $"{AppInfo.Tag}CPU {_overlay.Sampler.Cpu:0}% · Memory {_overlay.Sampler.Memory:0}%";
+            UpdateMenuBarCount();
+        };
         _tooltipTimer.Start();
 
         // 로그오프·종료 때는 앱이 정상 종료 경로를 못 탈 수 있으니 기록부터 저장한다.
@@ -226,6 +236,30 @@ internal sealed class TrayApp : IDisposable
         };
         window.Show();
         window.Activate();
+    }
+
+    /// <summary>
+    /// 일반 탭에서 켜 두면(macOS만) 메뉴 막대 아이콘 옆에 생선 수를 그린다. 1초마다 불리지만
+    /// 보이는 글자가 바뀔 때만 그림을 다시 만든다(12.3k처럼 줄인 뒤로는 100마리마다 한 번).
+    /// </summary>
+    private void UpdateMenuBarCount()
+    {
+        if (!OperatingSystem.IsMacOS()) return;
+        string? text = _store.Current.ShowFishInMenuBar ? MenuBarIcon.FormatCount(_rewards.Fish) : null;
+        if (text == _menuBarCount) return;
+        _menuBarCount = text;
+        try
+        {
+            _tray.Icon = text is null ? AppIcon.LoadMenuBarTemplate() : MenuBarIcon.Render(text);
+            // 숫자를 붙이면 그림이 넓어지니 항목 폭을 그림에 맞춘다. 끄면 원래 정사각형 폭으로 돌린다.
+            if (!MacStatusItem.SetFitsImage(text is not null))
+                Updater.Log("메뉴 막대 항목을 찾지 못해 폭을 바꾸지 못했습니다");
+        }
+        catch (Exception ex)
+        {
+            // 그리기에 실패해도 앱은 기본 아이콘으로 계속 돈다.
+            Updater.Log($"메뉴 막대 생선 수를 그리지 못했습니다: {ex.Message}");
+        }
     }
 
     /// <summary>메뉴 글자를 지금 언어로 맞춘다.</summary>
