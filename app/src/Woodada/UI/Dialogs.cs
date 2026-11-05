@@ -29,26 +29,6 @@ internal static class Dialogs
         return dialog.ShowDialog<bool>(owner);
     }
 
-    /// <summary>알릴 것을 띄운다. 설정 창이 없을 때도 뜨도록 주인 창 없이 화면 가운데에 연다.</summary>
-    public static void ShowNotice(string title, string message)
-    {
-        var dialog = NewDialog(title, 400);
-        dialog.WindowStartupLocation = WindowStartupLocation.CenterScreen;
-        dialog.ShowInTaskbar = true; // 주인 창이 없어 다른 창 뒤에 가려지면 찾을 길이 없다
-        dialog.Topmost = true;
-        var ok = DialogButton(Loc.T("확인", "OK"), primary: true);
-        ok.Click += (_, _) => dialog.Close();
-        dialog.Content = DialogBody(
-            new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap, FontSize = GameArt.FontLarge, Foreground = GameArt.Brush(GameArt.Text) },
-            ok, null);
-        dialog.KeyDown += (_, e) =>
-        {
-            if (e.Key is Key.Escape or Key.Enter) dialog.Close();
-        };
-        dialog.Show();
-        dialog.Activate();
-    }
-
     /// <summary>색을 고른다. 취소하면 null.</summary>
     public static Task<string?> PickColorAsync(Window owner, string initialHex)
     {
@@ -82,14 +62,13 @@ internal static class Dialogs
         Icon = AppIcon.Window,
     };
 
-    private static Control DialogBody(Control content, GameButton primary, GameButton? secondary)
+    private static Control DialogBody(Control content, GameButton primary, GameButton secondary)
     {
         var buttons = new StackPanel
         {
             Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Spacing = 8,
-            Margin = new Thickness(0, 16, 0, 0), Children = { primary },
+            Margin = new Thickness(0, 16, 0, 0), Children = { primary, secondary },
         };
-        if (secondary is not null) buttons.Children.Add(secondary);
         return new StackPanel { Margin = new Thickness(20, 18, 20, 16), Children = { content, buttons } };
     }
 

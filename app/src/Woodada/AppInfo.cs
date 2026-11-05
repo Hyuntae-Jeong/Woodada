@@ -35,10 +35,5 @@ internal static class AppInfo
     public const string Tag = "";
 #endif
 
-    /// <summary>
-    /// 정식 서명 열쇠 없이 만든 Release 빌드(소스를 받아 직접 빌드 등)는 Woodada-unsigned에 따로 저장한다.
-    /// 같은 폴더를 쓰면 개발용 열쇠로 서명한 파일이 정식 기록을 덮어써서, 정식 앱이 그 기록을 초기화한다.
-    /// </summary>
-    public static string DataFolder => Path.Combine(PlatformServices.Current.DataRoot,
-        IsDev || Storage.DataSeal.HasOfficialKey ? DataFolderName : DataFolderName + "-unsigned");
+    public static string DataFolder => Path.Combine(PlatformServices.Current.DataRoot, DataFolderName);
 }

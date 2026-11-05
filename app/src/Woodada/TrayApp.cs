@@ -59,7 +59,6 @@ internal sealed class TrayApp : IDisposable
         ApplyStartupDefault();
         _rewards = new RewardStore(_stats);
         _rewards.GrantStartingItems(_store.Current);
-        if (_rewards.WithoutUnowned(_store.Current) is { } owned) _store.Update(owned);
         _overlay = new OverlayController(_store, _stats);
 
         _settingsItem = new NativeMenuItem();
@@ -106,7 +105,6 @@ internal sealed class TrayApp : IDisposable
         AppDomain.CurrentDomain.ProcessExit += (_, _) => _stats.Save();
 
         if (openSettings) ShowSettings();
-        if (_stats.WasReset || _rewards.WasReset) Dispatcher.UIThread.Post(ShowResetNotice);
         if (updated) Toast.Show("Woodada", Loc.T($"v{Updater.Current.ToString(3)}(으)로 업데이트했어요.", $"Updated to v{Updater.Current.ToString(3)}."));
         // 로컬 빌드(0.0.0)는 업데이트하지 않는다.
         if (Updater.IsReleaseBuild)
@@ -196,21 +194,6 @@ internal sealed class TrayApp : IDisposable
         Toast.Show(Loc.T("새 버전이 나왔어요", "A new version is out"),
             Loc.T($"Woodada v{version}을 받을 수 있어요. 눌러서 다운로드 페이지를 열어요.", $"Woodada v{version} is ready. Click to open the download page."),
             () => OpenUrl(_downloadUrl));
-    }
-
-    /// <summary>앱 밖에서 고친 기록을 처음 상태로 돌렸다고 알린다. 금방 사라지는 알림 대신 확인을 눌러야 닫히는 창으로 띄운다.</summary>
-    private void ShowResetNotice()
-    {
-        var (ko, en) = (_stats.WasReset, _rewards.WasReset) switch
-        {
-            (true, true) => ("달린 기록과 생선, 잠금 해제 기록", "your running record, fish and unlocks"),
-            (true, false) => ("달린 기록", "your running record"),
-            _ => ("생선과 잠금 해제 기록", "your fish and unlocks"),
-        };
-        Dialogs.ShowNotice(
-            Loc.T("기록을 초기화했어요", "Your records were reset"),
-            Loc.T($"저장된 기록이 앱 밖에서 바뀐 것을 발견해서 {ko}을 처음 상태로 돌렸어요.\n\n원래 파일은 기록 폴더에 .tampered를 붙여 남겨 두었어요.",
-                  $"Woodada found that its saved records had been changed outside the app, so it reset {en}.\n\nThe original file was kept in the data folder with .tampered added to its name."));
     }
 
     private static void OpenUrl(string url)
