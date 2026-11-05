@@ -171,8 +171,22 @@ internal static class PortalSkin
     private const int Ripples = 3;
     private const double RippleSpeed = 0.9;
     /// <summary>통과할 때 포탈이 환해졌다 가라앉는 시간(초). 몸이 걸쳐 있는 동안은 PassingFlare만큼 늘 환하다.</summary>
-    private const double FlareSeconds = 0.5;
+    private const double FlareSeconds = 0.6;
     private const double PassingFlare = 0.6;
+    /// <summary>통과하는 순간 포탈이 옆으로 불룩해졌다 돌아오는 정도(반폭 대비)와 시간(초). 위아래로는 안 커진다(Headroom).</summary>
+    private const double PopBulge = 0.22;
+    private const double PopSeconds = 0.35;
+
+    /// <summary>
+    /// 둘레 발광: 테두리 타원을 굵고 옅은 선으로 몇 겹 덧그린다(굵기는 포탈 키 대비, 진하기).
+    /// 옆으로 넓은 원판을 겹치면 정면에서 본 동그라미처럼 납작해 보여서, 비스듬히 본 포탈 면을 그대로 따라 번지게 한다.
+    /// 가장 굵은 선의 반(키의 14%)이 오버레이 위 여유(키의 15%) 안에 든다.
+    /// </summary>
+    private static readonly (double Width, double Alpha)[] HaloLayers = { (0.28, 0.10), (0.18, 0.13), (0.10, 0.18) };
+    /// <summary>통과해서 환해질 때 둘레 발광 진하기에 더하는 배율(Flare 1이면 1+이만큼).</summary>
+    private const double HaloFlareBoost = 2.0;
+    /// <summary>열릴 때·통과할 때 퍼지는 빛 고리가 위로 커질 수 있는 끝(키 대비, 가운데에서). 오버레이 위 여유와 같다.</summary>
+    private const double RingTop = 0.65;
     /// <summary>코가 입구에 닿을 때 빨려 드는 불꽃, 출구로 튀어나올 때 앞으로 뿜는 불꽃 개수와 시간(초).</summary>
     private const int SuckSparks = 9;
     private const int PopSparks = 11;
@@ -384,6 +398,27 @@ internal static class PortalSkin
     }
 
     /// <summary>
+    /// 지금 그릴 타원 반지름. 열린 정도대로 커지고(옆으로는 1.15배까지만), 통과하는 순간엔 옆으로 잠깐 불룩해진다.
+    /// </summary>
+    private static (double Rx, double Ry) Radii(Rect box, PortalState s, int i, double k)
+    {
+        double since = SincePass(s, i);
+        double pop = double.IsNaN(since) || since >= PopSeconds ? 0 : Math.Sin(Math.PI * since / PopSeconds) * PopBulge;
+        return (box.Width / 2 * Math.Min(k, 1.15) * (1 + pop), box.Height / 2 * k);
+    }
+
+    /// <summary>
+    /// 포탈 면을 따라 퍼지는 빛 고리. 옆으로 grow만큼 커지고 위아래로는 그 30%만, 오버레이 위 여유(RingTop)까지만 커진다.
+    /// </summary>
+    private static void DrawPlaneRing(DrawingContext ctx, Rect box, IPen pen, double t, double grow, double alpha)
+    {
+        double s = 1 + grow * EaseOutCubic(t);
+        double rx = box.Width / 2 * 1.1 * s, ry = Math.Min(box.Height / 2 * (1 + (s - 1) * 0.3), box.Height * RingTop);
+        using (ctx.PushOpacity(alpha))
+            ctx.DrawEllipse(null, pen, box.Center, rx, ry);
+    }
+
+    /// <summary>
     /// 테두리의 뒤쪽 반이 포탈 선의 어느 쪽(+1 오른쪽, -1 왼쪽)인지. 고양이 몸이 보이는 쪽을 뒤로 둔다.
     /// 입구는 고양이가 달려오는 쪽, 출구는 튀어나가는 쪽이다. 그래야 몸이 뒤쪽 테두리를 가리고, 앞쪽 테두리는
     /// 몸이 사라진 쪽에 있어서 고리 안으로 들어가는 것처럼 보인다. 테두리가 몸을 다 덮으면 몸이 포탈 뒤에 있는 것 같다.
@@ -399,7 +434,7 @@ internal static class PortalSkin
     {
         var center = box.Center;
         double h = box.Height;
-        double rx = box.Width / 2 * Math.Min(k, 1.15), ry = box.Height / 2 * k;
+        var (rx, ry) = Radii(box, s, index, k);
         int side = back ? BackSide(s, index) : -BackSide(s, index);
         // 포탈 선에서 그 쪽으로 넉넉한 사각형. 테 굵기·빛 점이 삐져나와도 잘리지 않게 위아래·옆으로 크게 잡는다.
         double far = box.Width * 4 + h;
@@ -431,7 +466,8 @@ internal static class PortalSkin
     }
 
     /// <summary>
-    /// 고양이 뒤에 깔리는 부분: 바깥 발광, 안쪽 빛, 안으로 빨려 드는 물결, 테두리의 뒤쪽 반. 통과하는 동안은 더 환하고 넓게 번진다.
+    /// 고양이 뒤에 깔리는 부분: 테두리를 따라 번지는 발광, 안쪽 빛, 안으로 빨려 드는 물결, 테두리의 뒤쪽 반.
+    /// 통과하는 동안은 발광이 짙어지고 안쪽이 하얗게 환해진다.
     /// </summary>
     /// <param name="box">다 열렸을 때 포탈이 차지하는 사각형(PortalBox).</param>
     /// <param name="passing">고양이 몸이 지금 포탈에 걸쳐 있는지.</param>
@@ -440,30 +476,30 @@ internal static class PortalSkin
         double k = Openness(s, index);
         if (k <= 0.01) return;
         var center = box.Center;
-        double rx = box.Width / 2 * Math.Min(k, 1.15), ry = box.Height / 2 * k;
+        var (rx, ry) = Radii(box, s, index, k);
         double pulse = 0.85 + 0.15 * Math.Sin(seconds * 5 + s.Seed + index);
+        double flare = Flare(s, index, passing) * Math.Min(1, k);
         var res = Resources(index);
 
-        // 발광: 바깥으로 갈수록 옅은 타원을 겹친다. 가우시안 블러 대신 가볍게.
+        // 발광: 테두리 타원을 굵고 옅은 선으로 겹친다. 통과하는 동안 짙어진다.
+        for (int j = 0; j < HaloLayers.Length; j++)
+            using (ctx.PushOpacity(Math.Min(1, Math.Min(1, k) * pulse * HaloLayers[j].Alpha * (1 + flare * HaloFlareBoost))))
+                ctx.DrawEllipse(null, HaloPen(index, box.Height, scaling, j), center, rx, ry);
+
+        // 안쪽: 테두리 색을 옅게 채우고 가운데를 밝게.
         using (ctx.PushOpacity(Math.Min(1, k) * pulse))
         {
-            for (int j = 3; j >= 1; j--)
-                ctx.DrawEllipse(res.Glow, null, center, rx * (1 + 0.55 * j), ry * (1 + 0.05 * j));
-            // 안쪽: 테두리 색을 옅게 채우고 가운데를 밝게.
             ctx.DrawEllipse(res.Fill, null, center, rx, ry);
             ctx.DrawEllipse(res.Core, null, center, rx * 0.55, ry * 0.8);
         }
 
-        // 통과: 바깥으로 발광이 한 겹 더 넓게 번지고, 안쪽이 환해진다.
-        double flare = Flare(s, index, passing) * Math.Min(1, k);
+        // 통과: 안쪽이 밝은 색으로 차오르고 가운데가 하얗게 빛난다.
         if (flare > 0.01)
         {
             using (ctx.PushOpacity(flare))
-            {
-                ctx.DrawEllipse(res.Glow, null, center, rx * 3.4, ry * 1.25);
-                ctx.DrawEllipse(res.Glow, null, center, rx * 2.4, ry * 1.12);
                 ctx.DrawEllipse(res.Core, null, center, rx * 0.9, ry * 0.95);
-            }
+            using (ctx.PushOpacity(flare * 0.55))
+                ctx.DrawEllipse(res.SparkWhite, null, center, rx * 0.5, ry * 0.7);
         }
 
         // 물결: 테두리에서 가운데로 줄어들며 진해졌다 사라진다. 빨려 드는 느낌.
@@ -509,10 +545,8 @@ internal static class PortalSkin
         else if (age < BurstSeconds)
         {
             double t = age / BurstSeconds;
-            // 빛 고리: 옆으로 넓게 퍼지며 옅어진다. 위로는 조금만 커진다. 오버레이 띠(Headroom)가 낮아서 위로 퍼지면 잘린다.
-            double e = EaseOutCubic(t);
-            using (ctx.PushOpacity((1 - t) * 0.9))
-                ctx.DrawEllipse(null, RimPen(index, h, scaling, inner: false), center, box.Width / 2 * (1 + 0.9 * e) * 1.4, box.Height / 2 * (0.9 + 0.2 * e));
+            // 빛 고리: 포탈 면을 따라 퍼지며 옅어진다.
+            DrawPlaneRing(ctx, box, RimPen(index, h, scaling, inner: false), t, grow: 0.9, alpha: (1 - t) * 0.9);
             DrawSparks(ctx, center, h, res, s.Seed + index * 2.3, BurstSparks, t, reach: 0.75);
         }
     }
@@ -528,10 +562,8 @@ internal static class PortalSkin
         double t = since / PassSeconds, h = box.Height;
         var center = box.Center;
 
-        // 열릴 때 빛 고리처럼 옆으로만 넓게 퍼진다(위로 퍼지면 오버레이 띠 밖으로 잘린다).
-        double e = EaseOutCubic(t);
-        using (ctx.PushOpacity((1 - t) * 0.8))
-            ctx.DrawEllipse(null, RimPen(index, h, scaling, inner: true), center, box.Width / 2 * (1 + 0.6 * e) * 1.3, box.Height / 2 * (0.85 + 0.15 * e));
+        // 흰 빛 고리가 포탈 면을 따라 퍼진다. 열릴 때 고리보다 굵고 진해서 들어가고 나오는 순간이 눈에 띈다.
+        DrawPlaneRing(ctx, box, PassRingPen(index, h, scaling), t, grow: 0.8, alpha: 1 - t);
 
         if (index == 0)
         {
@@ -665,6 +697,22 @@ internal static class PortalSkin
         double px = Math.Max(inner ? 1 : 1.5, Math.Round(height * scale * (inner ? 0.03 : 0.065)));
         return Pen(new PenKey(index & 1, inner ? 1 : 0, px / scale),
             inner ? Color.FromArgb(0xE6, 0xFF, 0xFF, 0xFF) : RimColors[index & 1]);
+    }
+
+    /// <summary>둘레 발광 j번째 겹의 펜(테두리 색). 진하기는 PushOpacity로.</summary>
+    private static ImmutablePen HaloPen(int index, double height, double scaling, int layer)
+    {
+        double scale = scaling > 0 ? scaling : 1;
+        double px = Math.Max(2, Math.Round(height * scale * HaloLayers[layer].Width));
+        return Pen(new PenKey(index & 1, 10 + layer, px / scale), RimColors[index & 1]);
+    }
+
+    /// <summary>통과할 때 퍼지는 흰 빛 고리. 테두리 안쪽 흰 테보다 굵다.</summary>
+    private static ImmutablePen PassRingPen(int index, double height, double scaling)
+    {
+        double scale = scaling > 0 ? scaling : 1;
+        double px = Math.Max(1.5, Math.Round(height * scale * 0.05));
+        return Pen(new PenKey(index & 1, 4, px / scale), Color.FromArgb(0xF2, 0xFF, 0xFF, 0xFF));
     }
 
     private static ImmutablePen StreakPen(int index, double height, double scaling)

@@ -243,7 +243,9 @@ function drawBackground(ctx, W, H, s, dpr) {
 }
 
 // ── 포탈 진행 (PortalSkin.Advance와 같은 규칙) ──
-const WALL = 0.3, FAR_BODIES = 20, CLOSE = 0.35, BURST = 0.65, MUZZLE = 0.14, FLARE = 0.5, PASS = 0.55;
+const WALL = 0.3, FAR_BODIES = 20, CLOSE = 0.35, BURST = 0.65, MUZZLE = 0.14, FLARE = 0.6, PASS = 0.55;
+// 통과하는 순간 옆으로 불룩해지는 정도·시간, 둘레 발광 겹(굵기는 키 대비, 진하기), 통과 중 발광 배율, 빛 고리 위 끝(키 대비)
+const POP_BULGE = 0.22, POP_SECONDS = 0.35, HALO = [[0.28, 0.10], [0.18, 0.13], [0.10, 0.18]], HALO_FLARE = 2.0, RING_TOP = 0.65;
 const bodyW = () => P.size * crop.w / crop.h;
 /** 포탈 선이 놓일 수 있는 범위(몸 가운데 좌표). 지나는 동안 몸이 벽에 닿지 않게. */
 const allowed = (W, w) => [w * (1 + WALL), (W - w) - w * WALL];
@@ -347,6 +349,16 @@ function flare(p, i, passing) {
   const s = sincePass(p, i), flash = isNaN(s) ? 0 : 1 - clamp(s / FLARE, 0, 1);
   return Math.max(passing ? P.passingFlare / 100 : 0, flash);
 }
+/** 지금 그릴 타원 반지름. 통과하는 순간엔 옆으로 잠깐 불룩해진다(PortalSkin.Radii). */
+function radii(g, p, i, k) {
+  const s = sincePass(p, i), pop = isNaN(s) || s >= POP_SECONDS ? 0 : Math.sin(Math.PI * s / POP_SECONDS) * POP_BULGE;
+  return [g.half * Math.min(k, 1.15) * (1 + pop), g.h / 2 * k];
+}
+/** 포탈 면을 따라 퍼지는 빛 고리(PortalSkin.DrawPlaneRing). */
+function planeRing(ctx, g, x, grow, color, width, alpha) {
+  const s = 1 + grow * easeOutCubic(x);
+  ellipse(ctx, g.cx, g.cy, g.half * 1.1 * s, Math.min(g.h / 2 * (1 + (s - 1) * 0.3), g.h * RING_TOP), null, color, width, alpha);
+}
 function ellipse(ctx, cx, cy, rx, ry, fill, stroke, width, alpha = 1) {
   if (rx <= 0 || ry <= 0 || alpha <= 0) return;
   ctx.save(); ctx.globalAlpha *= alpha; ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
@@ -361,7 +373,7 @@ function portalGeom(x, ground) {
 /** 테두리 뒤쪽 반: 입구는 달려오는 쪽, 출구는 튀어나가는 쪽. 몸이 그 반을 가린다. */
 const backSide = (p, i) => i === 0 ? -p.dir : p.dir;
 function drawRimHalf(ctx, g, p, i, passing, k, back) {
-  const rx = g.half * Math.min(k, 1.15), ry = g.h / 2 * k, side = back ? backSide(p, i) : -backSide(p, i);
+  const [rx, ry] = radii(g, p, i, k), side = back ? backSide(p, i) : -backSide(p, i);
   const outer = Math.max(1.5, Math.round(g.h * 0.065)), inner = Math.max(1, Math.round(g.h * 0.03));
   ctx.save(); ctx.beginPath();
   ctx.rect(side > 0 ? g.cx : g.cx - 1e4, -1e4, 1e4, 2e4); ctx.clip();
@@ -380,15 +392,15 @@ function drawRimHalf(ctx, g, p, i, passing, k, back) {
 function drawBack(ctx, g, p, i, passing) {
   const k = openness(p, i);
   if (k <= 0.01) return;
-  const rx = g.half * Math.min(k, 1.15), ry = g.h / 2 * k, pulse = 0.85 + 0.15 * Math.sin(t * 5 + p.seed + i), a = Math.min(1, k) * pulse;
-  for (let j = 3; j >= 1; j--) ellipse(ctx, g.cx, g.cy, rx * (1 + 0.55 * j), ry * (1 + 0.05 * j), rgba(RIM[i], 0.16), null, 0, a);
+  const [rx, ry] = radii(g, p, i, k), pulse = 0.85 + 0.15 * Math.sin(t * 5 + p.seed + i), a = Math.min(1, k) * pulse;
+  const f = flare(p, i, passing) * Math.min(1, k);
+  // 둘레 발광: 테두리 타원을 굵고 옅은 선으로 겹친다(포탈 면을 따라 번진다). 통과하는 동안 짙어진다.
+  for (const [w, al] of HALO) ellipse(ctx, g.cx, g.cy, rx, ry, null, RIM[i], Math.max(2, Math.round(g.h * w)), Math.min(1, a * al * (1 + f * HALO_FLARE)));
   ellipse(ctx, g.cx, g.cy, rx, ry, rgba(RIM[i], 0.45), null, 0, a);
   ellipse(ctx, g.cx, g.cy, rx * 0.55, ry * 0.8, rgba(CORE[i], 0.55), null, 0, a);
-  const f = flare(p, i, passing) * Math.min(1, k);
   if (f > 0.01) {
-    ellipse(ctx, g.cx, g.cy, rx * 3.4, ry * 1.25, rgba(RIM[i], 0.16), null, 0, f);
-    ellipse(ctx, g.cx, g.cy, rx * 2.4, ry * 1.12, rgba(RIM[i], 0.16), null, 0, f);
     ellipse(ctx, g.cx, g.cy, rx * 0.9, ry * 0.95, rgba(CORE[i], 0.55), null, 0, f);
+    ellipse(ctx, g.cx, g.cy, rx * 0.5, ry * 0.7, 'rgba(255,255,255,.95)', null, 0, f * 0.55);
   }
   const rw = Math.max(1, Math.round(g.h * 0.025));
   for (let j = 0; j < 3; j++) {
@@ -441,7 +453,7 @@ function drawFront(ctx, g, p, i, passing, ground) {
   const sp = sincePass(p, i);
   if (!isNaN(sp) && sp < PASS) {
     const x = sp / PASS, e = easeOutCubic(x), inner = Math.max(1, Math.round(g.h * 0.03));
-    ellipse(ctx, g.cx, g.cy, g.half * (1 + 0.6 * e) * 1.3, g.h / 2 * (0.85 + 0.15 * e), null, 'rgba(255,255,255,.9)', inner, (1 - x) * 0.8);
+    planeRing(ctx, g, x, 0.8, 'rgba(255,255,255,.95)', Math.max(1.5, Math.round(g.h * 0.05)), 1 - x);
     if (i === 0) {
       ctx.save(); ctx.globalAlpha = Math.sin(Math.PI * Math.min(1, x * 1.2)); sparks(ctx, g, i, p.seed + 5, 9, x, 0, null, true); ctx.restore();
     } else {
@@ -461,9 +473,8 @@ function drawFront(ctx, g, p, i, passing, ground) {
   const age = p.clock - p.landAt[i];
   if (p.phase === 'closing') sparks(ctx, g, i, p.seed + 1 + i, 6, p.closeAge / CLOSE, 0.4, null, false);
   else if (age < BURST) {
-    const x = age / BURST, e = easeOutCubic(x);
-    // 위로는 조금만 커진다(오버레이 띠가 낮아서 위로 퍼지면 잘린다)
-    ellipse(ctx, g.cx, g.cy, g.half * (1 + 0.9 * e) * 1.4, g.h / 2 * (0.9 + 0.2 * e), null, RIM[i], Math.max(1.5, Math.round(g.h * 0.065)), (1 - x) * 0.9);
+    const x = age / BURST;
+    planeRing(ctx, g, x, 0.9, RIM[i], Math.max(1.5, Math.round(g.h * 0.065)), (1 - x) * 0.9);
     ctx.save(); ctx.globalAlpha = 1 - x * x; sparks(ctx, g, i, p.seed + i * 2.3, P.burst, x, 0.75, null, false); ctx.restore();
   }
 }
