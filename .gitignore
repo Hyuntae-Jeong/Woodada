@@ -26,5 +26,8 @@ Desktop.ini
 # 로컬 Claude 설정 — 이 PC 경로가 들어간 실행 설정·잠금 파일뿐이라 폴더째 뺀다
 .claude/
 
+# 기록 파일 서명 열쇠(Woodada.csproj가 읽는다) — 정식 열쇠라 절대 올리지 않는다
+signing.key
+
 # 루트 tools/는 로컬 작업용. 앞의 /가 없으면 저장소에 올라가 있는 app/tools/까지 막힌다
 /tools/
