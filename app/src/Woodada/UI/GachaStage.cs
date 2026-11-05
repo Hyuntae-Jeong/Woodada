@@ -15,6 +15,7 @@ namespace Woodada.UI;
 /// 뽑기 전: "누가 달려올까요?" · 뽑는 중: CPU가 치솟으며 검은 실루엣이 달려와 멈추고, 등급 색으로 빛나다 번쩍 ·
 /// 뽑은 뒤: 그 스킨이 작업표시줄 위에서 제자리 달리기를 한다. 뽑는 중에 누르면 건너뛴다.
 /// 꽝(도망냥): 똑같이 달려와 "?"까지 가지만, 빛이 깜빡깜빡 불발되다 꺼지고 "!" 하고 놀라 반대로 도망간다. 번쩍은 없다.
+/// 도망가면서 놀라 생선(돌려주는 생선 10개마다 1마리, 올림)을 떨어뜨리고, 그 생선은 잠시 뒤 왼쪽 위(창 맨 위 생선 띠 쪽)로 날아간다.
 /// 높이 300짜리 시안 좌표로 그리고 실제 높이에 맞춰 줄인다.
 /// </summary>
 internal sealed class GachaStage : Control
@@ -25,8 +26,11 @@ internal sealed class GachaStage : Control
     /// <summary>작업표시줄 윗선(시안 좌표).</summary>
     private const double BarTop = 256;
     private const double PlaySeconds = 3.0;
-    /// <summary>꽝 연출 길이. 3초까지는 당첨과 같고, 그 뒤 놀라서 도망간다.</summary>
-    private const double MissSeconds = 4.4;
+    /// <summary>꽝 연출 길이. 3초까지는 당첨과 같고, 그 뒤 놀라서 도망가며 생선을 떨어뜨린다. 생선이 다 날아가면 끝난다.</summary>
+    private const double MissSeconds = 5.05;
+    /// <summary>떨어뜨린 생선 1마리가 나타내는 돌려준 생선 수(올림).</summary>
+    private const int FishPerDrop = 10;
+    private const double DropFishHeight = 14;
     private const double RunnerHeight = 54;
     private const double ShowcaseHeight = 92;
     /// <summary>결과 고양이가 달리는 사용률. 효과가 다 보이되 플래시 몸이 달아오르기(50%) 전이다.</summary>
@@ -86,6 +90,10 @@ internal sealed class GachaStage : Control
 
     /// <summary>지금 연출(또는 결과)이 꽝인지.</summary>
     private bool _miss;
+    /// <summary>꽝일 때 돌려준 생선.</summary>
+    private int _refund;
+    /// <summary>떨어뜨린 생선마다: 내려앉을 자리(가운데 기준 가로 거리), 튀어 오르는 높이, 기울기.</summary>
+    private readonly List<(double Dx, double Height, double Tilt)> _drops = new();
 
     /// <summary>연출이 끝났거나 건너뛰어 결과가 보이기 시작할 때.</summary>
     public event EventHandler? Finished;
@@ -93,10 +101,21 @@ internal sealed class GachaStage : Control
     private double Now => _clock.Elapsed.TotalSeconds;
 
     /// <param name="result">나온 스킨. null이면 꽝이다.</param>
-    public void Play(RunnerSkin? result)
+    /// <param name="refund">꽝일 때 돌려준 생선. 10개마다 생선 1마리를 떨어뜨린다.</param>
+    public void Play(RunnerSkin? result, int refund = 0)
     {
         _miss = result is null;
         _result = result ?? RunnerSkin.None;
+        _refund = _miss ? refund : 0;
+        _drops.Clear();
+        // 1~10개면 1마리, 11~20개면 2마리 … 100개면 10마리.
+        int count = _refund <= 0 ? 0 : (_refund + FishPerDrop - 1) / FishPerDrop;
+        for (int i = 0; i < count; i++)
+        {
+            double spread = count > 1 ? Math.Min(34, 300.0 / (count - 1)) : 0;
+            double dx = (i - (count - 1) / 2.0) * spread + (Random.Shared.NextDouble() - 0.5) * 8;
+            _drops.Add((dx, 55 + Random.Shared.NextDouble() * 35, (Random.Shared.NextDouble() - 0.5) * 1.2));
+        }
         _mode = Mode.Playing;
         _start = Now;
         _runPhase = 0;
@@ -326,14 +345,66 @@ internal sealed class GachaStage : Control
             }
         }
 
+        DrawDrops(ctx, width, t);
+
         double ta = Seg(t, 3.4, 3.75);
         if (ta > 0)
         {
             using (ctx.PushOpacity(ta))
             {
                 TextAt(ctx, Loc.T("앗, 도망갔어요!", "Oops, it got away!"), 24, Colors.White, FontWeight.Bold, width / 2, 58 - 6 * (1 - ta));
-                TextAt(ctx, Loc.T("꽝 · 다음엔 꼭 잡아 봐요", "No luck · catch it next time"), 13, Color.FromArgb(184, 255, 255, 255), FontWeight.Medium, width / 2, 88);
+                TextAt(ctx, MissNote(), 13, Color.FromArgb(184, 255, 255, 255), FontWeight.Medium, width / 2, 88);
             }
+        }
+    }
+
+    private string MissNote()
+    {
+        if (_refund <= 0) return Loc.T("꽝 · 다음엔 꼭 잡아 봐요", "No luck · catch it next time");
+        string n = GameArt.FormatCount(_refund);
+        return _refund >= RewardCatalog.GachaRefundMax
+            ? Loc.T($"깜짝 놀라 생선 {n}개를 몽땅 떨어뜨리고 갔어요!", $"So startled it dropped all {n} fish!")
+            : Loc.T($"놀라서 생선 {n}개를 떨어뜨리고 갔어요", $"It dropped {n} fish in surprise");
+    }
+
+    /// <summary>
+    /// 떨어뜨린 생선: 도망치는 순간 고양이 자리에서 튀어나와 작업표시줄에 톡 떨어지고,
+    /// 잠시 뒤 하나씩 왼쪽 위(창 맨 위 생선 띠 쪽)로 날아가 무대 밖으로 나간다.
+    /// </summary>
+    private void DrawDrops(DrawingContext ctx, double width, double t)
+    {
+        double fishW = DropFishHeight * GameArt.FishAspect;
+        var color = GameArt.Fish;
+        for (int i = 0; i < _drops.Count; i++)
+        {
+            var (dx, height, tilt) = _drops[i];
+            double delay = i * 0.04;
+            double p = Seg(t, 3.3 + delay, 3.75 + delay);
+            if (p <= 0) continue;
+            double fly = Seg(t, 4.25 + i * 0.035, 4.7 + i * 0.035);
+            if (fly >= 1) continue;
+
+            double x = Lerp(width / 2, width / 2 + dx, p);
+            double y = BarTop - 24 - Math.Sin(p * Math.PI) * height + p * 18;
+            double angle = tilt * p;
+            double land = Seg(t, 3.75 + delay, 3.95 + delay);
+            if (land > 0)
+            {
+                y = BarTop - DropFishHeight / 2 - 1 - Math.Abs(Math.Sin(land * Math.PI)) * 6;
+                if (fly <= 0)
+                    using (ctx.PushOpacity(0.25))
+                        ctx.DrawEllipse(MeterFill, null, new Point(x, BarTop - 1), 12, 2.5);
+            }
+            if (fly > 0)
+            {
+                // 살짝 위로 휘며 왼쪽 위 밖으로.
+                double e = fly * fly;
+                x = Lerp(x, 40, e);
+                y = Lerp(y, -30, e) - Math.Sin(fly * Math.PI) * 30;
+                angle = Lerp(angle, 0, e);
+            }
+            using (ctx.PushTransform(Matrix.CreateTranslation(-fishW / 2, -DropFishHeight / 2) * Matrix.CreateRotation(angle) * Matrix.CreateTranslation(x, y)))
+                GameArt.DrawFish(ctx, new Rect(0, 0, fishW, DropFishHeight), color);
         }
     }
 

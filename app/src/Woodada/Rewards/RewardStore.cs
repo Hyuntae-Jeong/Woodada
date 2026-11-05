@@ -27,6 +27,9 @@ public sealed class Inventory
     public int GachaMissStreak { get; set; }
 }
 
+/// <summary>뽑기 한 번의 결과. Skin이 None이면 꽝이고, Refund는 꽝일 때 돌려준 생선이다.</summary>
+public readonly record struct GachaResult(RunnerSkin Skin, int Refund);
+
 /// <summary>
 /// 생선 지갑과 잠금 해제 상태. %APPDATA%\Woodada\rewards.json에 산 것만 저장한다.
 /// 생선 = 달린 몸 길이 합 ÷ 1,000 − 쓴 생선. 따로 쌓지 않아서 예전 기록도 그대로 생선이 되고,
@@ -167,11 +170,12 @@ public sealed class RewardStore
     /// <summary>
     /// 한 번 뽑는다. GachaWinChance 확률로 스킨, 아니면 꽝(RunnerSkin.None)이다. 꽝이 GachaPity번 이어졌으면 이번은 꼭 스킨.
     /// 스킨은 가진 것을 빼고 남은 것끼리 RewardCatalog의 비율대로 고른다.
+    /// 꽝이면 생선 1~100개(RewardCatalog.RollGachaRefund)를 돌려준다. 허탈함을 조금이라도 덜려는 것이다.
     /// 다 모았거나 생선이 모자라면 null. 결과는 연출을 보기 전에 바로 저장한다(연출 중에 창을 닫아도 남게).
     /// </summary>
     /// <param name="forced">개발용: None이면 꽝, 남아 있는 스킨이면 그 스킨을 준다.</param>
-    /// <param name="free">개발용: 생선을 쓰지 않는다.</param>
-    public RunnerSkin? TryPull(RunnerSkin? forced = null, bool free = false)
+    /// <param name="free">개발용: 생선을 쓰지 않는다. 꽝이어도 생선을 돌려주지 않는다(공짜 뽑기로 생선이 늘면 안 되니까).</param>
+    public GachaResult? TryPull(RunnerSkin? forced = null, bool free = false)
     {
         var pool = RewardCatalog.AvailableSkins.Where(s => !OwnsSkin(s.Skin)).ToList();
         if (pool.Count == 0) return null;
@@ -182,16 +186,18 @@ public sealed class RewardStore
             : Current.GachaMissStreak >= RewardCatalog.GachaPity || Random.Shared.NextDouble() < RewardCatalog.GachaWinChance;
         if (!win)
         {
+            int refund = free ? 0 : RewardCatalog.RollGachaRefund();
+            Current.SpentFish -= refund;
             Current.GachaMissStreak++;
             Save();
-            return RunnerSkin.None;
+            return new GachaResult(RunnerSkin.None, refund);
         }
 
         var pick = pool.FirstOrDefault(s => s.Skin == forced) ?? PickWeighted(pool);
         Current.Skins.Add(RunnerSkins.ToId(pick.Skin)!);
         Current.GachaMissStreak = 0;
         Save();
-        return pick.Skin;
+        return new GachaResult(pick.Skin, 0);
     }
 
     private static SkinInfo PickWeighted(IReadOnlyList<SkinInfo> pool)

@@ -83,6 +83,30 @@ public static class RewardCatalog
     /// <summary>천장: 꽝이 이만큼 이어지면 다음 뽑기는 꼭 스킨이 나온다. 스킨 하나에 최대 생선 3,500개.</summary>
     public const int GachaPity = 6;
 
+    /// <summary>꽝일 때 도망냥이 떨어뜨리고 가는 생선(돌려주는 생선)은 1개부터 이만큼까지. 이게 나오면 무대 문구가 달라진다.</summary>
+    public const int GachaRefundMax = 100;
+
+    /// <summary>
+    /// 돌려주는 생선 n개가 나올 무게는 e^(−n/25). 적은 수일수록 잘 나오고 하나 늘 때마다 약 4%씩 덜 나온다.
+    /// 평균 약 24개를 돌려줘서 꽝 한 번에 실제로 드는 생선은 약 476개다. 10개 이하가 약 34%, 50개 이상이 약 12%,
+    /// 90개 이상이 약 1%, 100개는 약 0.08%(1,300번에 한 번꼴)다. 확률은 화면에 보여 주지 않는다.
+    /// </summary>
+    private const double GachaRefundFalloff = 25;
+
+    private static readonly double[] GachaRefundWeights =
+        Enumerable.Range(1, GachaRefundMax).Select(n => Math.Exp(-n / GachaRefundFalloff)).ToArray();
+
+    public static int RollGachaRefund()
+    {
+        double roll = Random.Shared.NextDouble() * GachaRefundWeights.Sum();
+        for (int i = 0; i < GachaRefundWeights.Length; i++)
+        {
+            roll -= GachaRefundWeights[i];
+            if (roll < 0) return i + 1;
+        }
+        return 1;
+    }
+
     /// <summary>
     /// 모든 스킨, 도감 순서 그대로. 일반 버전에는 Released인 것만 보인다(AvailableSkins).
     /// 1.0.0에 공개한 것: 유령냥·플래시냥·글리치냥. 얼음냥·줄줄이냥·포탈냥은 아직 개발용 빌드에서만.

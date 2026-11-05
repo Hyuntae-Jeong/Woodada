@@ -87,6 +87,13 @@ internal sealed class SettingsWindow : Window
     private RunnerSkin _pulled;
     /// <summary>뽑기 직전의 꽝 연속 횟수. 연출 중에는 이 값을 보여 줘야 결과가 미리 새지 않는다.</summary>
     private int _streakBeforePull;
+    /// <summary>방금 꽝으로 돌려받은 생선.</summary>
+    private int _pullRefund;
+    /// <summary>
+    /// 생선 띠에 아직 더하지 않은 돌려받은 생선. 저장은 뽑자마자 하지만, 띠의 "+n"은 무대에서 생선이 날아간 뒤에 보여 준다.
+    /// 먼저 늘면 무대보다 먼저 꽝인 걸 알려 버린다.
+    /// </summary>
+    private int _heldRefund;
     private readonly Border _resultBadge = new()
     {
         CornerRadius = new CornerRadius(9), Padding = new Thickness(7, 1), VerticalAlignment = VerticalAlignment.Center,
@@ -192,6 +199,12 @@ internal sealed class SettingsWindow : Window
             RefreshProfile();
         }
         if (page == Page.Closet) RefreshCloset();
+        if (page != Page.Gacha && _heldRefund > 0)
+        {
+            // 연출 도중 다른 탭으로 가면 무대가 멈춘다. 돌려받은 생선을 띠에 바로 더해서 다른 탭의 생선 수와 맞춘다.
+            _heldRefund = 0;
+            RefreshWallet();
+        }
         if (page == Page.Gacha)
         {
             // 다시 들어오면 지난 결과 대신 뽑기 전 화면부터(다 모았으면 "도감 완성!"). 연출 중이면 그대로 둔다.
@@ -940,20 +953,27 @@ internal sealed class SettingsWindow : Window
         RunnerSkin? forced = _devPick.SelectedIndex > 0 && _devPick.SelectedIndex < _devPickSkins.Count ? _devPickSkins[_devPick.SelectedIndex] : null;
         _streakBeforePull = _rewards.Current.GachaMissStreak;
         // 결과(스킨이든 꽝이든)는 연출 전에 바로 저장된다. 연출 중에 창을 닫아도 잃지 않는다.
-        if (_rewards.TryPull(forced, _devFree.IsChecked == true) is not { } skin)
+        if (_rewards.TryPull(forced, _devFree.IsChecked == true) is not { } result)
         {
             RefreshGacha();
             return;
         }
+        var skin = result.Skin;
         _pulled = skin;
+        _pullRefund = result.Refund;
+        _heldRefund = result.Refund;
+        RefreshWallet();
         _pullRow.IsVisible = true;
         _resultRow.IsVisible = false;
-        _stage.Play(skin == RunnerSkin.None ? null : skin);
+        _stage.Play(skin == RunnerSkin.None ? null : skin, result.Refund);
         RefreshGacha();
     }
 
     private void ShowPullResult()
     {
+        // 무대의 생선이 다 날아갔다(또는 건너뛰었다). 이제 생선 띠에 "+n"으로 더한다.
+        _heldRefund = 0;
+        RefreshWallet();
         _pullRow.IsVisible = false;
         _resultRow.IsVisible = true;
         if (RewardCatalog.FindSkin(_pulled) is not { } info)
@@ -964,7 +984,11 @@ internal sealed class SettingsWindow : Window
             _resultName.Text = Loc.T("앗, 도망갔어요!", "Oops, it got away!");
             _resultStars.Text = "";
             int until = _rewards.PullsUntilGuaranteed;
-            string spent = Loc.T($"생선 {GameArt.FormatCount(RewardCatalog.GachaPrice)}개를 썼어요.", $"Spent {GameArt.FormatCount(RewardCatalog.GachaPrice)} fish.");
+            string price = GameArt.FormatCount(RewardCatalog.GachaPrice);
+            string spent = _pullRefund > 0
+                ? Loc.T($"생선 {price}개를 쓰고 {GameArt.FormatCount(_pullRefund)}개를 돌려받았어요.",
+                    $"Spent {price} fish, got {GameArt.FormatCount(_pullRefund)} back.")
+                : Loc.T($"생선 {price}개를 썼어요.", $"Spent {price} fish.");
             _resultDesc.Text = until <= 1
                 ? Loc.T($"{spent} 다음 번엔 꼭 스킨이 나와요", $"{spent} Your next pull is guaranteed a skin")
                 : Loc.T($"{spent} {until}번 안에 꼭 스킨이 나와요", $"{spent} A skin is guaranteed within {until} pulls");
@@ -1463,7 +1487,7 @@ internal sealed class SettingsWindow : Window
     private void RefreshWallet()
     {
         long fish = _rewards.Fish;
-        _header.SetWallet(fish, _rewards.NextFishProgress, _rewards.SecondsPerFish);
+        _header.SetWallet(Math.Max(0, fish - _heldRefund), _rewards.NextFishProgress, _rewards.SecondsPerFish);
         if (fish == _lastFish) return;
         _lastFish = fish;
         // 생선이 늘면 잠긴 칸이 "살 수 있음"으로, 입어 보던 색의 사기 버튼이 켜짐으로 바뀔 수 있다.
