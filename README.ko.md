@@ -124,7 +124,11 @@
 
 고양이 그림은 [RunCat365](https://github.com/runcat-dev/RunCat365)(runcat-dev, Apache License 2.0)에서 가져왔어요.
 닥스훈트와 토끼는 고양이 그림체에 맞춰 직접 그렸어요.
+냥뽑기 스페셜 스킨(플래시, 유령, 글리치, 얼음, 줄줄이)은 이 고양이 그림 위에 직접 디자인한 효과를 입힌 거예요.
 
 ## 📄 라이선스
 
-Woodada는 [MIT License](LICENSE)로 배포하는 무료 오픈소스예요. 단, 고양이 그림은 원본 라이선스(Apache License 2.0, `app/src/Woodada/Assets/RunCat/LICENSE`)를 따라요.
+Woodada는 [MIT License](LICENSE)로 배포하는 무료 오픈소스예요. 단, 아래 두 가지는 따로예요.
+
+- **고양이 그림**은 원본 라이선스(Apache License 2.0, [`app/src/Woodada/Assets/RunCat/LICENSE`](app/src/Woodada/Assets/RunCat/LICENSE))를 따라요.
+- **냥뽑기 스페셜 스킨 디자인과 닥스훈트·토끼 캐릭터**는 MIT License 적용 대상이 아니에요. 공식 배포판에서 쓰는 건 자유지만, 다른 제품에 가져다 쓰거나 고쳐서 배포하려면 허락이 필요해요. 대상 파일과 조건은 [`app/src/Woodada/Sprites/Skins/LICENSE`](app/src/Woodada/Sprites/Skins/LICENSE)에 있어요.

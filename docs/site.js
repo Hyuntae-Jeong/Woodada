@@ -1,5 +1,5 @@
 // Woodada 홈페이지: 언어 전환, 가짜 작업표시줄 위 고양이, 냥뽑기 스킨 미리보기.
-// 고양이 그림은 앱과 같은 RunCat 5프레임이고, 눈 구멍 찾기·눈 색 규칙·스킨 값은 앱 코드(Sprites/*.cs)를 따랐다.
+// 고양이 그림은 앱과 같은 RunCat 5프레임이고, 눈 구멍 찾기·눈 색 규칙·스킨 값은 앱 코드(Sprites/*.cs, Sprites/Skins/*.cs)를 따랐다.
 (() => {
   'use strict';
 
@@ -286,6 +286,8 @@
   }
 
   /* ───────── 냥뽑기 스킨 ───────── */
+  // ── 스페셜 스킨 시작 ── Copyright (c) 2026 Hyuntae Jeong. All rights reserved.
+  // 여기서 "스페셜 스킨 끝"까지는 MIT License 적용 대상이 아닙니다. 사용 조건: app/src/Woodada/Sprites/Skins/LICENSE
 
   // 작은 장면 배경: 어두운 바탕화면 + 작업표시줄
   function drawMiniScene(ctx, w, h, barH) {
@@ -305,7 +307,7 @@
     ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); ctx.fill();
   }
 
-  // 유령 (Sprites/GhostSkin.cs): 반투명 몸 45%, 외곽선 50%, 바깥 발광 55%, 키의 25% 떠서 ±10% 흔들림, 1.7초 주기
+  // 유령 (Sprites/Skins/GhostSkin.cs): 반투명 몸 45%, 외곽선 50%, 바깥 발광 55%, 키의 25% 떠서 ±10% 흔들림, 1.7초 주기
   const GHOST = '#DDEBFF';
   function ghostFrames(masks, devH) {
     const line = mix(GHOST, '#FFFFFF', 0.5);
@@ -337,7 +339,7 @@
     });
   }
 
-  // 플래시 (Sprites/FlashSkin.cs, Rendering/SkinPainter.cs AddFlashTrail): 값과 공식을 앱과 똑같이 맞췄다
+  // 플래시 (Sprites/Skins/FlashSkin.cs, Rendering/SkinPainter.cs AddFlashTrail): 값과 공식을 앱과 똑같이 맞췄다
   const FLASH = {
     afterimages: 8, trailLength: 0.90, firstOpacity: 0.60, minStrength: 0.35, fullUsage: 40,
     heatStart: 50, heatFull: 60, heatSteps: 5, heatColor: '#D9626B',
@@ -384,7 +386,7 @@
     ctx.globalAlpha = 1;
   }
 
-  // 글리치 (Sprites/GlitchSkin.cs): 평소엔 빨강·청록이 옅게 번지고, 가끔 갈라지며 가로 줄이 밀리고 노이즈가 튄다
+  // 글리치 (Sprites/Skins/GlitchSkin.cs): 평소엔 빨강·청록이 옅게 번지고, 가끔 갈라지며 가로 줄이 밀리고 노이즈가 튄다
   const GL_A = '#FF2E63', GL_B = '#22E4FF';
 
   function skinScene(canvas, masks) {
@@ -505,6 +507,8 @@
     onVisible(canvas, v => { const was = visible; visible = v; if (v && !was) start(); });
     document.addEventListener('visibilitychange', () => { if (!document.hidden && visible) start(); });
   }
+
+  // ── 스페셜 스킨 끝 ──
 
   /* ───────── 다운로드 클릭 통계 ───────── */
   // 다운로드 링크를 누르면 GA에 app_download 이벤트를 보낸다. GA가 꺼진 곳(유럽·로컬)에서는 아무것도 안 한다.

@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Hyuntae Jeong. All rights reserved.
+// 이 파일은 Woodada 스페셜 스킨 디자인으로, MIT License 적용 대상이 아닙니다. 사용 조건은 같은 폴더의 LICENSE를 보세요.
+// This file is a Woodada special skin design and is NOT covered by the MIT License. See LICENSE in this folder.
+
 namespace Woodada.Sprites;
 
 /// <summary>

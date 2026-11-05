@@ -136,6 +136,7 @@ jobs:
             echo "\`auto-update-\`로 시작하는 파일은 앱이 자동 업데이트에 쓰는 파일이라 받지 않아도 됩니다."
             echo
             echo "고양이 이미지는 [RunCat365](https://github.com/runcat-dev/RunCat365)에서 가져왔으며 [Apache License 2.0](https://github.com/$GITHUB_REPOSITORY/blob/$tag/app/src/Woodada/Assets/RunCat/LICENSE)을 따릅니다."
+            echo "냥뽑기 스페셜 스킨과 닥스훈트·토끼 디자인은 MIT License 적용 대상이 아니며 [별도 조건](https://github.com/$GITHUB_REPOSITORY/blob/$tag/app/src/Woodada/Sprites/Skins/LICENSE)을 따릅니다."
             echo
             echo "**전체 변경 내역**: $compare"
           } > RELEASE_BODY.md

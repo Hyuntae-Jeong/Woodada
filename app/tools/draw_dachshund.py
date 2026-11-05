@@ -1,3 +1,7 @@
+# Copyright (c) 2026 Hyuntae Jeong. All rights reserved.
+# 이 파일과 이 파일이 그리는 닥스훈트 그림은 Woodada 캐릭터 디자인으로, MIT License 적용 대상이 아닙니다.
+# 사용 조건: app/src/Woodada/Sprites/Skins/LICENSE
+
 """닥스훈트 달리기 5프레임을 RunCat 고양이 그림체(검은 둥근 실루엣 + 투명 눈 구멍)로 그린다.
 
 결과물: src/Woodada/Assets/Dog/dog_running_{0..4}.png

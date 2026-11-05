@@ -1,0 +1,87 @@
+Woodada Character and Skin Designs
+Copyright (c) 2026 Hyuntae Jeong. All rights reserved.
+
+[한국어]
+
+이 문서는 아래 "대상"에만 적용됩니다. 대상은 Woodada 저장소의 MIT License
+적용 대상이 아닙니다. 저장소의 다른 파일은 계속 MIT License를 따릅니다.
+
+대상
+- app/src/Woodada/Sprites/Skins/ 폴더의 모든 파일
+  (FlashSkin.cs, GhostSkin.cs, GlitchSkin.cs, IceSkin.cs, KittenSkin.cs)
+- app/tools/skin_preview/ 폴더의 모든 파일
+- app/src/Woodada/Assets/Dog/, app/src/Woodada/Assets/Rabbit/ 폴더의 모든 파일
+  (직접 그린 닥스훈트와 토끼 달리기 프레임)
+- app/tools/draw_dachshund.py, app/tools/draw_rabbit.py
+- docs/site.js 안에서 "스페셜 스킨 시작"과 "스페셜 스킨 끝" 주석 사이의 코드
+- 위 코드가 그려 내는 스페셜 스킨(플래시, 유령, 글리치, 얼음, 줄줄이)의 모습과
+  닥스훈트·토끼 캐릭터, 그리고 이것들을 담은 이미지와 영상
+  (예: docs/assets/og-image.png)
+
+허락하는 것
+- Woodada 공식 배포판을 내려받아 설치하고 사용하는 것
+- GitHub에서 대상 파일을 열람하는 것, GitHub 이용약관에 따라 저장소를 포크하는 것
+- Woodada 저장소에 기여하려고 대상 파일을 고쳐 풀 리퀘스트를 보내는 것
+- Woodada를 소개하려고 스킨이나 캐릭터가 나오는 화면을 캡처하거나 녹화해 공유하는 것
+
+저작권자의 서면 허락 없이 허락하지 않는 것
+- 대상의 전부 또는 일부를 다른 소프트웨어, 제품, 서비스에 복사하거나 넣는 것
+- 대상을 고친 수정본이나 대상을 바탕으로 만든 파생물을 배포하는 것
+- 대상을 판매하는 등 상업적으로 이용하는 것
+
+풀 리퀘스트로 대상에 기여하면, 기여한 내용을 저작권자가 이 문서의 조건으로
+Woodada에 쓰도록 허락한 것으로 봅니다.
+
+스페셜 스킨의 바탕 고양이 그림은 RunCat365(runcat-dev)의 것이며 Apache License
+2.0을 따릅니다(app/src/Woodada/Assets/RunCat/LICENSE). 이 문서는 그 원본 그림에
+대한 권리를 주장하지 않으며, 스킨에서는 저작권자가 더한 효과와 연출에만 적용됩니다.
+닥스훈트와 토끼는 저작권자가 처음부터 직접 그린 것입니다.
+
+대상은 있는 그대로 제공되며, 어떤 보증도 하지 않습니다.
+
+[English]
+
+This notice applies only to the "Covered Material" listed below. The Covered
+Material is NOT licensed under the MIT License that covers the rest of the
+Woodada repository. All other files remain under the MIT License.
+
+Covered Material
+- All files in app/src/Woodada/Sprites/Skins/
+  (FlashSkin.cs, GhostSkin.cs, GlitchSkin.cs, IceSkin.cs, KittenSkin.cs)
+- All files in app/tools/skin_preview/
+- All files in app/src/Woodada/Assets/Dog/ and app/src/Woodada/Assets/Rabbit/
+  (the hand-drawn dachshund and rabbit running frames)
+- app/tools/draw_dachshund.py and app/tools/draw_rabbit.py
+- The code in docs/site.js between the "스페셜 스킨 시작" (special skins start)
+  and "스페셜 스킨 끝" (special skins end) comments
+- The appearance of the special skins (Flash, Ghost, Glitch, Ice, Kittens)
+  rendered by that code, the dachshund and rabbit characters, and images or
+  videos showing them (for example docs/assets/og-image.png)
+
+You may
+- download, install and use official Woodada releases;
+- view the Covered Material on GitHub and fork the repository as allowed by
+  the GitHub Terms of Service;
+- modify the Covered Material in order to submit a pull request to the
+  Woodada repository;
+- capture and share screenshots or recordings of the skins or characters to talk about
+  Woodada.
+
+Without prior written permission from the copyright holder, you may not
+- copy or include all or part of the Covered Material in any other software,
+  product or service;
+- distribute modified versions of, or works derived from, the Covered Material;
+- sell or otherwise use the Covered Material commercially.
+
+By submitting a pull request that changes the Covered Material, you allow the
+copyright holder to use your contribution in Woodada under the terms of this
+notice.
+
+The cat sprites underlying the special skins belong to RunCat365 (runcat-dev)
+and are licensed under the Apache License 2.0
+(app/src/Woodada/Assets/RunCat/LICENSE). This notice claims no rights in those
+original sprites. For the skins, it covers only the effects and presentation
+added by the copyright holder. The dachshund and rabbit were drawn from scratch
+by the copyright holder.
+
+THE COVERED MATERIAL IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.

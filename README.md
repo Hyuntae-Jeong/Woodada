@@ -124,7 +124,11 @@ If the Dock is hidden or on the side of the screen, the cats run along the botto
 
 The cat sprites come from [RunCat365](https://github.com/runcat-dev/RunCat365) (runcat-dev, Apache License 2.0).
 The dachshund and rabbit were hand-drawn to match the cat's style.
+The special gacha skins (Flash, Ghost, Glitch, Ice, Kittens) are original effects designed on top of these cat sprites.
 
 ## 📄 License
 
-Woodada is free and open source under the [MIT License](LICENSE). The cat sprites follow their original license (Apache License 2.0, `app/src/Woodada/Assets/RunCat/LICENSE`).
+Woodada is free and open source under the [MIT License](LICENSE), with two exceptions.
+
+- **The cat sprites** follow their original license (Apache License 2.0, [`app/src/Woodada/Assets/RunCat/LICENSE`](app/src/Woodada/Assets/RunCat/LICENSE)).
+- **The special skin designs and the dachshund and rabbit characters** are not covered by the MIT License. You're free to use them in official releases, but copying them into other products or distributing modified versions needs permission. The covered files and terms are in [`app/src/Woodada/Sprites/Skins/LICENSE`](app/src/Woodada/Sprites/Skins/LICENSE).
