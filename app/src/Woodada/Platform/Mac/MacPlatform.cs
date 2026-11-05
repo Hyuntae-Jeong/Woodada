@@ -146,6 +146,33 @@ internal sealed class MacPlatform : IPlatform
         MacNative.SendBool(ns, MacNative.sel_registerName("setHasShadow:"), 0);
         MacNative.SendNUInt(ns, MacNative.sel_registerName("setCollectionBehavior:"),
             MacNative.CanJoinAllSpaces | MacNative.Stationary | MacNative.IgnoresCycle);
+        HideFromWindowSwitchers(ns);
+    }
+
+    private static readonly IntPtr FloatingSubrole = Marshal.StringToHGlobalAnsi("AXFloatingWindow");
+
+    /// <summary>
+    /// ⌘Tab은 앱 단위라 LSUIElement로 빠지지만, AltTab 같은 창 전환기는 손쉬운 사용(AX)으로 창을 하나하나 읽는다.
+    /// 그런 앱은 보통 하위 역할이 일반 창(AXStandardWindow)이나 대화상자(AXDialog)인 것만 목록에 올리므로
+    /// 떠 있는 창(AXFloatingWindow)으로 알리고, 손쉬운 사용 요소에서도 뺀다. 오버레이는 누를 것이 없어 잃는 것이 없다.
+    /// </summary>
+    private static void HideFromWindowSwitchers(IntPtr ns)
+    {
+        IntPtr pool = MacNative.objc_autoreleasePoolPush();
+        try
+        {
+            IntPtr subrole = MacNative.Send(MacNative.objc_getClass("NSString"), Sel("stringWithUTF8String:"), FloatingSubrole);
+            if (subrole != IntPtr.Zero) MacNative.Send(ns, Sel("setAccessibilitySubrole:"), subrole);
+            MacNative.SendBool(ns, Sel("setAccessibilityElement:"), 0);
+        }
+        catch (Exception)
+        {
+            // 못 걸어도 고양이는 달린다. 창 전환기 목록에 보일 뿐이다.
+        }
+        finally
+        {
+            MacNative.objc_autoreleasePoolPop(pool);
+        }
     }
 
     /// <summary>떠 있는 창 단계(floating)는 다른 앱 창에 가려지지 않는다. 따로 다시 올릴 필요가 없다.</summary>
