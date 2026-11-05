@@ -2,6 +2,7 @@ using System.Text.Json;
 using Woodada.Settings;
 using Woodada.Sprites;
 using Woodada.Stats;
+using Woodada.Storage;
 
 namespace Woodada.Rewards;
 
@@ -31,9 +32,13 @@ public sealed class Inventory
 /// 생선 지갑과 잠금 해제 상태. %APPDATA%\Woodada\rewards.json에 산 것만 저장한다.
 /// 생선 = 달린 몸 길이 합 ÷ 1,000 − 쓴 생선. 따로 쌓지 않아서 예전 기록도 그대로 생선이 되고,
 /// 생선 수가 기록과 어긋날 일도 없다.
+/// 파일에는 서명을 붙인다(<see cref="DataSeal"/>). 앱 밖에서 고친 흔적이 있으면 산 것을 비우고 생선도 0에서 다시 모은다.
 /// </summary>
 public sealed class RewardStore
 {
+    /// <summary>서명에 섞는 파일 종류.</summary>
+    public const string Purpose = "rewards";
+
     private static readonly JsonSerializerOptions Options = new()
     {
         WriteIndented = true,
@@ -49,10 +54,28 @@ public sealed class RewardStore
         _stats = stats;
         _filePath = Path.Combine(AppInfo.DataFolder, "rewards.json");
         _isNew = !File.Exists(_filePath);
-        Current = Load();
+        var (inventory, state) = Load();
+
+        // 산 기록이 사라졌는데 예전에 이 파일을 쓴 적이 있으면(서명된 stats.json에 남아 있다) 누가 지우거나 망가뜨린 것이다.
+        // 그냥 빈 지갑으로 시작하면 쓴 생선이 전부 돌아오니, 고친 파일과 똑같이 다룬다.
+        WasReset = state == SealState.Tampered ||
+                   (state is SealState.Missing or SealState.Broken && stats.Current.RewardsStarted);
+        if (WasReset) inventory = new Inventory();
+        Current = inventory;
+
+        // 어느 쪽이든 초기화했으면 지금까지 모은 생선을 모두 쓴 것으로 쳐서 0에서 다시 모으게 한다.
+        // 산 것만 비우고 생선을 남기면 rewards.json을 고치는 것이 "환불"이 된다.
+        // stats.json만 초기화됐으면 모은 생선이 0이 되어 쓴 생선도 0이 된다. 산 것은 남는다.
+        if (WasReset || stats.WasReset) Current.SpentFish = EarnedFish;
+
+        // 옛 파일을 받아 줬거나 고쳐 썼으면 바로 서명해 둔다(StatsStore와 같은 이유).
+        if (WasReset || stats.WasReset || state == SealState.Legacy) Save();
     }
 
     public Inventory Current { get; }
+
+    /// <summary>앱 밖에서 고친 흔적이 있어 산 것과 생선을 처음 상태로 돌렸는지.</summary>
+    public bool WasReset { get; }
 
     /// <summary>무언가를 사거나 나만의 색을 바꾸면 알린다. 생선이 느는 건 알리지 않으니 화면이 직접 읽는다.</summary>
     public event EventHandler? Changed;
@@ -229,6 +252,9 @@ public sealed class RewardStore
     public void GrantStartingItems(AppSettings settings)
     {
         if (!_isNew || File.Exists(_filePath)) return;
+        // 보상 시스템 전부터 쓰던 사람만 해당한다. 그런 사람은 서명을 넣기 전 버전이 쓴 stats.json이 있다.
+        // 새로 설치했거나 기록을 지운 경우까지 주면, settings.json에 비싼 색을 적고 기록을 지워 공짜로 얻을 수 있다.
+        if (_stats.LoadedAs != SealState.Legacy) return;
         foreach (var r in settings.Runners)
         {
             if (OwnsColor(r.Color)) continue;
@@ -240,6 +266,23 @@ public sealed class RewardStore
             if (!SpriteRegistry.IsUpcoming(r.SpriteId) && !OwnsRunner(r.SpriteId)) Current.Runners.Add(r.SpriteId);
         }
         Save();
+    }
+
+    /// <summary>
+    /// 갖고 있지 않은 색·러너·스킨을 입고 있으면 벗긴 설정을 돌려준다. 고칠 게 없으면 null.
+    /// settings.json은 서명하지 않으니, 손으로 스킨 Id를 적어 넣거나 기록이 초기화된 뒤에도 입고 있는 걸 여기서 막는다.
+    /// </summary>
+    public AppSettings? WithoutUnowned(AppSettings settings)
+    {
+        var fixedSettings = settings.Clone();
+        bool changed = false;
+        foreach (var r in fixedSettings.Runners)
+        {
+            if (!OwnsColor(r.Color)) { r.Color = AppSettings.DefaultColor; changed = true; }
+            if (!OwnsRunner(r.SpriteId)) { r.SpriteId = "cat"; changed = true; }
+            if (r.Skin is not null && !OwnsSkin(RunnerSkins.Parse(r.Skin))) { r.Skin = null; changed = true; }
+        }
+        return changed ? fixedSettings : null;
     }
 
     private bool Spend(int price)
@@ -256,8 +299,10 @@ public sealed class RewardStore
             Directory.CreateDirectory(Path.GetDirectoryName(_filePath)!);
             // 쓰는 도중 꺼져도 산 기록이 반쯤 잘리지 않도록 임시 파일에 쓰고 교체한다.
             var tmp = _filePath + ".tmp";
-            File.WriteAllText(tmp, JsonSerializer.Serialize(Current, Options));
+            File.WriteAllText(tmp, DataSeal.Seal(Purpose, JsonSerializer.Serialize(Current, Options)));
             File.Move(tmp, _filePath, overwrite: true);
+            // 이 파일을 쓴 적이 있다고 서명된 stats.json에 남긴다. 나중에 누가 이 파일을 지우면 알아챈다.
+            _stats.MarkRewardsStarted();
         }
         catch (Exception)
         {
@@ -266,31 +311,40 @@ public sealed class RewardStore
         Changed?.Invoke(this, EventArgs.Empty);
     }
 
-    private Inventory Load()
+    private (Inventory, SealState) Load()
     {
         try
         {
-            if (File.Exists(_filePath))
+            var (state, json) = DataSeal.Open(Purpose, _filePath);
+            // stats.json이 켤 때 이미 서명된 모양이었다면 이 컴퓨터는 이미 새 버전으로 넘어왔다.
+            // 그런데 이 파일만 옛 모양이면 누가 서명을 지운 것이다.
+            if (state == SealState.Legacy && !DataSeal.AcceptLegacy(_stats.LoadedAs)) state = SealState.Tampered;
+
+            switch (state)
             {
-                var inv = JsonSerializer.Deserialize<Inventory>(File.ReadAllText(_filePath), Options);
-                if (inv is not null)
-                {
+                case SealState.Missing:
+                    return (new Inventory(), state);
+                case SealState.Tampered:
+                    // 덮어쓰기 전에 남겨 둔다. 오탐이면 이 파일로 되살릴 수 있다.
+                    DataSeal.Quarantine(_filePath, ".tampered");
+                    return (new Inventory(), state);
+                case SealState.Sealed or SealState.Legacy:
+                    var inv = JsonSerializer.Deserialize<Inventory>(json!, Options);
+                    if (inv is null) break;
                     inv.Colors ??= new();
                     inv.CustomColors ??= new();
                     inv.Runners ??= new();
                     inv.Skins ??= new();
                     inv.CustomColors = inv.CustomColors
                         .Where(h => ColorUtil.TryParse(h, out _)).Take(RewardCatalog.CustomSlotCount).ToList();
-                    return inv;
-                }
+                    return (inv, state);
             }
         }
         catch (Exception)
         {
-            // 깨진 파일은 남겨 둔다. 산 기록이 조용히 사라지면 아쉬우니까.
-            try { File.Copy(_filePath, _filePath + ".broken", overwrite: true); }
-            catch (Exception) { }
         }
-        return new Inventory();
+        // 깨진 파일은 남겨 둔다. 산 기록이 조용히 사라지면 아쉬우니까.
+        if (File.Exists(_filePath)) DataSeal.Quarantine(_filePath, ".broken");
+        return (new Inventory(), SealState.Broken);
     }
 }

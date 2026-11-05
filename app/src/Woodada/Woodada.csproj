@@ -25,6 +25,19 @@
     <PackageReference Include="Avalonia.Controls.ColorPicker" Version="$(AvaloniaVersion)" />
   </ItemGroup>
 
+  <!--
+    기록 파일 서명 열쇠(Storage/DataSeal.cs). 정식 릴리즈는 GitHub Secret을 환경 변수 WOODADA_SIGNING_KEY로 받는다.
+    로컬에서 정식 기록 폴더를 쓰는 Release 빌드를 만들려면 같은 열쇠를 app/signing.key에 두면 된다(git에는 올리지 않는다).
+    열쇠가 없으면 개발용 열쇠를 쓰고, 기록은 Woodada-unsigned 폴더에 따로 둔다. Debug는 늘 개발용 열쇠다.
+  -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <WoodadaSigningKey Condition="'$(WoodadaSigningKey)' == ''">$(WOODADA_SIGNING_KEY)</WoodadaSigningKey>
+    <WoodadaSigningKey Condition="'$(WoodadaSigningKey)' == '' And Exists('$(MSBuildProjectDirectory)/../../signing.key')">$([System.IO.File]::ReadAllText('$(MSBuildProjectDirectory)/../../signing.key').Trim())</WoodadaSigningKey>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(Configuration)' == 'Release' And '$(WoodadaSigningKey)' != ''">
+    <AssemblyMetadata Include="WoodadaSigningKey" Value="$(WoodadaSigningKey)" />
+  </ItemGroup>
+
   <ItemGroup>
     <!-- RunCat365 (Apache-2.0) 고양이 프레임. 출처는 Assets/RunCat/LICENSE, README 참고. -->
     <EmbeddedResource Include="Assets\RunCat\cat_running_*.png" LogicalName="RunCat.%(Filename)%(Extension)" />

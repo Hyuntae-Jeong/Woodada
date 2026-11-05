@@ -37,6 +37,29 @@ jobs:
           echo "value=$version" >> "$GITHUB_OUTPUT"
           echo "version: $version"
 
+      - uses: actions/checkout@v4
+        if: github.ref_type == 'tag'
+
+      # 릴리즈는 기록 파일 서명 열쇠가 꼭 있어야 하고, 지문이 DataSeal.OfficialKeyFingerprint와 같아야 합니다
+      # (app/src/Woodada/Storage/DataSeal.cs). 열쇠가 없거나 다르면 앱이 사용자 기록을 다른 폴더(Woodada-unsigned)에서 찾아서,
+      # 업데이트한 사람의 기록이 사라진 것처럼 보입니다. 그런 릴리즈가 나가지 않게 여기서 멈춥니다.
+      - name: Check signing key
+        if: github.ref_type == 'tag'
+        env:
+          WOODADA_SIGNING_KEY: ${{ secrets.WOODADA_SIGNING_KEY }}
+        run: |
+          if [ -z "$WOODADA_SIGNING_KEY" ]; then
+            echo "::error::저장소 Secret WOODADA_SIGNING_KEY가 없습니다"
+            exit 1
+          fi
+          expected=$(sed -n 's/.*OfficialKeyFingerprint = "\([0-9a-f]\{64\}\)".*/\1/p' app/src/Woodada/Storage/DataSeal.cs)
+          actual=$(printf '%s' "$WOODADA_SIGNING_KEY" | tr -d '[:space:]' | base64 -d | sha256sum | cut -c1-64)
+          if [ -z "$expected" ] || [ "$expected" != "$actual" ]; then
+            echo "::error::Secret WOODADA_SIGNING_KEY의 지문($actual)이 DataSeal.OfficialKeyFingerprint($expected)와 다릅니다"
+            exit 1
+          fi
+          echo "서명 열쇠 지문 확인: $actual"
+
   windows:
     needs: version
     runs-on: windows-latest
@@ -53,6 +76,8 @@ jobs:
       # .NET 런타임까지 exe 하나에 담아(self-contained) 사용자 PC에 아무것도 설치돼 있지 않아도 실행되게 합니다.
       # 압축하면 약 46MB입니다. 리플렉션을 쓰는 UI 라이브러리라 트리밍은 하지 않습니다.
       - name: Publish Woodada.exe
+        env:
+          WOODADA_SIGNING_KEY: ${{ secrets.WOODADA_SIGNING_KEY }}   # Woodada.csproj가 읽습니다
         run: >
           dotnet publish src/Woodada -c Release -r win-x64 --self-contained true
           -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
@@ -84,6 +109,8 @@ jobs:
       # Woodada.app을 만들어 임시 서명하고 .dmg(처음 설치용)와 .zip(자동 업데이트용)으로 묶습니다.
       # 로컬 맥에서도 같은 스크립트로 만들 수 있습니다.
       - name: Build Woodada.app and .dmg
+        env:
+          WOODADA_SIGNING_KEY: ${{ secrets.WOODADA_SIGNING_KEY }}   # Woodada.csproj가 읽습니다
         run: bash build/mac/build-app.sh ${{ matrix.rid }} ${{ needs.version.outputs.value }}
 
       - uses: actions/upload-artifact@v4
