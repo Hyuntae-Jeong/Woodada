@@ -43,6 +43,13 @@ public sealed class PortalState
     internal double ShotPace = 1;
     /// <summary>불꽃이 튀는 각도·도는 점의 시작 위치를 포탈마다 다르게.</summary>
     internal double Seed;
+    /// <summary>
+    /// 포탈 하나 연출(PortalTuning.Single)로 쏘았는지. 파란 포탈 하나만 열고, 고양이가 다 들어가면 그 자리 포탈이
+    /// 주황으로 바뀌어 고양이가 튀어나온다. 이때 출구(At[1])는 입구와 같은 자리이고, Entered는 몸이 다 들어갔다는 뜻이다.
+    /// </summary>
+    internal bool Single;
+    /// <summary>Clock 기준으로 포탈 하나 연출에서 몸이 다 들어가 주황으로 바뀌기 시작한 때.</summary>
+    internal double SwapAt;
 
     public PortalState() => Reset();
 
@@ -75,12 +82,16 @@ public sealed class PortalState
 /// <param name="MinGap">출구가 입구와 떨어져야 하는 최소 거리.</param>
 /// <param name="RetrySeconds">입구·출구를 열 자리가 없으면(벽이 가까우면) 이만큼 있다 다시 본다.</param>
 /// <param name="Reach">출구를 고양이 앞뒤로 이만큼 안에만 연다. 제자리 달리기(끝없는 트랙)용. null이면 트랙 아무 데나.</param>
+/// <param name="Single">
+/// 포탈 하나 연출. 파란 구슬만 앞에 쏘고, 고양이가 다 들어가면 그 포탈이 주황으로 바뀌며 고양이가 튀어나온다.
+/// 출구를 따로 열지 않아서 좁은 칸에서도 한눈에 보인다. 출구 값(SecondShotDelay·MinGap·Reach)은 쓰지 않는다.
+/// </param>
 public sealed record PortalTuning(
     double FirstWait,
     double MinWaitAtIdle, double MaxWaitAtIdle, double MinWaitAtFull, double MaxWaitAtFull,
     double EntryLeadSeconds, double MinEntryLead, double MaxEntryLead,
     double SecondShotDelay, double MinFlight, double MaxFlight,
-    double MinGap, double RetrySeconds, double? Reach)
+    double MinGap, double RetrySeconds, double? Reach, bool Single = false)
 {
     /// <summary>스킨을 입기 전까지 기다리는 값. 입는 순간 FirstWait로 바뀐다.</summary>
     public const double LongestWait = 11;
@@ -112,9 +123,9 @@ public sealed record PortalTuning(
 
     /// <summary>
     /// 스킨 칸·뽑기 무대의 제자리 달리기. 고양이 좌우로 몸 1.5개쯤만 보여서 입구를 1.6개 안에 연다.
-    /// 끝없는 트랙이라 출구도 몸 5개 안에만 연다(아무 데나 열면 영영 안 보인다).
+    /// 출구를 따로 열면 칸 밖이라 안 보이기 쉬워서, 포탈 하나가 파랑에서 주황으로 바뀌는 연출(Single)로 보여 준다.
     /// </summary>
-    public static readonly PortalTuning Treadmill = Preview with { MaxEntryLead = 1.6, Reach = 5 };
+    public static readonly PortalTuning Treadmill = Preview with { MaxEntryLead = 1.6, Single = true };
 
     /// <param name="intensity">0~1 사용률. 포탈이 닫히는 순간 값으로 한 번만 정한다. 매 프레임 다시 재면 출렁일 때마다 들쭉날쭉하다.</param>
     public double NextWait(double intensity)
@@ -173,6 +184,14 @@ internal static class PortalSkin
     /// <summary>통과할 때 포탈이 환해졌다 가라앉는 시간(초). 몸이 걸쳐 있는 동안은 PassingFlare만큼 늘 환하다.</summary>
     private const double FlareSeconds = 0.6;
     private const double PassingFlare = 0.6;
+    /// <summary>
+    /// 포탈 하나 연출: 몸이 다 들어간 뒤 숨어 있는 시간, 파랑에서 주황으로 바뀌는 시간, 튀어나오는 시간(초).
+    /// 튀어나올 때는 숨어 있던 만큼을 따라잡으니 평소보다 빠르게 뛰쳐나온다.
+    /// </summary>
+    private const double HideSeconds = 0.14;
+    private const double SwapSeconds = 0.14;
+    private const double EmergeSeconds = 0.32;
+
     /// <summary>통과하는 순간 포탈이 옆으로 불룩해졌다 돌아오는 정도(반폭 대비)와 시간(초). 위아래로는 안 커진다(Headroom).</summary>
     private const double PopBulge = 0.22;
     private const double PopSeconds = 0.35;
@@ -230,9 +249,10 @@ internal static class PortalSkin
                     s.Dir = state.Direction;
                     s.Seed = Random.Shared.NextDouble() * 2 * Math.PI;
                     s.Fired[0] = s.Fired[1] = false;
-                    // 코가 입구에 닿기까지 걸릴 시간의 70% 안에 주황 구슬까지 떨어지게 발사 간격·비행 시간을 줄인다.
+                    s.Single = tune.Single;
+                    // 코가 입구에 닿기까지 걸릴 시간의 70% 안에 마지막 구슬까지 떨어지게 발사 간격·비행 시간을 줄인다.
                     double arrive = (Math.Abs(s.At[0] - c) - w * 0.5) / Math.Max(1e-6, state.Speed);
-                    s.ShotPace = Math.Clamp(arrive * 0.7 / (tune.SecondShotDelay + tune.MaxFlight), 0.2, 1);
+                    s.ShotPace = Math.Clamp(arrive * 0.7 / ((tune.Single ? 0 : tune.SecondShotDelay) + tune.MaxFlight), 0.2, 1);
                     s.FireAt[0] = 0;
                     s.FireAt[1] = tune.SecondShotDelay * s.ShotPace;
                 }
@@ -242,13 +262,19 @@ internal static class PortalSkin
             case PortalPhase.Active:
                 s.Clock += dt;
                 // 쏠 때가 된 구슬을 지금 입 앞에서 떠나보낸다. 고양이는 계속 달리니 두 구슬의 출발점이 조금 다르다.
-                for (int i = 0; i < 2; i++)
+                for (int i = 0; i < (s.Single ? 1 : 2); i++)
                 {
                     if (s.Fired[i] || s.Clock < s.FireAt[i]) continue;
                     s.Fired[i] = true;
                     s.FromX[i] = c + s.Dir * w * MouthAhead;
                     double far = Math.Clamp(Math.Abs(s.At[i] - s.FromX[i]) / (w * FarBodies), 0, 1);
                     s.LandAt[i] = s.FireAt[i] + (tune.MinFlight + (tune.MaxFlight - tune.MinFlight) * Math.Sqrt(far)) * s.ShotPace;
+                }
+
+                if (s.Single)
+                {
+                    AdvanceSingle(s, state, c, w, track);
+                    break;
                 }
 
                 if (!s.Entered)
@@ -304,6 +330,50 @@ internal static class PortalSkin
     }
 
     /// <summary>
+    /// 포탈 하나 연출의 진행. 꼬리까지 다 들어가면 그 자리 포탈이 주황으로 바뀌고(SwapAt), HideSeconds 숨어 있다가
+    /// 튀어나오기 시작해서(PopAt) EmergeSeconds 뒤 다 나오면 닫는다. 고양이 자리는 옮기지 않는다. 숨고 튀어나오는 건
+    /// 그릴 때 몸을 뒤로 물려서 보여 준다(SingleTransit).
+    /// </summary>
+    private static void AdvanceSingle(PortalState s, RunnerState state, double c, double w, TrackBounds track)
+    {
+        double p = s.At[0];
+        if (!InTrack(p, track, w) || state.Direction != s.Dir)
+        {
+            StartClosing(s);
+            return;
+        }
+        double past = (c - p) * s.Dir;
+        if (!s.Entered)
+        {
+            if (double.IsNaN(s.TouchAt) && past > -w / 2)
+            {
+                s.TouchAt = s.Clock;
+                // 쏜 직후 빨라져서 구슬이 떨어지기 전에 닿았으면 그 자리에 바로 연다.
+                if (!s.Fired[0])
+                {
+                    s.Fired[0] = true;
+                    s.FireAt[0] = s.Clock;
+                    s.FromX[0] = p;
+                }
+                if (s.LandAt[0] > s.Clock) s.LandAt[0] = s.Clock;
+            }
+            if (past >= w / 2)
+            {
+                // 꼬리까지 다 들어갔다. 같은 자리의 주황 포탈은 이미 열린 것으로 두고 파랑과 엇갈려 바뀐다.
+                s.Entered = true;
+                s.SwapAt = s.Clock;
+                s.Fired[1] = true;
+                s.FireAt[1] = s.FireAt[0];
+                s.FromX[1] = s.At[1];
+                s.LandAt[1] = s.LandAt[0];
+            }
+            return;
+        }
+        if (double.IsNaN(s.PopAt) && s.Clock - s.SwapAt >= HideSeconds) s.PopAt = s.Clock;
+        if (!double.IsNaN(s.PopAt) && s.Clock - s.PopAt >= EmergeSeconds) StartClosing(s);
+    }
+
+    /// <summary>
     /// 포탈 선이 놓일 수 있는 범위(트랙 좌표). 트랙은 몸 왼쪽 끝 기준이라 몸 가운데는 [MinX+w/2, MaxX+w/2]를 오가고,
     /// 지나는 동안 가운데가 선 ± w/2를 지나므로 선은 [MinX+w, MaxX] 안에 있어야 몸이 벽에 안 닿는다.
     /// </summary>
@@ -341,6 +411,13 @@ internal static class PortalSkin
         double want = Math.Min(Math.Clamp(state.Speed * tune.EntryLeadSeconds, tune.MinEntryLead * w, tune.MaxEntryLead * w), room);
         if (want < floor) return false;
 
+        if (tune.Single)
+        {
+            // 포탈 하나 연출: 출구는 입구와 같은 자리다.
+            s.At[0] = s.At[1] = c + dir * (w * 0.5 + want);
+            return true;
+        }
+
         const int Steps = 4;
         for (int k = 0; k <= Steps; k++)
         {
@@ -366,12 +443,34 @@ internal static class PortalSkin
     /// </summary>
     public static (double Entry, double Exit, int Dir)? Transit(PortalState s, RunnerState state, double bodyWidth)
     {
-        if (s.Phase != PortalPhase.Active || state.Direction != s.Dir) return null;
+        if (s.Single || s.Phase != PortalPhase.Active || state.Direction != s.Dir) return null;
         double w = bodyWidth, c = state.X + w / 2;
         // 몸 가운데가 포탈 선을 얼마나 넘었나. 옮겨지기 전엔 입구 기준(아직 음수), 뒤엔 출구 기준(0부터 양수).
         double past = (c - (s.Entered ? s.At[1] : s.At[0])) * s.Dir;
         bool straddling = s.Entered ? past < w / 2 : past > -w / 2;
         return straddling ? (s.At[0], s.At[1], s.Dir) : null;
+    }
+
+    /// <summary>
+    /// 포탈 하나 연출에서 지금 몸을 어떻게 그릴지. 걸쳐 있지 않으면 null.
+    /// 들어가는 중이면 포탈 선 뒤만(Out false), 다 들어간 뒤면 몸을 Lag만큼 뒤로 물려서 포탈 선 앞만(Out true) 그린다.
+    /// 숨어 있는 동안은 코가 포탈 선에 머물 만큼 물려서 아무것도 안 보이고, 튀어나올 때 그만큼을 빠르게 따라잡는다.
+    /// </summary>
+    public static (double Line, int Dir, double Lag, bool Out)? SingleTransit(PortalState s, RunnerState state, double bodyWidth)
+    {
+        if (!s.Single || s.Phase != PortalPhase.Active || state.Direction != s.Dir) return null;
+        double w = bodyWidth, past = (state.X + w / 2 - s.At[0]) * s.Dir;
+        if (!s.Entered) return past > -w / 2 ? (s.At[0], s.Dir, 0, false) : null;
+        double u = double.IsNaN(s.PopAt) ? 0 : Math.Clamp((s.Clock - s.PopAt) / EmergeSeconds, 0, 1);
+        return (s.At[0], s.Dir, (past + w / 2) * (1 - EaseOutCubic(u)), true);
+    }
+
+    /// <summary>포탈 i를 얼마나 진하게 그릴지. 포탈 하나 연출에서 다 들어가면 파랑(0)이 주황(1)으로 엇갈려 바뀐다.</summary>
+    private static double Show(PortalState s, int index)
+    {
+        if (!s.Single) return 1;
+        double m = s.Entered ? Math.Clamp((s.Clock - s.SwapAt) / SwapSeconds, 0, 1) : 0;
+        return index == 0 ? 1 - m : m;
     }
 
     /// <summary>포탈 i가 얼마나 열렸는지(0~1, 열릴 때 살짝 1을 넘는다). 구슬이 아직 날아가는 중이면 0.</summary>
@@ -473,8 +572,9 @@ internal static class PortalSkin
     /// <param name="passing">고양이 몸이 지금 포탈에 걸쳐 있는지.</param>
     public static void DrawBack(DrawingContext ctx, Rect box, PortalState s, int index, bool passing, double seconds, double scaling)
     {
-        double k = Openness(s, index);
-        if (k <= 0.01) return;
+        double k = Openness(s, index), show = Show(s, index);
+        if (k <= 0.01 || show <= 0.01) return;
+        using var shown = ctx.PushOpacity(show);
         var center = box.Center;
         var (rx, ry) = Radii(box, s, index, k);
         double pulse = 0.85 + 0.15 * Math.Sin(seconds * 5 + s.Seed + index);
@@ -525,7 +625,9 @@ internal static class PortalSkin
     public static void DrawFront(DrawingContext ctx, Rect box, PortalState s, int index, double shotDx, bool passing, double seconds,
         double scaling)
     {
-        double k = Openness(s, index);
+        double k = Openness(s, index), show = Show(s, index);
+        if (show <= 0.01) return;
+        using var shown = ctx.PushOpacity(show);
         var center = box.Center;
         double h = box.Height;
         var res = Resources(index);
@@ -614,7 +716,8 @@ internal static class PortalSkin
     /// </summary>
     private static void DrawShot(DrawingContext ctx, Rect box, PortalState s, int index, double shotDx, PortalResources res)
     {
-        if (s.Phase != PortalPhase.Active || !s.Fired[index]) return;
+        // 포탈 하나 연출의 주황 포탈은 쏘지 않고 파랑이 바뀐 것이다.
+        if (s.Phase != PortalPhase.Active || !s.Fired[index] || (s.Single && index == 1)) return;
         double since = s.Clock - s.FireAt[index], flight = s.LandAt[index] - s.FireAt[index];
         double h = box.Height, body = h / PortalHeight;
         var from = new Point(box.Center.X + shotDx * h, box.Bottom - body * MouthHeight);

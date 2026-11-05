@@ -111,7 +111,8 @@ internal static class SkinPainter
 
         // 몸이 걸쳐 있으면 두 포탈 모두 환해진다.
         var transit = PortalSkin.Transit(state, r.State, box.Width);
-        bool passing = transit is not null;
+        var single = PortalSkin.SingleTransit(state, r.State, box.Width);
+        bool passing = transit is not null || single is not null;
 
         // 프레임마다 그리는 곳이라 배열을 만들지 않고 지역 변수 두 개로 둔다.
         var entryPortal = PortalSkin.PortalBox(state.At[0] - originX, floorY, r.Height);
@@ -130,6 +131,14 @@ internal static class SkinPainter
                 Cut: (entry - originX - entryBox.X) / entryBox.Width, Keep: -dir));
             frames.Add(new RunnerFrame(r.Sprite, exitBox, pose, color, RunnerSkin.Portal, lightBackground,
                 Cut: (exit - originX - exitBox.X) / exitBox.Width, Keep: dir));
+        }
+        else if (single is { } one)
+        {
+            // 포탈 하나 연출: 들어갈 땐 포탈 선 뒤만, 다 들어간 뒤엔 몸을 뒤로 물려 포탈 선 앞만 남긴다.
+            var (line, dir, lag, emerging) = one;
+            var bodyBox = box.Translate(new Vector(-dir * lag, 0));
+            frames.Add(new RunnerFrame(r.Sprite, bodyBox, pose, color, RunnerSkin.Portal, lightBackground,
+                Cut: (line - originX - bodyBox.X) / bodyBox.Width, Keep: emerging ? dir : -dir));
         }
         else
         {
