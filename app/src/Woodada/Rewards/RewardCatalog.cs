@@ -85,7 +85,7 @@ public static class RewardCatalog
 
     /// <summary>
     /// 모든 스킨, 도감 순서 그대로. 일반 버전에는 Released인 것만 보인다(AvailableSkins).
-    /// 1.0.0에 공개한 것: 유령냥·플래시냥·글리치냥. 얼음냥·줄줄이냥은 아직 개발용 빌드에서만.
+    /// 1.0.0에 공개한 것: 유령냥·플래시냥·글리치냥. 얼음냥·줄줄이냥·포탈냥은 아직 개발용 빌드에서만.
     /// </summary>
     private static readonly LocText Rare = new("레어", "Rare");
     private static readonly LocText Epic = new("에픽", "Epic");
@@ -113,6 +113,10 @@ public static class RewardCatalog
             new("새끼 고양이들이 졸졸 따라와요. CPU가 바쁠수록 한 마리씩 늘어나 최대 네 마리까지요.",
                 "A line of kittens tags along. One more joins as your CPU gets busier, up to four."),
             Color.FromRgb(0xFF, 0x9E, 0xC4), Color.FromRgb(0xE0, 0x5A, 0x95)),
+        new(RunnerSkin.Portal, new("포탈냥", "Portal Cat"), 4, Legendary, false,
+            new("가끔 포탈을 쏴서 파랑으로 들어가 주황으로 튀어나와요. CPU가 바쁠수록 자주요.",
+                "Now and then it shoots a blue and an orange portal, runs into one and pops out of the other. More often when your CPU is busy."),
+            Color.FromRgb(0x5F, 0xB4, 0xFF), Color.FromRgb(0x2A, 0x86, 0xE0)),
     };
 
     /// <summary>
@@ -126,7 +130,7 @@ public static class RewardCatalog
 
     /// <summary>
     /// 뽑기 비율. 등급 몫(레어 60 : 에픽 30 : 전설 10)을 이 빌드에 있는 같은 등급 스킨끼리 똑같이 나눈다.
-    /// 일반 버전(등급마다 하나)은 60 : 30 : 10, 개발용 빌드는 플래시·얼음이 15씩, 글리치·줄줄이가 5씩이다.
+    /// 일반 버전(등급마다 하나)은 60 : 30 : 10, 개발용 빌드는 플래시·얼음이 15씩, 글리치·줄줄이·포탈이 약 3.3씩이다.
     /// 가진 스킨을 빼고 남은 것끼리 이 비율로 고른다.
     /// </summary>
     public static double WeightOf(SkinInfo skin) =>

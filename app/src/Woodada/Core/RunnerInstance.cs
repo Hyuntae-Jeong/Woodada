@@ -60,6 +60,15 @@ public sealed class RunnerInstance
     /// <summary>줄줄이 스킨이 데리고 다니는 새끼들.</summary>
     public KittenState Kittens { get; } = new();
 
+    /// <summary>포탈 스킨이 연 포탈 두 개와, 지금 지나가는 중인지.</summary>
+    public PortalState Portal { get; } = new();
+
+    /// <summary>포탈냥의 때·거리 값. 설정 창 미리보기는 폭이 좁아서 따로 정한다.</summary>
+    public PortalTuning PortalTuning { get; set; } = PortalTuning.Overlay;
+
+    /// <summary>지난 프레임에 포탈냥이었는지. 입는 순간을 알아내 바로 한 번 쏘게 한다.</summary>
+    private bool _wearingPortal;
+
     /// <summary>지금까지 달린 거리. 지나온 길 기록(Behind)과 같은 기준이다.</summary>
     public double Odometer => _odometer;
 
@@ -84,8 +93,20 @@ public sealed class RunnerInstance
             _trail.Add(new TrailSample(_odometer - back, State.X - State.Direction * back, State.Direction, State.GaitPhase));
             Ice.Clear();
             Kittens.Reset();
+            Portal.Reset();
         }
+        double prevCenter = State.X + size.Width / 2;
         double moved = State.Advance(dt, _smoothedUsage, track, SpeedProfile.ForBodyWidth(size.Width));
+        // 포탈은 자리를 옮기므로 그릴 때가 아니라 움직인 바로 뒤에 진행한다. 옮겨진 거리는 달린 거리(moved)에 안 들어간다.
+        bool portal = Skin == RunnerSkin.Portal;
+        if (portal)
+        {
+            // 입자마자(설정 창 미리보기는 뜨자마자) 곧 한 번 쏴서 무슨 스킨인지 바로 보이게 한다.
+            if (!_wearingPortal) Portal.Reset(PortalTuning.FirstWait);
+            PortalSkin.Advance(Portal, State, prevCenter, dt, track, size.Width, PortalTuning);
+        }
+        else if (Portal.Active) Portal.Reset();
+        _wearingPortal = portal;
 
         _odometer += moved;
         _trail.Add(new TrailSample(_odometer, State.X, State.Direction, State.GaitPhase));

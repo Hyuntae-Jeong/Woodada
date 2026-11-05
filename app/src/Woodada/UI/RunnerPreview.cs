@@ -21,6 +21,8 @@ internal sealed class RunnerPreview : Control
 
     public RunnerPreview()
     {
+        // 폭이 몸 6개 남짓이라 포탈을 가까이에 자주 연다.
+        _runner.PortalTuning = PortalTuning.Preview;
         _timer.Tick += (_, _) => Step();
         AttachedToVisualTree += (_, _) => _timer.Start();
         DetachedFromVisualTree += (_, _) => _timer.Stop();

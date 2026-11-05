@@ -17,6 +17,10 @@ internal enum FrameLayer
     FlashWisps,
     /// <summary>얼음 스킨 서리·눈가루. Box는 몸 자리고, 바닥에 남은 것들은 Frost에서 읽는다.</summary>
     IceFrost,
+    /// <summary>포탈 스킨 포탈의 몸 뒤 부분(발광·안쪽 빛). Box는 포탈 자리다.</summary>
+    PortalBack,
+    /// <summary>포탈 스킨 포탈의 몸 앞 부분(테두리·불꽃). Box는 포탈 자리다.</summary>
+    PortalFront,
 }
 
 /// <summary>
@@ -29,10 +33,20 @@ internal enum FrameLayer
 /// <param name="Phase">러너마다 다른 효과 위상.</param>
 /// <param name="Frost">얼음 스킨 서리. 그리는 쪽과 진행시키는 쪽이 모두 UI 스레드라 복사하지 않고 그대로 넘긴다.</param>
 /// <param name="OriginX">서리처럼 트랙 좌표로 기억한 것을 그릴 때 빼는 값.</param>
+/// <param name="Portal">포탈 스킨 상태. 포탈 레이어가 열린 정도·불꽃 시간을 읽는다.</param>
+/// <param name="PortalIndex">0 입구(파랑), 1 출구(주황).</param>
+/// <param name="ShotDx">포탈 구슬이 떠난 자리가 포탈 가운데 선에서 얼마나 떨어졌는지(포탈 키 대비).</param>
+/// <param name="Passing">고양이 몸이 지금 포탈에 걸쳐 있는지. 걸쳐 있는 동안 포탈이 환하다.</param>
+/// <param name="Cut">
+/// 포탈에 걸친 몸: 몸 왼쪽 끝에서 너비의 이 비율만큼 간 세로선에서 자른다. NaN이면 자르지 않는다.
+/// 화면 좌표가 아니라 몸 대비 비율이라 오버레이가 Box를 논리 단위로 바꿔도 그대로 맞는다.
+/// </param>
+/// <param name="Keep">+1이면 자른 선 오른쪽, -1이면 왼쪽을 남긴다.</param>
 internal readonly record struct RunnerFrame(IRunnerSprite Sprite, Rect Box, RunnerPose Pose, Color Color,
     RunnerSkin Skin = RunnerSkin.None, bool LightBackground = false,
     FrameLayer Layer = FrameLayer.Body, double Opacity = 1, double Usage = 0, double Seconds = 0, double Phase = 0,
-    GlitchShape? Glitch = null, IceState? Frost = null, double OriginX = 0);
+    GlitchShape? Glitch = null, IceState? Frost = null, double OriginX = 0,
+    PortalState? Portal = null, int PortalIndex = 0, double ShotDx = 0, bool Passing = false, double Cut = double.NaN, int Keep = 0);
 
 /// <summary>
 /// 러너 한 마리를 스킨까지 입혀 그릴 것들(불꽃 줄기 · 잔상 · 서리 · 새끼 · 몸)로 풀고, 그린다.
@@ -72,7 +86,64 @@ internal static class SkinPainter
                 Layer: FrameLayer.IceFrost, Seconds: seconds, Frost: r.Ice, OriginX: originX));
         }
         if (skin == RunnerSkin.Kittens) AddKittens(frames, r, originX, floorY, box, pose, color, seconds);
+        if (skin == RunnerSkin.Portal)
+        {
+            AddPortals(frames, r, originX, floorY, box, pose, color, seconds, lightBackground);
+            return;
+        }
         frames.Add(new RunnerFrame(r.Sprite, box, pose, color, skin, lightBackground, Glitch: glitch));
+    }
+
+    /// <summary>
+    /// 포탈 스킨: 포탈 뒤 부분 → 몸 → 포탈 앞 부분(구슬 포함) 순서로 넣는다. 몸이 포탈에 걸쳐 있으면 몸을 두 번 넣는다.
+    /// 입구 쪽은 포탈 선 뒤만, 출구 쪽은 같은 몸을 출구로 옮겨서 포탈 선 앞만 남긴다.
+    /// 그래서 들어간 만큼이 그대로 나온 만큼이 된다.
+    /// </summary>
+    private static void AddPortals(List<RunnerFrame> frames, RunnerInstance r, double originX, double floorY, Rect box,
+        RunnerPose pose, Color color, double seconds, bool lightBackground)
+    {
+        var state = r.Portal;
+        if (!state.Active)
+        {
+            frames.Add(new RunnerFrame(r.Sprite, box, pose, color, RunnerSkin.Portal, lightBackground));
+            return;
+        }
+
+        // 몸이 걸쳐 있으면 두 포탈 모두 환해진다.
+        var transit = PortalSkin.Transit(state, r.State, box.Width);
+        bool passing = transit is not null;
+
+        // 프레임마다 그리는 곳이라 배열을 만들지 않고 지역 변수 두 개로 둔다.
+        var entryPortal = PortalSkin.PortalBox(state.At[0] - originX, floorY, r.Height);
+        var exitPortal = PortalSkin.PortalBox(state.At[1] - originX, floorY, r.Height);
+        AddPortalLayer(FrameLayer.PortalBack, 0, entryPortal);
+        AddPortalLayer(FrameLayer.PortalBack, 1, exitPortal);
+
+        if (transit is { } t)
+        {
+            var (entry, exit, dir) = t;
+            // 지금 몸은 옮겨지기 전이면 입구 쪽, 뒤면 출구 쪽에 있다. 반대쪽 몸은 두 포탈 거리만큼 옮긴 자리다.
+            bool atExit = state.Entered;
+            var entryBox = atExit ? box.Translate(new Vector(entry - exit, 0)) : box;
+            var exitBox = atExit ? box : box.Translate(new Vector(exit - entry, 0));
+            frames.Add(new RunnerFrame(r.Sprite, entryBox, pose, color, RunnerSkin.Portal, lightBackground,
+                Cut: (entry - originX - entryBox.X) / entryBox.Width, Keep: -dir));
+            frames.Add(new RunnerFrame(r.Sprite, exitBox, pose, color, RunnerSkin.Portal, lightBackground,
+                Cut: (exit - originX - exitBox.X) / exitBox.Width, Keep: dir));
+        }
+        else
+        {
+            frames.Add(new RunnerFrame(r.Sprite, box, pose, color, RunnerSkin.Portal, lightBackground));
+        }
+
+        // 구슬은 고양이 위로 날아가야 하니 앞 부분에서 함께 그린다.
+        AddPortalLayer(FrameLayer.PortalFront, 0, entryPortal);
+        AddPortalLayer(FrameLayer.PortalFront, 1, exitPortal);
+
+        void AddPortalLayer(FrameLayer layer, int i, Rect portal) =>
+            frames.Add(new RunnerFrame(r.Sprite, portal, pose, color, RunnerSkin.Portal, lightBackground,
+                Layer: layer, Seconds: seconds, Portal: state, PortalIndex: i,
+                ShotDx: (state.FromX[i] - state.At[i]) / portal.Height, Passing: passing));
     }
 
     /// <summary>
@@ -124,6 +195,14 @@ internal static class SkinPainter
         }
     }
 
+    private static Rect CutClip(Rect box, double cut, int keep)
+    {
+        double line = box.X + box.Width * cut, far = box.Width * 2 + box.Height * 2;
+        return keep > 0
+            ? new Rect(line, box.Y - far, far, box.Height + far * 2)
+            : new Rect(line - far, box.Y - far, far, box.Height + far * 2);
+    }
+
     public static void Draw(DrawingContext ctx, IReadOnlyList<RunnerFrame> frames, double scaling)
     {
         foreach (var f in frames)
@@ -138,6 +217,17 @@ internal static class SkinPainter
                     break;
                 case FrameLayer.IceFrost:
                     IceSkin.DrawFrost(ctx, f.Frost!, f.OriginX, f.Box.Bottom, f.Box.Height, f.LightBackground, f.Seconds, scaling);
+                    break;
+                case FrameLayer.PortalBack:
+                    PortalSkin.DrawBack(ctx, f.Box, f.Portal!, f.PortalIndex, f.Passing, f.Seconds, scaling);
+                    break;
+                case FrameLayer.PortalFront:
+                    PortalSkin.DrawFront(ctx, f.Box, f.Portal!, f.PortalIndex, f.ShotDx, f.Passing, f.Seconds, scaling);
+                    break;
+                case FrameLayer.Body when !double.IsNaN(f.Cut):
+                    // 포탈에 걸친 몸. 남길 쪽만 보이게 자른다. 위아래는 넉넉히 둬서 잘리지 않게.
+                    using (ctx.PushClip(CutClip(f.Box, f.Cut, f.Keep)))
+                        f.Sprite.Draw(ctx, f.Box, f.Pose, f.Color, scaling, f.Skin, f.LightBackground);
                     break;
                 case FrameLayer.Body when f.Skin == RunnerSkin.Glitch:
                     f.Sprite.DrawGlitch(ctx, f.Box, f.Pose, f.Color, scaling, f.Glitch);

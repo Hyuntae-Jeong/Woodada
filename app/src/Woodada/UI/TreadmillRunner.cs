@@ -25,6 +25,8 @@ internal sealed class TreadmillRunner
     public TreadmillRunner()
     {
         _runner.State.Direction = 1;
+        // 칸이 좁고 트랙이 끝없어서, 포탈을 고양이 가까이에 자주 연다.
+        _runner.PortalTuning = PortalTuning.Treadmill;
     }
 
     /// <param name="centerX">몸 가운데가 올 X.</param>

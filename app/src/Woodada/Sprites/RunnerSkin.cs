@@ -11,6 +11,7 @@ public enum RunnerSkin
     Glitch,
     Ice,
     Kittens,
+    Portal,
 }
 
 public static class RunnerSkins
@@ -24,6 +25,7 @@ public static class RunnerSkins
         (RunnerSkin.Glitch, "glitch"),
         (RunnerSkin.Ice, "ice"),
         (RunnerSkin.Kittens, "kittens"),
+        (RunnerSkin.Portal, "portal"),
     };
 
     public static RunnerSkin Parse(string? id) =>
@@ -43,11 +45,16 @@ public static class RunnerSkins
     };
 
     /// <summary>오버레이 띠에서 몸 위로 남겨 둘 여유(화면 단위). 출렁임·둥실 효과와 몸 밖으로 번지는 발광이 잘리지 않게.
-    /// 플래시의 불꽃 줄기는 몸 높이 안에서 살짝만 들려서 기본 여유로 충분하다.</summary>
+    /// 플래시의 불꽃 줄기는 몸 높이 안에서 살짝만 들려서 기본 여유로 충분하다. 포탈은 키보다 커서 따로 잡는다.</summary>
     public static int Headroom(RunnerSkin skin, int height)
     {
         int basic = Math.Max(4, height / 8); // 몸이 위아래로 출렁이는 여유분
-        return skin == RunnerSkin.Ghost ? Math.Max(basic, GhostSkin.Headroom(height)) : basic;
+        return skin switch
+        {
+            RunnerSkin.Ghost => Math.Max(basic, GhostSkin.Headroom(height)),
+            RunnerSkin.Portal => Math.Max(basic, PortalSkin.Headroom(height)),
+            _ => basic,
+        };
     }
 
     /// <summary>바닥에서 떠 있는 높이(화면 단위).</summary>
