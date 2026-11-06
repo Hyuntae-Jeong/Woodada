@@ -20,6 +20,8 @@ internal sealed class TreadmillRunner
     private readonly RunnerInstance _runner = new(new RunnerConfig(), SpriteRegistry.Get("cat"));
     private readonly Stopwatch _clock = Stopwatch.StartNew();
     private readonly List<RunnerFrame> _frames = new();
+    private readonly YarnPlay _yarn = new() { Tuning = YarnTuning.Treadmill };
+    private readonly RunnerInstance[] _runners;
     private double _last = double.NaN;
 
     public TreadmillRunner()
@@ -27,9 +29,10 @@ internal sealed class TreadmillRunner
         _runner.State.Direction = 1;
         // 칸이 좁고 트랙이 끝없어서, 포탈을 고양이 가까이에 자주 연다.
         _runner.PortalTuning = PortalTuning.Treadmill;
+        _runners = new[] { _runner };
     }
 
-    /// <param name="centerX">몸 가운데가 올 X.</param>
+    /// <param name="centerX">몸 가운데가 올 X. 털실냥은 앞에 털실이 굴러가니 몸을 조금 뒤로 물려서 둘이 함께 이 자리에 오게 한다.</param>
     /// <param name="floorY">발이 닿는 선.</param>
     /// <param name="usage">이 사용률(%)로 달린다. 효과의 세기도 이것으로 정해진다.</param>
     public void Draw(DrawingContext ctx, double centerX, double floorY, double height, RunnerSkin skin, Color color,
@@ -44,10 +47,15 @@ internal sealed class TreadmillRunner
         _runner.Config.Skin = RunnerSkins.ToId(skin);
         _runner.Config.Color = ColorUtil.ToHex(color);
         _runner.Update(dt, usage, Endless);
+        _yarn.Step(dt, _runners, Endless);
 
         _frames.Clear();
-        double originX = _runner.State.X + _runner.BodySize.Width / 2 - centerX;
+        double width = _runner.BodySize.Width;
+        if (skin == RunnerSkin.Yarn) centerX -= width * 0.4;
+        double originX = _runner.State.X + width / 2 - centerX;
+        SkinPainter.AddYarn(_frames, _yarn, front: false, originX, floorY, lightBackground: false);
         SkinPainter.AddRunner(_frames, _runner, originX, floorY, now, lightBackground: false);
+        SkinPainter.AddYarn(_frames, _yarn, front: true, originX, floorY, lightBackground: false);
         SkinPainter.Draw(ctx, _frames, scaling);
     }
 }

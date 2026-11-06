@@ -26,6 +26,8 @@ internal sealed class OverlayController : IDisposable
     private readonly DispatcherTimer _timer = new();
     private readonly Stopwatch _clock = Stopwatch.StartNew();
     private readonly List<RunnerInstance> _runners = new();
+    /// <summary>털실냥들이 차는 털실. 두 마리가 털실냥이면 하나를 같이 쓴다.</summary>
+    private readonly YarnPlay _yarn = new();
 
     private double _last;
     private double _sampleAcc, _geometryAcc, _topmostAcc;
@@ -130,6 +132,7 @@ internal sealed class OverlayController : IDisposable
             // 모니터를 옮겨 다닌 기록이 한 모니터 기준으로 뭉개진다.
             _stats.Add(r.Config.Id, moved, moved / Math.Max(1, r.BodySize.Width), moved * _pitch.MillimetersPerPixel);
         }
+        _yarn.Step(dt, _runners, _runway);
         _stats.SaveIfDue();
         Render();
 
@@ -149,7 +152,9 @@ internal sealed class OverlayController : IDisposable
         double seconds = _clock.Elapsed.TotalSeconds;
 
         var frames = new List<RunnerFrame>();
+        SkinPainter.AddYarn(frames, _yarn, front: false, strip.X, strip.Height, _lightBar);
         foreach (var r in _runners) SkinPainter.AddRunner(frames, r, strip.X, strip.Height, seconds, _lightBar);
+        SkinPainter.AddYarn(frames, _yarn, front: true, strip.X, strip.Height, _lightBar);
 
         _window.Present(strip, frames, _runway.HangBelow);
     }

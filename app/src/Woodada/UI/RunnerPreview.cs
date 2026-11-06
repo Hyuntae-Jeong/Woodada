@@ -17,12 +17,15 @@ internal sealed class RunnerPreview : Control
     private readonly Stopwatch _clock = Stopwatch.StartNew();
     private readonly RunnerInstance _runner = new(new RunnerConfig(), SpriteRegistry.Get("cat"));
     private readonly List<RunnerFrame> _frames = new();
+    private readonly YarnPlay _yarn = new() { Tuning = YarnTuning.Preview };
+    private readonly RunnerInstance[] _runners;
     private double _last;
 
     public RunnerPreview()
     {
         // 폭이 몸 6개 남짓이라 포탈을 가까이에 자주 연다.
         _runner.PortalTuning = PortalTuning.Preview;
+        _runners = new[] { _runner };
         _timer.Tick += (_, _) => Step();
         AttachedToVisualTree += (_, _) => _timer.Start();
         DetachedFromVisualTree += (_, _) => _timer.Stop();
@@ -55,7 +58,9 @@ internal sealed class RunnerPreview : Control
         _runner.Config.Color = ColorUtil.ToHex(RunnerColor);
         _runner.Config.Skin = RunnerSkins.ToId(Skin);
         // 사용률은 RunnerInstance가 오버레이와 같은 시정수로 부드럽게 따라간다.
-        _runner.Update(dt, UsageSource?.Invoke() ?? 0, new Runway(8, Math.Max(8, (int)Bounds.Width - 8), 0, HangBelow: false));
+        var runway = new Runway(8, Math.Max(8, (int)Bounds.Width - 8), 0, HangBelow: false);
+        _runner.Update(dt, UsageSource?.Invoke() ?? 0, runway);
+        _yarn.Step(dt, _runners, runway);
         InvalidateVisual();
     }
 
@@ -75,7 +80,9 @@ internal sealed class RunnerPreview : Control
 
         double scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
         _frames.Clear();
+        SkinPainter.AddYarn(_frames, _yarn, front: false, 0, bar.Y + 1, lightBackground: !alt);
         SkinPainter.AddRunner(_frames, _runner, 0, bar.Y + 1, _clock.Elapsed.TotalSeconds, lightBackground: !alt);
+        SkinPainter.AddYarn(_frames, _yarn, front: true, 0, bar.Y + 1, lightBackground: !alt);
         SkinPainter.Draw(ctx, _frames, scaling);
 
         var text = GameArt.Format($"{_runner.Usage:0}%  ·  {_runner.State.Speed * UnitsPerDip:0} px/s", GameArt.FontNote, alt ? p.PreviewAltText : p.PreviewText);

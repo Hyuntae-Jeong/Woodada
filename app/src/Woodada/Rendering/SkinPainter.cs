@@ -23,6 +23,10 @@ internal enum FrameLayer
     PortalFront,
     /// <summary>네온 스킨 발밑 빛 웅덩이. Box는 몸 자리고, Opacity는 켜진 정도다.</summary>
     NeonFloor,
+    /// <summary>털실냥 털실의 몸 뒤 부분(실 꼬리·그림자). Box는 털실 자리다.</summary>
+    YarnBack,
+    /// <summary>털실냥 털실의 몸 앞 부분(털실·찰 때 튄 선). Box는 털실 자리고, Seconds는 털실 시계다.</summary>
+    YarnFront,
 }
 
 /// <summary>
@@ -44,11 +48,13 @@ internal enum FrameLayer
 /// 화면 좌표가 아니라 몸 대비 비율이라 오버레이가 Box를 논리 단위로 바꿔도 그대로 맞는다.
 /// </param>
 /// <param name="Keep">+1이면 자른 선 오른쪽, -1이면 왼쪽을 남긴다.</param>
+/// <param name="Yarn">털실냥 털실. 털실 레이어가 높이·실 꼬리·찰 때 튄 선을 읽는다.</param>
 internal readonly record struct RunnerFrame(IRunnerSprite Sprite, Rect Box, RunnerPose Pose, Color Color,
     RunnerSkin Skin = RunnerSkin.None, bool LightBackground = false,
     FrameLayer Layer = FrameLayer.Body, double Opacity = 1, double Usage = 0, double Seconds = 0, double Phase = 0,
     GlitchShape? Glitch = null, IceState? Frost = null, double OriginX = 0,
-    PortalState? Portal = null, int PortalIndex = 0, double ShotDx = 0, bool Passing = false, double Cut = double.NaN, int Keep = 0);
+    PortalState? Portal = null, int PortalIndex = 0, double ShotDx = 0, bool Passing = false, double Cut = double.NaN, int Keep = 0,
+    YarnBall? Yarn = null);
 
 /// <summary>
 /// 러너 한 마리를 스킨까지 입혀 그릴 것들(불꽃 줄기 · 잔상 · 서리 · 새끼 · 몸)로 풀고, 그린다.
@@ -104,6 +110,19 @@ internal static class SkinPainter
             return;
         }
         frames.Add(new RunnerFrame(r.Sprite, box, pose, color, skin, lightBackground, Glitch: glitch));
+    }
+
+    /// <summary>
+    /// 털실냥 털실. 털실은 고양이 한 마리 것이 아니라(두 마리가 같이 쓴다) 러너들과 따로 넣는다.
+    /// 실 꼬리·그림자(back)는 러너들보다 먼저, 털실(front)은 러너들 뒤에 넣어 고양이 위로 굴러가게 한다.
+    /// </summary>
+    public static void AddYarn(List<RunnerFrame> frames, YarnPlay play, bool front, double originX, double floorY,
+        bool lightBackground)
+    {
+        if (play.Sprite is not { } sprite) return;
+        foreach (var b in play.Balls)
+            frames.Add(new RunnerFrame(sprite, YarnSkin.BoxFor(b, originX, floorY), default, b.Color, RunnerSkin.Yarn,
+                lightBackground, Layer: front ? FrameLayer.YarnFront : FrameLayer.YarnBack, Seconds: play.Time, Yarn: b));
     }
 
     /// <summary>
@@ -249,6 +268,12 @@ internal static class SkinPainter
                     // 포탈에 걸친 몸. 남길 쪽만 보이게 자른다. 위아래는 넉넉히 둬서 잘리지 않게.
                     using (ctx.PushClip(CutClip(f.Box, f.Cut, f.Keep)))
                         f.Sprite.Draw(ctx, f.Box, f.Pose, f.Color, scaling, f.Skin, f.LightBackground);
+                    break;
+                case FrameLayer.YarnBack:
+                    YarnSkin.DrawBack(ctx, f.Box, f.Yarn!, f.LightBackground, scaling);
+                    break;
+                case FrameLayer.YarnFront:
+                    YarnSkin.DrawFront(ctx, f.Box, f.Yarn!, f.Seconds, f.LightBackground, scaling);
                     break;
                 case FrameLayer.NeonFloor:
                     NeonSkin.DrawFloor(ctx, f.Box, f.Color, f.Opacity, f.Usage, f.LightBackground);

@@ -109,7 +109,7 @@ public static class RewardCatalog
 
     /// <summary>
     /// 모든 스킨, 도감 순서 그대로. 일반 버전에는 Released인 것만 보인다(AvailableSkins).
-    /// 1.0.0에 공개한 것: 유령냥·플래시냥·글리치냥. 얼음냥·네온냥·줄줄이냥·포탈냥은 아직 개발용 빌드에서만.
+    /// 1.0.0에 공개한 것: 유령냥·플래시냥·글리치냥. 얼음냥·네온냥·털실냥·줄줄이냥·포탈냥은 아직 개발용 빌드에서만.
     /// </summary>
     private static readonly LocText Rare = new("레어", "Rare");
     private static readonly LocText Epic = new("에픽", "Epic");
@@ -133,6 +133,10 @@ public static class RewardCatalog
             new("얼음빛 몸으로 달리며 발자국마다 서리를 남겨요. 빠를수록 서리가 촘촘하고 오래 남아요.",
                 "Runs with an icy body and leaves frost on every step. The faster it runs, the thicker the frost."),
             Color.FromRgb(0x7F, 0xD8, 0xF5), Color.FromRgb(0x1F, 0x9A, 0xC8)),
+        new(RunnerSkin.Yarn, new("털실냥", "Yarn Cat"), 3, Epic, false,
+            new("털실 뭉치를 툭툭 차면서 달려요. 빨리 달릴수록 세게 차서 털실이 통통 튀며 멀리 굴러가요. 두 마리가 함께 입으면 털실 하나로 패스해요.",
+                "Kicks a ball of yarn along as it runs. The faster it goes, the harder the kick and the farther the yarn bounces. Two cats wearing it pass one ball between them."),
+            Color.FromRgb(0xFF, 0x6B, 0x7A), Color.FromRgb(0xD9, 0x43, 0x4F)),
         new(RunnerSkin.Glitch, new("글리치냥", "Glitch Cat"), 4, Legendary, true,
             new("가끔 화면이 고장 난 것처럼 지지직거려요. CPU가 바쁠수록 자주요.",
                 "Now and then it flickers like a broken screen. More often when your CPU is busy."),
@@ -158,7 +162,7 @@ public static class RewardCatalog
 
     /// <summary>
     /// 뽑기 비율. 등급 몫(레어 60 : 에픽 30 : 전설 10)을 이 빌드에 있는 같은 등급 스킨끼리 똑같이 나눈다.
-    /// 일반 버전(등급마다 하나)은 60 : 30 : 10, 개발용 빌드는 플래시·얼음이 15씩, 글리치·줄줄이·포탈이 약 3.3씩이다.
+    /// 일반 버전(등급마다 하나)은 60 : 30 : 10, 개발용 빌드는 유령·네온이 30씩, 플래시·얼음·털실이 10씩, 글리치·줄줄이·포탈이 약 3.3씩이다.
     /// 가진 스킨을 빼고 남은 것끼리 이 비율로 고른다.
     /// </summary>
     public static double WeightOf(SkinInfo skin) =>

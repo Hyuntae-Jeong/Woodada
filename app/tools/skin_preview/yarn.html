@@ -1,0 +1,579 @@
+<!doctype html>
+<!-- Copyright (c) 2026 Hyuntae Jeong. All rights reserved. Woodada 스페셜 스킨 디자인으로, MIT License 적용 대상이 아닙니다. 사용 조건: app/src/Woodada/Sprites/Skins/LICENSE -->
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>털실냥 미리보기</title>
+<style>
+:root{--bg:#f4f5f8;--card:#fff;--text:#1d1f23;--muted:#6b7180;--line:#e2e5ea;--accent:#4a7bd0}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 "Segoe UI","Malgun Gothic",sans-serif}
+main{max-width:780px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:18px;margin:0 0 2px;font-weight:600}
+p.sub{margin:0 0 14px;color:var(--muted);font-size:13px}
+.scene{position:relative;border-radius:10px;overflow:hidden;margin-bottom:10px;border:1px solid var(--line)}
+.scene canvas{display:block;width:100%;height:130px}
+.tag{position:absolute;left:10px;top:8px;font-size:12px;padding:1px 9px;border-radius:99px;background:rgba(0,0,0,.45);color:#fff}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-top:14px}
+.panel h2{font-size:13px;margin:0 0 10px;color:var(--muted);font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px 24px}
+label.row{display:grid;grid-template-columns:104px 1fr 58px;align-items:center;gap:8px;font-size:13px}
+label.row output{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.checks{display:flex;gap:18px;flex-wrap:wrap;margin-top:12px;font-size:13px;align-items:center}
+.checks label{display:flex;gap:6px;align-items:center}
+button,select{font:inherit;font-size:13px;padding:3px 8px;border:1px solid var(--line);background:#fff;border-radius:6px}
+button{cursor:pointer;padding:4px 12px}
+#zoom{width:100%;height:200px;display:block;border-radius:8px;image-rendering:pixelated}
+#summary,#stats{margin:12px 0 0;font-size:13px;color:var(--muted)}
+#summary{user-select:all}
+.modes{display:flex;gap:6px;margin:0 0 12px}
+.modes button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+</style>
+</head>
+<body>
+<main>
+  <h1>털실냥 미리보기</h1>
+  <p class="sub">실제 RunCat 5프레임으로 그렸어요. 크기는 앱과 같은 물리 픽셀 기준이고, 30fps로 움직여요.
+    고양이가 털실 뭉치를 툭툭 차면서 달려요. 털실은 굴러가며 실 꼬리를 끌고, 따라잡히면 또 차여요.
+    천천히 달리면 코앞에 살포시 굴려 두고, 빨리 달릴수록 세게 차서 털실이 통통 튀며 멀리 굴러가요. 벽에서 돌아서거나 털실이 뒤로 빠지면 뒷발로 머리 위로 넘겨 다시 앞에 둬요.
+    겉모습만 바뀌고 속도와 생선은 그대로예요.</p>
+  <div class="modes" id="modes">
+    <button data-mode="shared" class="on">두 마리 · 털실 하나 같이</button>
+    <button data-mode="own">두 마리 · 털실 각자</button>
+    <button data-mode="single">한 마리</button>
+  </div>
+  <p class="sub" id="modeNote"></p>
+
+  <div class="scene"><canvas data-scene="light"></canvas><span class="tag">밝은 작업표시줄</span></div>
+  <div class="scene"><canvas data-scene="dark"></canvas><span class="tag">어두운 작업표시줄</span></div>
+  <div class="scene"><canvas data-scene="busy"></canvas><span class="tag">화려한 배경화면 + 흰 창</span></div>
+
+  <div class="panel">
+    <h2>확대 (밝은 작업표시줄 털실 주변, 픽셀 그대로)</h2>
+    <canvas id="zoom"></canvas>
+  </div>
+
+  <div class="panel">
+    <h2>조절</h2>
+    <div class="grid" id="controls"></div>
+    <div class="checks">
+      <label>CPU 고양이 <select autocomplete="off" id="color0"></select></label>
+      <label>메모리 고양이 <select autocomplete="off" id="color1"></select></label>
+      <label>털실 색 <select autocomplete="off" id="yarn">
+        <option value="auto" selected>자동 (몸색과 다르게)</option><option value="#E0474C">빨강</option>
+        <option value="#F28AB2">분홍</option><option value="#4C8BF5">파랑</option>
+        <option value="#F2C14E">노랑</option><option value="#5DBB63">초록</option></select></label>
+      <label><input type="checkbox" autocomplete="off" id="labels" checked> 이름표</label>
+      <label><input type="checkbox" autocomplete="off" id="auto"> 사용률 자동 변동</label>
+      <button id="reset">기본값</button>
+    </div>
+    <p id="stats"></p>
+    <p id="summary"></p>
+  </div>
+</main>
+<script>
+const FRAMES = __FRAMES__;
+const DEFS = [
+  ['size','크기',16,72,1,28,'px'],
+  ['cpu','CPU 사용률',0,100,1,15,'%'],
+  ['mem','메모리 사용률',0,100,1,50,'%'],
+  ['ball','털실 크기',20,70,1,40,'%'],
+  ['gapSoft','느릴 때 굴러가는 거리',0.2,3,0.1,0.5,'몸'],
+  ['gapHard','빠를 때 굴러가는 거리',0.6,6,0.1,3.2,'몸'],
+  ['kickSoft','느릴 때 차는 세기',1.1,3,0.05,1.5,'×'],
+  ['kickHard','빠를 때 차는 세기',1.3,4,0.05,2.4,'×'],
+  ['hopSoft','느릴 때 찰 때 튐',0,100,1,4,'%'],
+  ['hopHard','빠를 때 찰 때 튐',0,150,1,65,'%'],
+  ['bounce','바닥 튕김',0,80,1,35,'%'],
+  ['lob','넘길 때 높이',80,250,5,140,'%'],
+  ['thread','실 꼬리',0,250,5,110,'%'],
+  ['strands','감긴 줄',1,5,1,3,'줄'],
+  ['yield','양보 거리',0,15,0.5,6,'몸'],
+];
+const CAT_COLORS = [['#1E1E22','까망'],['#ECE7DF','하양'],['#F4A261','치즈'],['#6D8BA8','고등어'],['#9A9AA0','회색'],
+  ['#C9825B','삼색'],['#7FB8A4','민트'],['#E6C55A','레몬'],['#AE8FC7','라벤더'],['#D9626B','체리']];
+const DEFAULT_COLORS = ['#F4A261', '#1E1E22'];
+const YARNS = { '#E0474C': '빨강', '#F28AB2': '분홍', '#4C8BF5': '파랑', '#F2C14E': '노랑', '#5DBB63': '초록' };
+const MODE_NOTES = {
+  shared: '털실 하나를 두 마리가 같이 써요. 마주 오면 서로 패스하고, 털실이 내 뒤로 빠져도 저쪽에서 다른 고양이가 다가오고 있으면(양보 거리 안) 넘기지 않고 맡겨요. 아무도 안 오면 뒷발로 넘겨요.',
+  own: '고양이마다 제 털실만 차요. 서로의 털실은 그냥 지나쳐요(겹쳐서 지나감).',
+  single: 'CPU 고양이 한 마리만 달려요.',
+};
+const P = {};
+const $ = id => document.getElementById(id);
+const mk = (w, h) => { const c = document.createElement('canvas'); c.width = Math.max(1, w); c.height = Math.max(1, h); return c; };
+
+const ctl = $('controls');
+const fmt = (v, step) => step < 1 ? (+v).toFixed(step < 0.1 ? 2 : 1) : v;
+for (const [k, name, min, max, step, def, unit] of DEFS) {
+  P[k] = def;
+  const l = document.createElement('label'); l.className = 'row';
+  l.innerHTML = `<span>${name}</span><input type="range" autocomplete="off" min="${min}" max="${max}" step="${step}" value="${def}" id="r_${k}"><output id="o_${k}"></output>`;
+  ctl.appendChild(l);
+  const inp = l.querySelector('input'), out = l.querySelector('output');
+  const show = () => out.textContent = fmt(inp.value, step) + unit;
+  show();
+  inp.addEventListener('input', () => { P[k] = +inp.value; show(); invalidate(); });
+}
+P.colors = DEFAULT_COLORS.slice(); P.yarn = 'auto'; P.mode = 'shared';
+for (const i of [0, 1]) {
+  const sel = $('color' + i);
+  sel.innerHTML = CAT_COLORS.map(([v, n]) => `<option value="${v}">${n}</option>`).join('');
+  sel.value = P.colors[i];
+  sel.addEventListener('change', e => { P.colors[i] = e.target.value; invalidate(); });
+}
+$('yarn').addEventListener('change', e => { P.yarn = e.target.value; invalidate(); });
+$('reset').addEventListener('click', () => {
+  for (const [k, , , , step, def, unit] of DEFS) { P[k] = def; $('r_' + k).value = def; $('o_' + k).textContent = fmt(def, step) + unit; }
+  P.colors = DEFAULT_COLORS.slice(); $('color0').value = P.colors[0]; $('color1').value = P.colors[1];
+  $('yarn').value = 'auto'; P.yarn = 'auto'; $('auto').checked = false; invalidate();
+});
+for (const b of document.querySelectorAll('#modes button')) b.addEventListener('click', () => setMode(b.dataset.mode));
+function setMode(m) {
+  P.mode = m;
+  for (const b of document.querySelectorAll('#modes button')) b.classList.toggle('on', b.dataset.mode === m);
+  $('modeNote').textContent = MODE_NOTES[m];
+  for (const sc of scenes) resetScene(sc);
+  stats.kicks = 0; stats.passes = 0; stats.lobs = 0; stats.yields = 0; stats.soft = 0; stats.hard = 0; stats.t0 = t;
+}
+function updateSummary() {
+  const y = yarnColor();
+  $('summary').textContent = `현재 값: 털실 ${YARNS[y] || y}${P.yarn === 'auto' ? '(자동)' : ''} · 크기 키의 ${P.ball}% · 굴러가는 거리 몸 ${P.gapSoft}~${P.gapHard}개 · 차는 세기 ${P.kickSoft}~${P.kickHard}× · 찰 때 튐 ${P.hopSoft}~${P.hopHard}% (느릴 때~빠를 때) · 바닥 튕김 ${P.bounce}% · 넘길 때 높이 키의 ${P.lob}% · 실 꼬리 몸의 ${P.thread}% · 감긴 줄 ${P.strands} · 양보 거리 몸 ${P.yield}개`;
+}
+
+function hexRgb(h) { const n = parseInt(h.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
+const rgbHex = ([r, g, b]) => '#' + [r, g, b].map(v => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')).join('');
+const mix = (a, b, k) => { const A = hexRgb(a), B = hexRgb(b); return rgbHex(A.map((v, i) => v + (B[i] - v) * k)); };
+function hsl(hex) {
+  let [r, g, b] = hexRgb(hex).map(v => v / 255);
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
+  if (d === 0) return { h: 0, s: 0, l };
+  const s = d / (1 - Math.abs(2 * l - 1));
+  let h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return { h: (h * 60 + 360) % 360, s, l };
+}
+const hueDist = (a, b) => { const d = Math.abs(a - b) % 360; return d > 180 ? 360 - d : d; };
+const chromatic = hex => { const c = hsl(hex); return c.s >= 0.25 && c.l >= 0.15 && c.l <= 0.85; };
+// 자동 털실 색: 색 있는 고양이들과 색상(hue)이 가장 먼 것. 둘 다 무채색이면 빨강.
+// 털실을 각자 쓸 때는 고양이마다 따로 고른다.
+function yarnColor(bodies = activeColors()) {
+  if (P.yarn !== 'auto') return P.yarn;
+  const hues = bodies.filter(chromatic).map(c => hsl(c).h);
+  if (!hues.length) return '#E0474C';
+  let best = null, far = -1;
+  for (const y of Object.keys(YARNS)) {
+    const d = Math.min(...hues.map(h => hueDist(h, hsl(y).h)));
+    if (d > far) { far = d; best = y; }
+  }
+  return best;
+}
+const activeColors = () => P.mode === 'single' ? [P.colors[0]] : P.colors;
+function lum(h) { const [r, g, b] = hexRgb(h); return (0.299 * r + 0.587 * g + 0.114 * b) / 255; }
+const eyeFor = c => lum(c) > 0.7 ? '#2d2a30' : '#ffffff';
+
+// ── 마스크 (FrameSprite와 같은 방식: 합집합으로 자르고, 머리 쪽 작은 구멍을 눈으로) ──
+let crop, masks;
+function findEyes(alpha, w, h) {
+  const visited = new Uint8Array(w * h), eye = new Uint8Array(w * h);
+  for (let s = 0; s < w * h; s++) {
+    if (visited[s] || alpha[s] >= 128) continue;
+    const comp = [], q = [s]; visited[s] = 1; let border = false;
+    while (q.length) {
+      const i = q.pop(); comp.push(i);
+      const x = i % w, y = (i / w) | 0;
+      if (x === 0 || y === 0 || x === w - 1 || y === h - 1) border = true;
+      for (const [nx, ny] of [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]]) {
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+        const j = ny * w + nx; if (visited[j] || alpha[j] >= 128) continue;
+        visited[j] = 1; q.push(j);
+      }
+    }
+    if (border || comp.length > w * h / 100) continue;
+    const cx = comp.reduce((a, i) => a + i % w, 0) / comp.length;
+    if (cx < w * 0.55) continue;
+    for (const i of comp) eye[i] = 1;
+  }
+  const grown = eye.slice();
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    if (!eye[y * w + x]) continue;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const nx = x + dx, ny = y + dy; if (nx >= 0 && ny >= 0 && nx < w && ny < h) grown[ny * w + nx] = 1;
+    }
+  }
+  return grown;
+}
+async function loadMasks() {
+  const imgs = await Promise.all(FRAMES.map(src => new Promise(r => { const i = new Image(); i.onload = () => r(i); i.src = src; })));
+  const W = imgs[0].width, H = imgs[0].height;
+  const alphas = imgs.map(img => {
+    const c = mk(W, H), x = c.getContext('2d'); x.drawImage(img, 0, 0);
+    const d = x.getImageData(0, 0, W, H).data, a = new Uint8Array(W * H);
+    for (let i = 0; i < W * H; i++) a[i] = d[i * 4 + 3];
+    return a;
+  });
+  let x0 = W, y0 = H, x1 = -1, y1 = -1;
+  for (const a of alphas) for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (a[y * W + x] > 8) {
+    x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+  }
+  const cw = x1 - x0 + 1, ch = y1 - y0 + 1;
+  crop = { w: cw, h: ch };
+  masks = alphas.map(a => {
+    const al = new Uint8Array(cw * ch);
+    for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) al[y * cw + x] = a[(y + y0) * W + x + x0];
+    const eye = findEyes(al, cw, ch);
+    const sil = mk(cw, ch), eyeC = mk(cw, ch);
+    const sd = sil.getContext('2d').createImageData(cw, ch), ed = eyeC.getContext('2d').createImageData(cw, ch);
+    for (let i = 0; i < cw * ch; i++) {
+      sd.data.set([255, 255, 255, eye[i] ? 255 : al[i]], i * 4);
+      ed.data.set([255, 255, 255, eye[i] ? 255 - al[i] : 0], i * 4);
+    }
+    sil.getContext('2d').putImageData(sd, 0, 0); eyeC.getContext('2d').putImageData(ed, 0, 0);
+    return { sil, eye: eyeC };
+  });
+}
+function place(src, w, h) {
+  const c = mk(w, h), x = c.getContext('2d');
+  x.imageSmoothingQuality = 'high'; x.drawImage(src, 0, 0, w, h); return c;
+}
+function tint(c, color) {
+  const t = mk(c.width, c.height), x = t.getContext('2d');
+  x.drawImage(c, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = color; x.fillRect(0, 0, t.width, t.height); return t;
+}
+let cache = new Map();
+function invalidate() { cache = new Map(); updateSummary(); }
+function frames(h, color) {
+  const key = h + color;
+  if (!cache.has(key)) {
+    const w = Math.max(1, Math.round(h * crop.w / crop.h));
+    cache.set(key, masks.map(m => {
+      const body = mk(w, h), o = body.getContext('2d');
+      o.drawImage(tint(place(m.sil, w, h), color), 0, 0); o.drawImage(tint(place(m.eye, w, h), eyeFor(color)), 0, 0);
+      return { body, w, h };
+    }));
+  }
+  return cache.get(key);
+}
+
+// ── 씬 ──
+const SCENES = {
+  dark:  { desk: '#1a2537', bar: '#202020', edge: 'rgba(255,255,255,.08)', icon: 'rgba(255,255,255,.18)', dark: true },
+  light: { desk: '#e6e9ee', bar: '#f3f3f3', edge: 'rgba(0,0,0,.08)', icon: 'rgba(0,0,0,.14)', dark: false },
+  busy:  { desk: null, bar: '#2a2530', edge: 'rgba(255,255,255,.1)', icon: 'rgba(255,255,255,.2)', dark: true },
+};
+const BAR_H = 40;
+const SEGS = 10;  // 실 꼬리 마디 수
+const LABELS = ['CPU', 'MEM'];
+const scenes = [...document.querySelectorAll('canvas[data-scene]')].map((cv, si) => ({ cv, si, s: SCENES[cv.dataset.scene], cats: [], balls: [] }));
+const stats = { kicks: 0, passes: 0, lobs: 0, yields: 0, soft: 0, hard: 0, t0: 0 };
+
+// 고양이: x(몸 왼쪽), dir, phase, id(0 CPU, 1 메모리)
+// 털실: x(가운데), h(바닥에서 뜬 높이), vx, vh, decel, angle, squash, lob, owner(각자 모드의 주인, 같이 모드는 -1),
+//       lastKicker, cool(다음 차기까지 남은 시간), rope, spark
+function resetScene(sc) {
+  const n = P.mode === 'single' ? 1 : 2;
+  sc.cats = Array.from({ length: n }, (_, i) => ({
+    id: i, x: (sc.cv.width || 600) * (i === 0 ? 0.12 + sc.si * 0.1 : 0.78 - sc.si * 0.1),
+    dir: i === 0 ? 1 : -1, phase: Math.random(),
+  }));
+  sc.balls = [];
+}
+
+function drawBackground(ctx, W, H, s, dpr) {
+  const ground = H - BAR_H * dpr;
+  if (s.desk) { ctx.fillStyle = s.desk; ctx.fillRect(0, 0, W, ground); }
+  else {
+    const g = ctx.createLinearGradient(0, 0, W, ground);
+    g.addColorStop(0, '#f2994a'); g.addColorStop(0.5, '#c0549b'); g.addColorStop(1, '#3b3f8f');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, ground);
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(W * 0.55, 18 * dpr, W * 0.3, ground - 18 * dpr);
+    ctx.fillStyle = '#eceff3'; ctx.fillRect(W * 0.55, 18 * dpr, W * 0.3, 18 * dpr);
+  }
+  ctx.fillStyle = s.bar; ctx.fillRect(0, ground, W, H - ground);
+  ctx.fillStyle = s.edge; ctx.fillRect(0, ground, W, Math.max(1, dpr | 0));
+  ctx.fillStyle = s.icon;
+  const n = 6, size = 22 * dpr, gap = 10 * dpr, start = W / 2 - (n * size + (n - 1) * gap) / 2;
+  for (let i = 0; i < n; i++) {
+    ctx.beginPath(); ctx.roundRect(start + i * (size + gap), ground + (BAR_H * dpr - size) / 2, size, size, 5 * dpr); ctx.fill();
+  }
+  return ground;
+}
+
+let t = 0, last = performance.now(), acc = 0;
+const usage = [P.cpu, P.mem];
+const rand = (a, b) => a + Math.random() * (b - a);
+const gravity = H => 30 * H;                         // 키 대비 중력. 키 28px이면 초당 840px²
+const radius = () => Math.max(2, P.size * P.ball / 200);
+const bodyW = () => P.size * crop.w / crop.h;
+const catSpeed = (w, u) => w * (0.4 + (7 - 0.4) * Math.pow(u, 0.7));  // 앱의 SpeedProfile과 같은 곡선
+const speedOf = c => catSpeed(bodyW(), usage[c.id] / 100);
+// 차는 힘: 지금 달리는 속도로 정한다. 제일 느릴 때 0, 제일 빠를 때 1 (사용률^0.7과 같다).
+const lerp = (a, b, k) => a + (b - a) * k;
+const powerOf = c => Math.min(1, Math.max(0, (speedOf(c) / bodyW() - 0.4) / 6.6));
+const kickOf = p => lerp(P.kickSoft, P.kickHard, p);
+const gapOf = p => lerp(P.gapSoft, P.gapHard, p);
+// 굴러가는 감속: 차인 털실이 고양이보다 (세기−1)배 빠르게 출발해서, 몸 gap개쯤 앞서 나갔다가 따라잡히게 맞춘다.
+const decelFor = (w, v, p) => Math.max(w * 0.03, ((kickOf(p) - 1) * v) ** 2 / (2 * gapOf(p) * w));
+const centerOf = c => c.x + bodyW() / 2;
+const KICK_COOLDOWN = 0.15;  // 한 털실을 두 마리가 같은 순간에 차지 않게
+
+function newBall(owner, cat, floorY, drop) {
+  const w = bodyW(), rad = radius(), v = speedOf(cat), p = powerOf(cat);
+  const b = { x: centerOf(cat) + cat.dir * (w / 2 + rad + gapOf(p) * w * 0.5), h: drop ? P.size * 0.9 : 0, vx: cat.dir * v, vh: 0,
+    decel: decelFor(w, v, p), angle: 0, squash: 0, lob: false, owner, lastKicker: cat.id, cool: 0, spark: null, rope: null, power: p };
+  b.rope = Array.from({ length: SEGS + 1 }, () => ({ x: b.x, y: floorY - 1, px: b.x, py: floorY - 1 }));
+  return b;
+}
+function kick(b, cat) {
+  const w = bodyW(), v = speedOf(cat), H = P.size, front = cat.dir > 0 ? cat.x + w : cat.x;
+  if (P.mode === 'shared' && b.lastKicker !== cat.id) stats.passes++;
+  const p = powerOf(cat);
+  stats.kicks++; if (p >= 0.6) stats.hard++; else if (p < 0.3) stats.soft++;
+  b.vx = cat.dir * kickOf(p) * v * rand(0.9, 1.1);
+  b.decel = decelFor(w, v, p);
+  b.vh = lerp(P.hopSoft, P.hopHard, p) / 100 * Math.sqrt(2 * gravity(H) * H * 0.6) * rand(0.7, 1.15);
+  // 살포시 차면 거의 안 찌그러지고, 세게 차면 확 찌그러진다.
+  b.squash = 0.25 + 0.75 * p; b.power = p; b.lastKicker = cat.id; b.cool = KICK_COOLDOWN; b.yieldedBy = undefined;
+  b.spark = { x: front, y: -radius(), t0: t, dir: cat.dir, p };
+}
+// 뒷발로 넘기기: 털실이 고양이 뒤에 있으면 머리 위로 띄워 앞으로 보낸다. 날아가는 동안 고양이가 달린 거리까지 셈해서 앞에 떨어지게.
+function lob(b, cat) {
+  const w = bodyW(), v = speedOf(cat), H = P.size, g = gravity(H), rad = radius(), p = powerOf(cat);
+  // 넘기는 높이도 느리면 낮게 톡, 빠르면 높이 붕.
+  const vh = Math.sqrt(2 * g * H * P.lob / 100 * lerp(0.6, 1.25, p)), T = 2 * vh / g;
+  const land = centerOf(cat) + cat.dir * (v * T + w / 2 + rad + gapOf(p) * w * 0.6);
+  stats.lobs++;
+  b.vx = (land - b.x) / T; b.vh = vh; b.lob = true; b.squash = 0.25 + 0.75 * p; b.power = p; b.lastKicker = cat.id; b.cool = KICK_COOLDOWN; b.yieldedBy = undefined;
+  b.decel = decelFor(w, v, p);
+  b.spark = { x: b.x, y: -rad, t0: t, dir: cat.dir, p };
+}
+
+function step(dt) {
+  t += dt;
+  usage[0] = $('auto').checked ? 50 + 48 * Math.sin(t * 0.6) : P.cpu;
+  usage[1] = $('auto').checked ? 55 + 30 * Math.sin(t * 0.13 + 1) : P.mem;
+  for (const sc of scenes) {
+    const W = sc.cv.width, H = P.size, w = bodyW(), rad = radius(), g = gravity(H);
+    if (W < w * 3) continue;
+    const floorY = sc.cv.height - BAR_H * (window.devicePixelRatio || 1);
+    if (!sc.cats.length) resetScene(sc);
+    if (!sc.balls.length) sc.balls = P.mode === 'shared' ? [newBall(-1, sc.cats[0], floorY, false)]
+      : sc.cats.map(c => newBall(c.id, c, floorY, false));
+
+    // 고양이 (털실과 상관없이 늘 하던 대로 달리고 벽에서 돈다)
+    for (const c of sc.cats) {
+      const v = speedOf(c);
+      let x = c.x + v * dt * c.dir;
+      if (x > W - w) { x = 2 * (W - w) - x; c.dir = -1; }
+      if (x < 0) { x = -x; c.dir = 1; }
+      c.x = x;
+      c.phase = (c.phase + v * dt / w * 0.8) % 1;
+    }
+
+    for (const b of sc.balls) {
+      // 털실: 공중이면 포물선, 바닥이면 굴러가며 느려진다.
+      b.cool = Math.max(0, b.cool - dt);
+      b.vh -= g * dt; b.h += b.vh * dt;
+      if (b.h <= 0) {
+        b.h = 0;
+        // 넘긴 털실이 처음 땅에 닿으면 찬 것처럼 고양이보다 조금 빠른 속도만 남긴다. 안 그러면 날아온 속도 그대로 멀리 굴러간다.
+        if (b.lob && b.vh < 0) b.vx = Math.sign(b.vx) * Math.min(Math.abs(b.vx), kickOf(b.power) * speedOf(sc.cats[Math.min(b.lastKicker, sc.cats.length - 1)]));
+        if (b.vh < -Math.sqrt(2 * g * H * 0.04)) { b.vh = -b.vh * P.bounce / 100; b.squash = Math.max(b.squash, 0.7); }
+        else b.vh = 0;
+        if (b.vh === 0) b.lob = false;
+      }
+      if (b.h === 0) { const m = Math.abs(b.vx) - b.decel * dt; b.vx = m > 0 ? Math.sign(b.vx) * m : 0; }
+      b.x += b.vx * dt;
+      if (b.x < rad) { b.x = rad; b.vx = Math.abs(b.vx) * 0.5; }
+      if (b.x > W - rad) { b.x = W - rad; b.vx = -Math.abs(b.vx) * 0.5; }
+      b.angle += b.vx * dt / rad;
+      b.squash *= Math.exp(-dt * 14);
+
+      const mine = sc.cats.filter(c => b.owner < 0 || c.id === b.owner);
+      if (!b.lob && b.cool <= 0) {
+        // 차기: 털실이 내 앞, 발끝 닿는 곳에 있고 나보다 빨리 달아나는 중이 아니면 찬다.
+        const kicker = mine.find(c => {
+          const front = c.dir > 0 ? c.x + w : c.x, v = speedOf(c);
+          return c.dir * (b.x - centerOf(c)) > 0 && c.dir * (b.x - front) < rad * 0.4 && b.h < H * 0.45 && c.dir * b.vx < v * 1.05;
+        });
+        if (kicker) kick(b, kicker);
+        else if (b.h < H * 0.2) {
+          // 넘기기: 털실이 내 뒤로 빠졌을 때. 같이 쓰는 털실이면, 털실을 앞에 두고 다가오는 고양이가 가까이 있으면 맡긴다.
+          const behind = mine.filter(c => c.dir * (b.x - centerOf(c)) <= 0 && c.dir * (centerOf(c) - b.x) < w * 2.5)
+            .sort((a, z) => Math.abs(centerOf(a) - b.x) - Math.abs(centerOf(z) - b.x));
+          const coming = mine.some(c => c.dir * (b.x - centerOf(c)) > 0 && c.dir * (b.x - centerOf(c)) < w * P.yield);
+          if (behind.length && !coming) lob(b, behind[0]);
+          else if (behind.length && coming && b.yieldedBy !== behind[0].id) { stats.yields++; b.yieldedBy = behind[0].id; }
+          else if (b.owner >= 0 && !behind.length) {
+            // 각자 쓰는 털실이 주인 뒤로 너무 멀리 처지면 위에서 새로 떨어뜨린다.
+            const o = mine[0];
+            if (o.dir * (centerOf(o) - b.x) >= w * 2.5) Object.assign(b, newBall(b.owner, o, floorY, true));
+          }
+        }
+      }
+      stepRope(b, dt, floorY, rad, w);
+    }
+  }
+  const secs = Math.max(1, t - stats.t0);
+  $('stats').textContent = `지난 ${secs.toFixed(0)}초(세 장면 합): 차기 ${stats.kicks}번(살포시 ${stats.soft} · 세게 ${stats.hard})` +
+    (P.mode === 'shared' ? ` · 그중 패스(다른 고양이가 찬 털실을 받아 참) ${stats.passes}번 · 양보 ${stats.yields}번` : '') + ` · 넘기기 ${stats.lobs}번`;
+}
+
+// 실 꼬리: 털실 가운데에 매달린 짧은 밧줄(버렛 적분). 바닥에 닿은 마디는 끌리며 느려진다.
+function stepRope(b, dt, floorY, rad, w) {
+  const rope = b.rope, H = P.size;
+  const seg = Math.max(0.5, P.thread / 100 * w / SEGS), g = gravity(H) * 0.6, lie = floorY - 1;
+  rope[0].x = b.x; rope[0].y = floorY - b.h - rad;
+  for (let i = 1; i < rope.length; i++) {
+    const p = rope[i], onFloor = p.y >= lie - 0.1;
+    let vx = (p.x - p.px) * (onFloor ? 0.55 : 0.98), vy = (p.y - p.py) * 0.98;
+    p.px = p.x; p.py = p.y;
+    p.x += vx; p.y += vy + g * dt * dt;
+  }
+  for (let k = 0; k < 6; k++) {
+    for (let i = 1; i < rope.length; i++) {
+      const a = rope[i - 1], c = rope[i];
+      const dx = c.x - a.x, dy = c.y - a.y, d = Math.hypot(dx, dy) || 1e-6, diff = (d - seg) / d;
+      if (i === 1) { c.x -= dx * diff; c.y -= dy * diff; }
+      else { a.x += dx * diff * 0.5; a.y += dy * diff * 0.5; c.x -= dx * diff * 0.5; c.y -= dy * diff * 0.5; }
+    }
+    for (let i = 1; i < rope.length; i++) if (rope[i].y > lie) rope[i].y = lie;
+  }
+}
+
+function drawRope(ctx, b, yarn) {
+  const rope = b.rope; if (!rope || P.thread <= 0) return;
+  ctx.save();
+  ctx.strokeStyle = mix(yarn, '#000000', 0.12); ctx.lineWidth = Math.max(1, P.size / 28); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.beginPath(); ctx.moveTo(rope[0].x, rope[0].y);
+  for (let i = 1; i < rope.length - 1; i++) {
+    const mx = (rope[i].x + rope[i + 1].x) / 2, my = (rope[i].y + rope[i + 1].y) / 2;
+    ctx.quadraticCurveTo(rope[i].x, rope[i].y, mx, my);
+  }
+  const e = rope[rope.length - 1]; ctx.lineTo(e.x, e.y);
+  ctx.stroke(); ctx.restore();
+}
+
+function drawBall(ctx, b, floorY, yarn, s) {
+  const rad = radius(), H = P.size;
+  const dark = mix(yarn, '#000000', 0.38), light = mix(yarn, '#ffffff', 0.45);
+  // 바닥 그림자: 높이 뜰수록 작고 옅게
+  const up = Math.min(1, b.h / (H * 1.5));
+  ctx.save();
+  ctx.fillStyle = s.dark ? 'rgba(0,0,0,.35)' : 'rgba(0,0,0,.18)';
+  ctx.globalAlpha = 1 - up * 0.7;
+  ctx.beginPath(); ctx.ellipse(b.x, floorY, rad * (1 - up * 0.4), Math.max(0.8, rad * 0.22), 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+
+  // 찌그러짐: 차이거나 바닥에 떨어진 순간 옆으로 퍼졌다가 돌아온다.
+  const sq = b.squash * 0.22;
+  ctx.save();
+  ctx.translate(b.x, floorY - b.h); ctx.scale(1 + sq, 1 - sq); ctx.translate(0, -rad);
+  ctx.beginPath(); ctx.arc(0, 0, rad, 0, Math.PI * 2);
+  ctx.fillStyle = yarn; ctx.fill();
+  // 감긴 실 줄: 구르는 만큼 돌아간다
+  ctx.save(); ctx.clip();
+  ctx.rotate(b.angle);
+  ctx.strokeStyle = dark; ctx.lineWidth = Math.max(1, rad / 5);
+  for (let i = 0; i < P.strands; i++) {
+    ctx.save(); ctx.rotate(i * Math.PI / P.strands);
+    ctx.beginPath(); ctx.ellipse(0, 0, rad * 1.02, rad * (0.28 + 0.5 * (i % 2)), 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  }
+  ctx.restore();
+  // 하이라이트와 테두리 (밝은 바탕에서도 털실 모양이 보이게)
+  ctx.fillStyle = light; ctx.globalAlpha = 0.7;
+  ctx.beginPath(); ctx.arc(-rad * 0.35, -rad * 0.38, rad * 0.28, 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = dark; ctx.lineWidth = Math.max(1, rad / 6);
+  ctx.beginPath(); ctx.arc(0, 0, rad - ctx.lineWidth / 2, 0, Math.PI * 2); ctx.stroke();
+  ctx.restore();
+}
+
+// 빨리 굴러가는 털실 뒤로 끌리는 바람 줄. 세게 찼을 때만 보인다.
+function drawStreaks(ctx, b, floorY, s) {
+  const w = bodyW(), rad = radius(), k = Math.min(1, (Math.abs(b.vx) / w - 5) / 8);
+  if (k <= 0) return;
+  const dir = Math.sign(b.vx), cy = floorY - b.h - rad;
+  ctx.save();
+  ctx.strokeStyle = s.dark ? '#ffffff' : '#3a3f4a'; ctx.lineWidth = Math.max(1, P.size / 32); ctx.lineCap = 'round';
+  [[-0.45, 0.8], [0, 1.2], [0.45, 0.7]].forEach(([dy, l]) => {
+    const x0 = b.x - dir * rad * 1.3, len = rad * 2.2 * l * k;
+    ctx.globalAlpha = 0.55 * k;
+    ctx.beginPath(); ctx.moveTo(x0, cy + dy * rad); ctx.lineTo(x0 - dir * len, cy + dy * rad); ctx.stroke();
+  });
+  ctx.restore();
+}
+
+// 찰 때 발끝에서 튀는 짧은 선. 살포시 차면 옅은 선 하나, 세게 차면 길고 많은 선이 오래 남는다.
+const SPARK_ANGLES = [[-0.35], [-0.9, -0.35, 0.2], [-1.15, -0.75, -0.35, 0.05, 0.4]];
+function drawSpark(ctx, b, floorY, s) {
+  const sp = b.spark; if (!sp) return;
+  const p = sp.p ?? 0.5;
+  const age = (t - sp.t0) / lerp(0.12, 0.22, p); if (age >= 1) { b.spark = null; return; }
+  const H = P.size, len = H * 0.18 * lerp(0.45, 1.5, p) * (0.5 + age), off = H * 0.1 + H * 0.15 * age * lerp(0.6, 1.4, p);
+  ctx.save();
+  ctx.strokeStyle = s.dark ? '#ffffff' : '#3a3f4a'; ctx.globalAlpha = (1 - age) * lerp(0.45, 1, p); ctx.lineWidth = Math.max(1, H / 28 * lerp(0.8, 1.4, p)); ctx.lineCap = 'round';
+  for (const a of SPARK_ANGLES[p < 0.3 ? 0 : p < 0.6 ? 1 : 2]) {
+    const dx = Math.cos(a) * sp.dir, dy = Math.sin(a);
+    const x0 = sp.x + dx * off, y0 = floorY + sp.y + dy * off;
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x0 + dx * len, y0 + dy * len); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawCat(ctx, c, ground, s, dpr) {
+  const color = P.colors[c.id], fs = frames(P.size, color), f = fs[Math.floor(c.phase * fs.length) % fs.length];
+  const x = Math.round(c.x), y = ground - f.h;
+  ctx.save();
+  if (c.dir < 0) { ctx.translate(x * 2 + f.w, 0); ctx.scale(-1, 1); }
+  ctx.drawImage(f.body, x, y);
+  ctx.restore();
+  if ($('labels').checked && P.mode !== 'single') {
+    ctx.save();
+    ctx.font = `600 ${Math.round(10 * dpr)}px "Segoe UI", sans-serif`; ctx.textAlign = 'center';
+    ctx.fillStyle = s.dark ? 'rgba(255,255,255,.75)' : 'rgba(0,0,0,.55)';
+    ctx.fillText(LABELS[c.id], x + f.w / 2, y - 4 * dpr);
+    ctx.restore();
+  }
+}
+
+function render() {
+  const dpr = window.devicePixelRatio || 1;
+  for (const sc of scenes) {
+    const cv = sc.cv, W = Math.round(cv.clientWidth * dpr), H = Math.round(cv.clientHeight * dpr);
+    if (!W || !H) continue;   // 창이 가려져 크기가 0이면 건너뛴다
+    if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+    const ctx = cv.getContext('2d');
+    const ground = drawBackground(ctx, W, H, sc.s, dpr);
+    const yarns = sc.balls.map(b => b.owner >= 0 ? yarnColor([P.colors[b.owner]]) : yarnColor());
+    sc.balls.forEach((b, i) => drawRope(ctx, b, yarns[i]));
+    for (const c of sc.cats) drawCat(ctx, c, ground, sc.s, dpr);
+    sc.balls.forEach((b, i) => { drawStreaks(ctx, b, ground, sc.s); drawBall(ctx, b, ground, yarns[i], sc.s); drawSpark(ctx, b, ground, sc.s); });
+  }
+  renderZoom();
+}
+function renderZoom() {
+  const dpr = window.devicePixelRatio || 1, cv = $('zoom');
+  const W = Math.round(cv.clientWidth * dpr), H = Math.round(cv.clientHeight * dpr);
+  if (!W || !H || !scenes[0].cv.width || !scenes[0].balls.length) return;
+  if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+  const src = scenes[0].cv, b = scenes[0].balls[0], h = P.size;
+  const scale = Math.max(2, Math.floor(H / (h * 2.4)));
+  const sw = Math.floor(W / scale), sh = Math.floor(H / scale);
+  const ground = src.height - BAR_H * dpr;
+  const sx = Math.max(0, Math.min(src.width - sw, Math.round(b.x) - (sw >> 1)));
+  const sy = Math.max(0, Math.min(src.height - sh, Math.round(ground + sh * 0.2 - sh)));
+  const ctx = cv.getContext('2d'); ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(src, sx, sy, sw, sh, 0, 0, sw * scale, sh * scale);
+}
+function loop(now) {
+  const dt = Math.min(0.1, (now - last) / 1000); last = now; acc += dt;
+  if (acc >= 1 / 30) { step(acc); acc = 0; render(); }   // 앱 기본값처럼 30fps
+  requestAnimationFrame(loop);
+}
+loadMasks().then(() => { updateSummary(); render(); setMode('shared'); render(); requestAnimationFrame(loop); });
+</script>
+</body>
+</html>
