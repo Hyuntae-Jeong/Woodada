@@ -21,8 +21,6 @@ internal enum FrameLayer
     PortalBack,
     /// <summary>포탈 스킨 포탈의 몸 앞 부분(테두리·불꽃). Box는 포탈 자리다.</summary>
     PortalFront,
-    /// <summary>네온 스킨 발밑 빛 웅덩이. Box는 몸 자리고, Opacity는 켜진 정도다.</summary>
-    NeonFloor,
     /// <summary>털실냥 털실의 몸 뒤 부분(실 꼬리·그림자). Box는 털실 자리다.</summary>
     YarnBack,
     /// <summary>털실냥 털실의 몸 앞 부분(털실·찰 때 튄 선). Box는 털실 자리고, Seconds는 털실 시계다.</summary>
@@ -96,10 +94,8 @@ internal static class SkinPainter
         if (skin == RunnerSkin.Kittens) AddKittens(frames, r, originX, floorY, box, pose, color, seconds);
         if (skin == RunnerSkin.Neon)
         {
-            // 네온은 Opacity에 켜진 정도(깜빡임)를 싣는다. 빛 웅덩이는 몸 아래에 깔리게 먼저 넣는다.
+            // 네온은 Opacity에 켜진 정도(깜빡임)를 싣는다.
             NeonSkin.Advance(r.Neon, seconds, r.Usage);
-            frames.Add(new RunnerFrame(r.Sprite, box, pose, color, RunnerSkin.Neon, lightBackground,
-                Layer: FrameLayer.NeonFloor, Opacity: r.Neon.Lit, Usage: r.Usage));
             frames.Add(new RunnerFrame(r.Sprite, box, pose, color, RunnerSkin.Neon, lightBackground,
                 Opacity: r.Neon.Lit, Usage: r.Usage));
             return;
@@ -274,9 +270,6 @@ internal static class SkinPainter
                     break;
                 case FrameLayer.YarnFront:
                     YarnSkin.DrawFront(ctx, f.Box, f.Yarn!, f.Seconds, f.LightBackground, scaling);
-                    break;
-                case FrameLayer.NeonFloor:
-                    NeonSkin.DrawFloor(ctx, f.Box, f.Color, f.Opacity, f.Usage, f.LightBackground);
                     break;
                 case FrameLayer.Body when f.Skin == RunnerSkin.Neon:
                     f.Sprite.DrawNeon(ctx, f.Box, f.Pose, f.Color, scaling, f.Opacity, f.Usage);

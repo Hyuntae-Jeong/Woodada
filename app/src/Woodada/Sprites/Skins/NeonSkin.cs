@@ -21,7 +21,7 @@ public sealed class NeonState
 
 /// <summary>
 /// 네온 스킨: 몸 테두리를 따라 네온관이 빛나고(안쪽에 하얀 심), 몸 안은 고른 색이 어둡게 살짝 비친다.
-/// 관 둘레로 빛이 번지고 발밑 작업표시줄에 빛 웅덩이가 생긴다. 가끔 접촉 불량 난 간판처럼 깜빡인다.
+/// 관 둘레로 빛이 번진다. 가끔 접촉 불량 난 간판처럼 깜빡인다. 발밑 빛 웅덩이도 있었는데 사용자가 없는 게 낫다고 해서 뺐다.
 /// 사용률이 높을수록 더 환하고 더 자주 깜빡인다. 겉모습만 바뀌고 속도·생선은 그대로다.
 /// 값은 tools/skin_preview.py neon 미리보기로 맞췄다. 길이 값은 화면 단위(Windows 물리 픽셀, macOS 포인트)다.
 ///
@@ -58,21 +58,22 @@ internal static class NeonSkin
     /// <summary>발광 번짐(가우시안 표준편차). CSS blur()의 값과 같은 뜻이다.</summary>
     private const double GlowRadius = 5.0;
     public const double GlowOpacity = 0.80;
+    /// <summary>
+    /// 곧은 관 바로 옆에서 넓은 번짐·좁은 번짐의 진하기. 관이 1단위로 가늘어서 그냥 흐리면 빛이 사방으로 흩어져
+    /// 8%쯤밖에 안 남는다(미리보기는 확대해서 봐서 괜찮아 보였지만 실제 작업표시줄에선 거의 안 보였다). 그래서 흐린 뒤 이만큼으로 끌어올린다.
+    /// </summary>
+    private const double WideGlowPeak = 0.55;
+    private const double TightGlowPeak = 0.9;
 
     /// <summary>느리게 걸을 때도 이만큼(0~1)은 환하고, FullUsage(%)에서 가장 환하다. 플래시·얼음과 같은 방식이다.</summary>
     private const double MinStrength = 0.40;
     private const double FullUsage = 40;
 
-    /// <summary>발밑 빛 웅덩이 진하기. 어두운 바탕에선 더 진하게, 밝은 바탕에선 옅게.</summary>
-    private const double FloorOpacity = 0.45;
-    private const double FloorOnDark = 0.55;
-    private const double FloorOnLight = 0.30;
-
     /// <summary>켜진 동안 늘 있는 잔떨림. 밝기가 매 프레임 최대 이만큼 무작위로 떨어진다.</summary>
     private const double Buzz = 0.06;
-    /// <summary>1초에 몇 번 깜빡이는지. 사용률 0%와 100% 사이를 잇는다.</summary>
+    /// <summary>1초에 몇 번 깜빡이는지. 사용률 0%와 100% 사이를 잇는다. 100%에서 0.6이면 사용률이 높을 때 눈이 아파서 0.2로 낮췄다.</summary>
     private const double FlickerAtIdle = 0.08;
-    private const double FlickerAtFull = 0.6;
+    private const double FlickerAtFull = 0.2;
     /// <summary>이만큼(초) 그려지지 않다가 다시 그려지면 새로 입은 것으로 보고 간판 켜지듯 켠다.</summary>
     private const double RebootGap = 0.5;
 
@@ -142,40 +143,6 @@ internal static class NeonSkin
         }
     }
 
-    // ───────────────────────── 발밑 빛 웅덩이 ─────────────────────────
-
-    /// <summary>
-    /// 발밑 작업표시줄 위의 납작한 빛 웅덩이. 몸보다 먼저 그린다.
-    /// 붓은 네온 색마다 하나씩만 만들어 두고, 진하기는 불투명도로 바꾼다(매 프레임 붓을 만들면 메모리가 출렁인다).
-    /// </summary>
-    public static void DrawFloor(DrawingContext ctx, Rect body, Color chosen, double lit, double usagePercent, bool lightBackground)
-    {
-        double opacity = FloorOpacity * Strength(usagePercent) * lit * (lightBackground ? FloorOnLight : FloorOnDark);
-        if (opacity <= 0.01) return;
-        double rx = body.Width * 1.1, ry = rx * 0.28;
-        double cx = body.Center.X, cy = body.Bottom + 1;
-        using var _ = ctx.PushOpacity(opacity);
-        ctx.DrawEllipse(FloorBrush(TubeColor(chosen)), null, new Rect(cx - rx, cy - ry, rx * 2, ry * 2));
-    }
-
-    private static readonly Dictionary<Color, IBrush> FloorBrushes = new();
-
-    private static IBrush FloorBrush(Color neon)
-    {
-        if (FloorBrushes.TryGetValue(neon, out var brush)) return brush;
-        if (FloorBrushes.Count > 64) FloorBrushes.Clear(); // 나만의 색을 계속 바꿔도 끝없이 늘지 않게
-        brush = new RadialGradientBrush
-        {
-            GradientStops =
-            {
-                new GradientStop(neon, 0),
-                new GradientStop(Color.FromArgb(0, neon.R, neon.G, neon.B), 1),
-            },
-        }.ToImmutable();
-        FloorBrushes[neon] = brush;
-        return brush;
-    }
-
     // ───────────────────────── 프레임 그림 ─────────────────────────
 
     /// <summary>
@@ -221,12 +188,15 @@ internal static class NeonSkin
         float[]? glow = null;
         if (layer == Layer.Glow)
         {
-            // 넓게 번진 빛 두 번 + 좁게 번진 빛 한 번을 겹친 진하기.
-            var wideBlur = Blur(ring, W, H, GlowRadius * unitPixels);
-            var tightBlur = Blur(ring, W, H, Math.Max(0.5, GlowRadius * 0.35) * unitPixels);
+            // 넓게 번진 빛 + 좁게 번진 빛. 가는 선을 흐리면 가장 진한 곳이 1/(σ√2π)로 떨어지니 그만큼 되돌려 곱한다.
+            double wideSigma = GlowRadius * unitPixels, tightSigma = Math.Max(0.5, GlowRadius * 0.35) * unitPixels;
+            var wideBlur = Blur(ring, W, H, wideSigma);
+            var tightBlur = Blur(ring, W, H, tightSigma);
+            float wideGain = (float)(WideGlowPeak * wideSigma * Math.Sqrt(2 * Math.PI));
+            float tightGain = (float)(TightGlowPeak * tightSigma * Math.Sqrt(2 * Math.PI));
             glow = new float[W * H];
             for (int i = 0; i < glow.Length; i++)
-                glow[i] = 1 - (1 - wideBlur[i]) * (1 - wideBlur[i]) * (1 - tightBlur[i]);
+                glow[i] = 1 - (1 - Math.Min(1, wideBlur[i] * wideGain)) * (1 - Math.Min(1, tightBlur[i] * tightGain));
         }
 
         var bytes = new byte[W * H * 4];
