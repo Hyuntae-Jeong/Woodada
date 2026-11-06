@@ -134,7 +134,10 @@ internal sealed class WalletHeader : Control
 
         var count = GameArt.Format(GameArt.FormatCount(Math.Max(0, _fish)), GameArt.FontHeadline, GameArt.Text, FontWeight.Bold);
         double countX = pad + fishW + 10;
-        double countY = (height - count.Height) / 2 - 2;
+        // 글자 상자는 위아래 여백이 글꼴마다 달라서, 실제로 칠해지는 숫자 모양의 가운데를 생선 그림 가운데에 맞춘다.
+        // 잉크 아래끝 = Height + OverhangAfter, 잉크 높이 = Extent.
+        double inkMid = count.Height + count.OverhangAfter - count.Extent / 2;
+        double countY = height / 2 - inkMid;
         ctx.DrawText(count, new Point(countX, countY));
         var label = GameArt.Format(Loc.T("생선", "fish"), GameArt.FontBody, GameArt.SubText);
         // 숫자 아랫줄에 맞춘다.
