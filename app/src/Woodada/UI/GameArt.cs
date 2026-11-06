@@ -96,6 +96,14 @@ internal static class GameArt
         g.EndFigure(true);
     });
 
+    private static readonly Point FishEye = new(22, 27);
+    private const double FishEyeRadius = 4.5;
+
+    // 템플릿 그림은 색을 무시하고 투명도만 보므로 흰 눈이 몸과 같은 색이 된다. 그럴 땐 머리에서 눈을 빼 구멍을 낸다.
+    private static readonly Geometry FishHeadWithEyeHole =
+        new CombinedGeometry(GeometryCombineMode.Exclude, FishHead, new EllipseGeometry(new Rect(
+            FishEye.X - FishEyeRadius, FishEye.Y - FishEyeRadius, FishEyeRadius * 2, FishEyeRadius * 2)));
+
     // 꼬리: 두 갈래 끝을 둥글린 V. 테두리를 같은 색으로 한 번 더 그어 모서리를 둥글게 만든다.
     private static readonly Geometry FishTail = Build(g =>
     {
@@ -119,7 +127,8 @@ internal static class GameArt
     /// 왼쪽을 보는 둥근 생선 뼈: 동그란 머리와 흰 눈, 가시 4개, 끝이 둥근 갈래 꼬리.
     /// 고양이 그림과 어울리도록 모든 선 끝과 모서리를 둥글게 한다. box 안에 비율을 지켜 가운데 맞춘다.
     /// </summary>
-    public static void DrawFish(DrawingContext ctx, Rect box, Color? color = null)
+    /// <param name="eyeHole">눈을 흰색으로 칠하지 않고 뚫는다. 막대 색에 맞춰 칠해지는 메뉴 막대 템플릿 그림용이다.</param>
+    public static void DrawFish(DrawingContext ctx, Rect box, Color? color = null, bool eyeHole = false)
     {
         if (box.Width <= 0 || box.Height <= 0) return;
         double scale = Math.Min(box.Width / FishArtBounds.Width, box.Height / FishArtBounds.Height);
@@ -131,7 +140,7 @@ internal static class GameArt
         var body = Brush(color ?? Fish);
         using (ctx.PushTransform(transform))
         {
-            ctx.DrawGeometry(body, null, FishHead);
+            ctx.DrawGeometry(body, null, eyeHole ? FishHeadWithEyeHole : FishHead);
 
             // 등뼈와 가시. 뒤로 갈수록 가시가 짧아진다. 마지막 가시는 꼬리에 붙어 보이지 않게 띄운다.
             // 가격표처럼 작게 그릴 때(높이 16px 미만)는 가시 4개가 뭉개져 빗처럼 보이므로 굵은 가시 3개로 줄인다.
@@ -146,7 +155,7 @@ internal static class GameArt
             ctx.DrawGeometry(body, new Pen(body, 3, lineJoin: PenLineJoin.Round), FishTail);
 
             // 눈: 고양이처럼 흰 점.
-            ctx.DrawEllipse(Brushes.White, null, new Point(22, 27), 4.5, 4.5);
+            if (!eyeHole) ctx.DrawEllipse(Brushes.White, null, FishEye, FishEyeRadius, FishEyeRadius);
         }
     }
 
