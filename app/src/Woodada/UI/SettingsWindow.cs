@@ -219,6 +219,20 @@ internal sealed class SettingsWindow : Window
         }
     }
 
+    /// <summary>생선이 어떻게 모이는지(FishMeter). 맨 위 생선 줄의 "?"에서 연다.</summary>
+    private void ShowFishHelp() => _ = Dialogs.ShowInfoAsync(this, Loc.T("생선은 이렇게 모여요", "How fish add up"),
+        new[]
+        {
+            Loc.T("고양이가 빨리 달릴수록 생선이 빨리 쌓여요. CPU·메모리를 많이 쓸수록 빨리 달려요.",
+                "The faster the cats run, the faster fish add up. They run faster when CPU and memory are busy."),
+            Loc.T("고양이가 한 마리만 떠 있어도 CPU 고양이와 메모리 고양이 몫이 함께 쌓여요.",
+                "Even with one cat on screen, you get fish for both the CPU cat and the memory cat."),
+            Loc.T("고양이 크기는 상관없어요. 작아도 커도 똑같이 쌓여요.",
+                "Cat size doesn't matter. Small or big, you get the same fish."),
+        },
+        Loc.T("두 마리를 모두 숨기거나 전체 화면 앱 때문에 숨어 있으면 쌓이지 않아요.",
+            "No fish while both cats are hidden, or while they hide for a full-screen app."));
+
     private RunnerConfig? Selected => _working.Runners.FirstOrDefault(r => r.Id == _selectedId) ?? _working.Runners.FirstOrDefault();
 
     // ───────────────────────── 레이아웃 ─────────────────────────
@@ -229,6 +243,7 @@ internal sealed class SettingsWindow : Window
         Content = root;
 
         root.Children.Add(_header);
+        _header.HelpRequested += (_, _) => ShowFishHelp();
 
         var nav = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(12, 10, 12, 4) };
         Grid.SetRow(nav, 1);

@@ -1,13 +1,17 @@
 using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Woodada.Settings;
 
 namespace Woodada.UI;
 
-/// <summary>설정 창 맨 위 띠. 가진 생선 수, 다음 생선까지 남은 정도, 생선 1마리에 걸리는 시간을 보여준다.</summary>
+/// <summary>
+/// 설정 창 맨 위 띠. 가진 생선 수, 다음 생선까지 남은 정도, 생선 1마리에 걸리는 시간을 보여준다.
+/// 오른쪽 아래 "?"를 누르면 생선이 어떻게 모이는지 알려 주는 창을 띄운다(<see cref="HelpRequested"/>).
+/// </summary>
 internal sealed class WalletHeader : Control
 {
     private readonly DispatcherTimer _animation = new() { Interval = TimeSpan.FromMilliseconds(33) };
@@ -19,6 +23,16 @@ internal sealed class WalletHeader : Control
     private double _gainedAt = double.NegativeInfinity;
 
     private const double GainShowSeconds = 1.6;
+    private const double HelpSize = 14;
+    private const double HelpMarkSize = 10;
+    private const double CapHalf = 0.36; // 대문자·숫자 높이(글자 크기의 약 0.72)의 반
+
+    // 그릴 때 정해지는 "?" 자리. 누르기·마우스 올리기를 여기서 판단한다.
+    private Rect _helpRect;
+    private bool _helpHover;
+
+    /// <summary>"?"를 눌렀다.</summary>
+    public event EventHandler? HelpRequested;
 
     public WalletHeader()
     {
@@ -28,6 +42,34 @@ internal sealed class WalletHeader : Control
             InvalidateVisual();
         };
         DetachedFromVisualTree += (_, _) => _animation.Stop();
+    }
+
+    protected override void OnPointerMoved(PointerEventArgs e)
+    {
+        base.OnPointerMoved(e);
+        SetHelpHover(_helpRect.Contains(e.GetPosition(this)));
+    }
+
+    protected override void OnPointerExited(PointerEventArgs e)
+    {
+        base.OnPointerExited(e);
+        SetHelpHover(false);
+    }
+
+    protected override void OnPointerPressed(PointerPressedEventArgs e)
+    {
+        base.OnPointerPressed(e);
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed || !_helpRect.Contains(e.GetPosition(this))) return;
+        e.Handled = true;
+        HelpRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void SetHelpHover(bool hover)
+    {
+        if (hover == _helpHover) return;
+        _helpHover = hover;
+        Cursor = hover ? new Cursor(StandardCursorType.Hand) : Cursor.Default;
+        InvalidateVisual();
     }
 
     /// <summary>생선이 늘었으면 "+n"을 잠깐 띄운다. 처음 값은 그냥 보여준다.</summary>
@@ -120,7 +162,18 @@ internal sealed class WalletHeader : Control
         var percent = GameArt.Format($"{_progress:0%}", GameArt.FontNote, GameArt.Text);
         ctx.DrawText(percent, new Point(barX + barW - percent.Width, barY - 19));
         var pace = GameArt.Format(_pace, GameArt.FontNote, GameArt.SubText);
-        ctx.DrawText(pace, new Point(barX, barY + barH + 4));
+        double paceY = barY + barH + 4;
+        ctx.DrawText(pace, new Point(barX, paceY));
+
+        // 속도 줄 오른쪽 끝, 진행 막대 끝선에 맞춘 "?" 단추. 평소엔 속도 글자처럼 회색으로 조용히 있다가
+        // 마우스를 올리면 생선 색으로 바뀐다.
+        // 글자 상자 가운데가 아니라 글자 모양 가운데(기준선에서 대문자 높이의 반 위)에 맞춰야 나란해 보인다.
+        double paceMid = paceY + pace.Baseline - GameArt.FontNote * CapHalf;
+        _helpRect = new Rect(barX + barW - HelpSize, paceMid - HelpSize / 2, HelpSize, HelpSize);
+        GameArt.FillRound(ctx, _helpRect, HelpSize / 2,
+            _helpHover ? GameArt.AccentSoft : Colors.Transparent, _helpHover ? GameArt.Fish : GameArt.SubText, 1.2);
+        var mark = GameArt.Format("?", HelpMarkSize, _helpHover ? GameArt.FishDark : GameArt.SubText, FontWeight.Bold);
+        ctx.DrawText(mark, new Point(_helpRect.Center.X - mark.Width / 2, paceMid - (mark.Baseline - HelpMarkSize * CapHalf)));
 
         var track = new Rect(barX, barY, barW, barH);
         GameArt.FillRound(ctx, track, barH / 2, UI.Theme.Current.ProgressTrack, GameArt.CardBorder);

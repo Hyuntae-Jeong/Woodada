@@ -29,6 +29,61 @@ internal static class Dialogs
         return dialog.ShowDialog<bool>(owner);
     }
 
+    /// <summary>
+    /// 점 목록으로 된 안내 창. 확인 하나만 있다.
+    /// note가 있으면 목록 끝에 연한 글씨로 덧붙인다(예외나 참고처럼 덜 중요한 내용).
+    /// </summary>
+    public static Task ShowInfoAsync(Window owner, string title, IReadOnlyList<string> points, string? note = null)
+    {
+        var dialog = NewDialog(title, 380);
+        var ok = DialogButton(Loc.T("확인", "OK"), primary: true);
+        ok.Click += (_, _) => dialog.Close();
+
+        var list = new StackPanel { Spacing = 10 };
+        foreach (string point in points) list.Children.Add(Bullet(point, GameArt.Text));
+        if (note is not null) list.Children.Add(Bullet(note, GameArt.SubText));
+
+        dialog.Content = DialogBody(list, ok);
+        dialog.KeyDown += (_, e) =>
+        {
+            if (e.Key is Key.Escape or Key.Enter) dialog.Close();
+        };
+        return dialog.ShowDialog(owner);
+    }
+
+    private static Control Bullet(string text, Color color)
+    {
+        // 점도 본문과 같은 줄 높이를 줘야 첫 줄 가운데에 온다.
+        double lineHeight = GameArt.FontLarge * 1.5;
+        var row = new Grid { ColumnDefinitions = new ColumnDefinitions("14,*") };
+        row.Children.Add(new TextBlock { Text = "•", FontSize = GameArt.FontLarge, LineHeight = lineHeight, Foreground = GameArt.Brush(color) });
+        var body = new TextBlock
+        {
+            Text = KeepWordsTogether(text), TextWrapping = TextWrapping.Wrap, FontSize = GameArt.FontLarge,
+            Foreground = GameArt.Brush(color), LineHeight = lineHeight,
+        };
+        Grid.SetColumn(body, 1);
+        row.Children.Add(body);
+        return row;
+    }
+
+    /// <summary>
+    /// 한글은 글자마다 줄을 바꿀 수 있어서 "많|이"처럼 낱말 가운데서 잘린다.
+    /// 띄어쓰기 사이 글자들을 보이지 않는 이음표(U+2060)로 묶어 띄어쓰기에서만 줄이 바뀌게 한다.
+    /// </summary>
+    private static string KeepWordsTogether(string text)
+    {
+        var sb = new System.Text.StringBuilder(text.Length * 2);
+        for (int i = 0; i < text.Length; i++)
+        {
+            sb.Append(text[i]);
+            if (i + 1 < text.Length && !char.IsWhiteSpace(text[i]) && !char.IsWhiteSpace(text[i + 1])
+                && !char.IsHighSurrogate(text[i]))
+                sb.Append('\u2060');
+        }
+        return sb.ToString();
+    }
+
     /// <summary>색을 고른다. 취소하면 null.</summary>
     public static Task<string?> PickColorAsync(Window owner, string initialHex)
     {
@@ -62,13 +117,14 @@ internal static class Dialogs
         Icon = AppIcon.Window,
     };
 
-    private static Control DialogBody(Control content, GameButton primary, GameButton secondary)
+    private static Control DialogBody(Control content, params GameButton[] actions)
     {
         var buttons = new StackPanel
         {
             Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Spacing = 8,
-            Margin = new Thickness(0, 16, 0, 0), Children = { primary, secondary },
+            Margin = new Thickness(0, 16, 0, 0),
         };
+        buttons.Children.AddRange(actions);
         return new StackPanel { Margin = new Thickness(20, 18, 20, 16), Children = { content, buttons } };
     }
 
