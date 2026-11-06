@@ -58,4 +58,8 @@ public readonly record struct SpeedProfile(double BodyWidth, double Min, double 
         Max: bodyWidth * 7.0,      // 100%: 초당 몸 길이 7개 — 전력 질주
         Gamma: 0.7,                // 평소 구간(5~30%)에서도 속도 차이가 보이도록 곡선을 위로 휜다
         StridesPerBody: 0.8);      // 몸 길이 1개 이동할 때 다리 주기 0.8회
+
+    /// <summary>사용률(0~100)에서 속도(초당 단위). 몸 너비 1로 만든 프로필이면 초당 몸 길이다.</summary>
+    public double SpeedAt(double usagePercent) =>
+        Min + (Max - Min) * Math.Pow(Math.Clamp(usagePercent / 100.0, 0, 1), Gamma);
 }

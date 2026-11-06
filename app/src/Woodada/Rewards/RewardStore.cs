@@ -5,7 +5,7 @@ using Woodada.Stats;
 
 namespace Woodada.Rewards;
 
-/// <summary>rewards.json 루트. 모은 생선은 저장하지 않고 달린 기록에서 계산한다.</summary>
+/// <summary>rewards.json 루트. 모은 생선은 여기 저장하지 않고 stats.json의 생선 거리에서 계산한다.</summary>
 public sealed class Inventory
 {
     /// <summary>지금까지 쓴 생선.</summary>
@@ -32,8 +32,8 @@ public readonly record struct GachaResult(RunnerSkin Skin, int Refund);
 
 /// <summary>
 /// 생선 지갑과 잠금 해제 상태. %APPDATA%\Woodada\rewards.json에 산 것만 저장한다.
-/// 생선 = 달린 몸 길이 합 ÷ 1,000 − 쓴 생선. 따로 쌓지 않아서 예전 기록도 그대로 생선이 되고,
-/// 생선 수가 기록과 어긋날 일도 없다.
+/// 생선 = 생선 거리(몸 길이) ÷ 1,000 − 쓴 생선. 생선 거리는 고양이가 화면에 떠 있는 동안
+/// CPU·메모리 몫을 함께 센 값이다(FishMeter). 모은 생선 수는 따로 저장하지 않는다.
 /// </summary>
 public sealed class RewardStore
 {
@@ -60,10 +60,10 @@ public sealed class RewardStore
     /// <summary>무언가를 사거나 나만의 색을 바꾸면 알린다. 생선이 느는 건 알리지 않으니 화면이 직접 읽는다.</summary>
     public event EventHandler? Changed;
 
-    public double TotalBodyLengths => _stats.Current.Runners.Values.Sum(r => r.BodyLengths);
+    public double FishBodyLengths => _stats.FishBodyLengths;
 
     /// <summary>지금까지 모은 생선(쓴 것 포함).</summary>
-    public long EarnedFish => (long)Math.Floor(TotalBodyLengths / RewardCatalog.BodyLengthsPerFish);
+    public long EarnedFish => (long)Math.Floor(FishBodyLengths / RewardCatalog.BodyLengthsPerFish);
 
     /// <summary>지금 쓸 수 있는 생선. 기록 파일이 깨져 줄어들었어도 음수로 보이지 않게 한다.</summary>
     public long Fish => Math.Max(0, EarnedFish - Current.SpentFish);
@@ -74,13 +74,13 @@ public sealed class RewardStore
         get
         {
             double per = RewardCatalog.BodyLengthsPerFish;
-            return TotalBodyLengths % per / per;
+            return FishBodyLengths % per / per;
         }
     }
 
     /// <summary>
     /// 최근 30분 평균으로 생선 1마리에 걸리는 초. 잰 지 1분이 안 됐으면 null,
-    /// 그동안 고양이가 거의 안 달렸으면 무한대다.
+    /// 그동안 고양이가 숨어 있었으면 무한대다.
     /// </summary>
     public double? SecondsPerFish
     {

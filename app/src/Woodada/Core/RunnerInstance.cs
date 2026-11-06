@@ -78,10 +78,7 @@ public sealed class RunnerInstance
     /// <returns>이번에 실제로 달린 거리(px). 다른 모니터로 옮겨져 새 자리에서 출발한 순간이동은 세지 않는다.</returns>
     public double Update(double dt, double rawUsage, Runway runway)
     {
-        // 샘플이 0.5초마다 계단식으로 바뀌므로 지수이동평균으로 부드럽게 따라가게 한다(시정수 ≈ 0.6초).
-        _smoothedUsage = double.IsNaN(_smoothedUsage)
-            ? rawUsage
-            : _smoothedUsage + (rawUsage - _smoothedUsage) * Math.Min(1, dt / 0.6);
+        _smoothedUsage = MetricSampler.Smooth(_smoothedUsage, rawUsage, dt);
 
         var size = BodySize;
         var track = runway.TrackFor(size.Width);

@@ -22,7 +22,7 @@ public sealed class RunnerState
     public double Advance(double dt, double usagePercent, TrackBounds track, SpeedProfile profile)
     {
         Intensity = Math.Clamp(usagePercent / 100.0, 0, 1);
-        Speed = profile.Min + (profile.Max - profile.Min) * Math.Pow(Intensity, profile.Gamma);
+        Speed = profile.SpeedAt(usagePercent);
 
         double moved = 0;
         if (track.Width <= 0)

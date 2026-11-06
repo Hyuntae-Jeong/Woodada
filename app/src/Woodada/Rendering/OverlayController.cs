@@ -28,6 +28,7 @@ internal sealed class OverlayController : IDisposable
     private readonly List<RunnerInstance> _runners = new();
     /// <summary>털실냥들이 차는 털실. 두 마리가 털실냥이면 하나를 같이 쓴다.</summary>
     private readonly YarnPlay _yarn = new();
+    private readonly FishMeter _fish = new();
 
     private double _last;
     private double _sampleAcc, _geometryAcc, _topmostAcc;
@@ -133,6 +134,9 @@ internal sealed class OverlayController : IDisposable
             _stats.Add(r.Config.Id, moved, moved / Math.Max(1, r.BodySize.Width), moved * _pitch.MillimetersPerPixel);
         }
         _yarn.Step(dt, _runners, _runway);
+        // 생선은 러너 기록과 따로 센다. 한 마리라도 떠 있으면 켜고 끈 것과 상관없이 CPU·메모리 몫이 다 쌓인다.
+        // 둘 다 끄거나 숨어 있으면 위에서 이미 돌아갔으니 쌓이지 않는다.
+        _stats.AddFish(_fish.Advance(dt, Sampler));
         _stats.SaveIfDue();
         Render();
 

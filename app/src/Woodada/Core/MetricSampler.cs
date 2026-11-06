@@ -23,6 +23,13 @@ public sealed class MetricSampler
         _ => 0,
     };
 
+    /// <summary>
+    /// 샘플이 0.5초마다 계단식으로 바뀌므로 지수이동평균으로 부드럽게 따라가게 한다(시정수 ≈ 0.6초).
+    /// 처음(NaN)에는 바로 그 값에서 시작한다.
+    /// </summary>
+    public static double Smooth(double previous, double raw, double dt) =>
+        double.IsNaN(previous) ? raw : previous + (raw - previous) * Math.Min(1, dt / 0.6);
+
     public void Sample()
     {
         if (_platform.TryReadCpuTimes(out ulong idle, out ulong total))

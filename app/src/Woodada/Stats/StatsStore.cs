@@ -24,6 +24,13 @@ public sealed class RunStats
 
     /// <summary>날짜(yyyy-MM-dd, 현지 시간) → 러너 Id → 그날 달린 거리(mm).</summary>
     public Dictionary<string, Dictionary<string, double>> Days { get; set; } = new();
+
+    /// <summary>
+    /// 생선으로 칠 몸 길이(FishMeter). 러너 기록과 따로 쌓는다. 꺼 둔 고양이 몫도 들어가니
+    /// 러너 기록에 넣으면 달리지도 않은 고양이 거리가 늘어난다.
+    /// 이 값이 없는 예전 파일은 읽을 때 러너 기록 합계에서 시작한다(<see cref="StatsStore"/>).
+    /// </summary>
+    public double? FishBodyLengths { get; set; }
 }
 
 /// <summary>
@@ -67,7 +74,6 @@ public sealed class StatsStore
         totals.Pixels += pixels;
         totals.BodyLengths += bodyLengths;
         totals.Millimeters += millimeters;
-        Pace.Add(bodyLengths);
 
         // 자정을 넘기면 다음 프레임부터 새 날짜에 쌓인다.
         string today = TodayKey;
@@ -75,6 +81,17 @@ public sealed class StatsStore
             Current.Days[today] = day = new Dictionary<string, double>();
         day[runnerId] = day.GetValueOrDefault(runnerId) + millimeters;
 
+        _dirty = true;
+    }
+
+    /// <summary>생선으로 칠 몸 길이 합계.</summary>
+    public double FishBodyLengths => Current.FishBodyLengths ?? 0;
+
+    public void AddFish(double bodyLengths)
+    {
+        if (bodyLengths <= 0) return;
+        Current.FishBodyLengths = FishBodyLengths + bodyLengths;
+        Pace.Add(bodyLengths);
         _dirty = true;
     }
 
@@ -124,6 +141,8 @@ public sealed class StatsStore
                 {
                     stats.Runners ??= new();
                     stats.Days ??= new();
+                    // 생선을 따로 쌓기 전에는 러너 기록 합계가 곧 생선이었다. 거기서 이어 가야 모은 생선이 줄지 않는다.
+                    stats.FishBodyLengths ??= stats.Runners.Values.Sum(r => r.BodyLengths);
                     return stats;
                 }
             }
@@ -134,6 +153,6 @@ public sealed class StatsStore
             try { File.Copy(_filePath, _filePath + ".broken", overwrite: true); }
             catch (Exception) { }
         }
-        return new RunStats();
+        return new RunStats { FishBodyLengths = 0 };
     }
 }
