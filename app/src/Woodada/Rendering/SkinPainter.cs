@@ -21,6 +21,8 @@ internal enum FrameLayer
     PortalBack,
     /// <summary>포탈 스킨 포탈의 몸 앞 부분(테두리·불꽃). Box는 포탈 자리다.</summary>
     PortalFront,
+    /// <summary>네온 스킨 발밑 빛 웅덩이. Box는 몸 자리고, Opacity는 켜진 정도다.</summary>
+    NeonFloor,
 }
 
 /// <summary>
@@ -86,6 +88,16 @@ internal static class SkinPainter
                 Layer: FrameLayer.IceFrost, Seconds: seconds, Frost: r.Ice, OriginX: originX));
         }
         if (skin == RunnerSkin.Kittens) AddKittens(frames, r, originX, floorY, box, pose, color, seconds);
+        if (skin == RunnerSkin.Neon)
+        {
+            // 네온은 Opacity에 켜진 정도(깜빡임)를 싣는다. 빛 웅덩이는 몸 아래에 깔리게 먼저 넣는다.
+            NeonSkin.Advance(r.Neon, seconds, r.Usage);
+            frames.Add(new RunnerFrame(r.Sprite, box, pose, color, RunnerSkin.Neon, lightBackground,
+                Layer: FrameLayer.NeonFloor, Opacity: r.Neon.Lit, Usage: r.Usage));
+            frames.Add(new RunnerFrame(r.Sprite, box, pose, color, RunnerSkin.Neon, lightBackground,
+                Opacity: r.Neon.Lit, Usage: r.Usage));
+            return;
+        }
         if (skin == RunnerSkin.Portal)
         {
             AddPortals(frames, r, originX, floorY, box, pose, color, seconds, lightBackground);
@@ -237,6 +249,12 @@ internal static class SkinPainter
                     // 포탈에 걸친 몸. 남길 쪽만 보이게 자른다. 위아래는 넉넉히 둬서 잘리지 않게.
                     using (ctx.PushClip(CutClip(f.Box, f.Cut, f.Keep)))
                         f.Sprite.Draw(ctx, f.Box, f.Pose, f.Color, scaling, f.Skin, f.LightBackground);
+                    break;
+                case FrameLayer.NeonFloor:
+                    NeonSkin.DrawFloor(ctx, f.Box, f.Color, f.Opacity, f.Usage, f.LightBackground);
+                    break;
+                case FrameLayer.Body when f.Skin == RunnerSkin.Neon:
+                    f.Sprite.DrawNeon(ctx, f.Box, f.Pose, f.Color, scaling, f.Opacity, f.Usage);
                     break;
                 case FrameLayer.Body when f.Skin == RunnerSkin.Glitch:
                     f.Sprite.DrawGlitch(ctx, f.Box, f.Pose, f.Color, scaling, f.Glitch);

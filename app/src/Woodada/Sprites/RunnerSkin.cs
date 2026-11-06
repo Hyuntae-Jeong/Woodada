@@ -12,6 +12,7 @@ public enum RunnerSkin
     Ice,
     Kittens,
     Portal,
+    Neon,
 }
 
 public static class RunnerSkins
@@ -26,6 +27,7 @@ public static class RunnerSkins
         (RunnerSkin.Ice, "ice"),
         (RunnerSkin.Kittens, "kittens"),
         (RunnerSkin.Portal, "portal"),
+        (RunnerSkin.Neon, "neon"),
     };
 
     public static RunnerSkin Parse(string? id) =>
@@ -34,13 +36,14 @@ public static class RunnerSkins
     public static string? ToId(RunnerSkin skin) => Known.FirstOrDefault(k => k.Skin == skin).Id;
 
     /// <summary>
-    /// 이 스킨을 입었을 때 실제로 보이는 몸색. 유령·얼음은 고른 색 대신 제 색을 입는다.
+    /// 이 스킨을 입었을 때 실제로 보이는 몸색. 유령·얼음은 고른 색 대신 제 색을 입고, 네온은 빛나는 관 색이 보인다.
     /// 설정 창이 몸과 바탕의 대비를 볼 때 쓴다.
     /// </summary>
     public static Color LookColor(RunnerSkin skin, Color chosen) => skin switch
     {
         RunnerSkin.Ghost => GhostSkin.DisplayColor,
         RunnerSkin.Ice => IceSkin.DisplayColor,
+        RunnerSkin.Neon => NeonSkin.TubeColor(chosen),
         _ => chosen,
     };
 
@@ -53,6 +56,7 @@ public static class RunnerSkins
         {
             RunnerSkin.Ghost => Math.Max(basic, GhostSkin.Headroom(height)),
             RunnerSkin.Portal => Math.Max(basic, PortalSkin.Headroom(height)),
+            RunnerSkin.Neon => Math.Max(basic, NeonSkin.Headroom),
             _ => basic,
         };
     }

@@ -54,6 +54,9 @@ public sealed class RunnerInstance
     /// <summary>글리치 스킨이 언제 터졌고 지금 어떤 모양인지.</summary>
     public GlitchState Glitch { get; } = new();
 
+    /// <summary>네온 스킨이 지금 얼마나 켜져 있고 깜빡이는 중인지.</summary>
+    public NeonState Neon { get; } = new();
+
     /// <summary>얼음 스킨이 바닥에 남긴 서리와 흩날리는 눈가루.</summary>
     public IceState Ice { get; } = new();
 

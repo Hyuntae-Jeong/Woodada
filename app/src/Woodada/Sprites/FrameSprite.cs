@@ -16,7 +16,7 @@ namespace Woodada.Sprites;
 /// </summary>
 public sealed class FrameSprite : IRunnerSprite
 {
-    // 설정 창의 색 칸(20개)과 미리보기, 플래시 잔상 색(러너마다 8개), 줄줄이 새끼 색(러너마다 4개), 그리고 개발용 빌드의 스킨 칸·뽑기 무대까지
+    // 설정 창의 색 칸(20개)과 미리보기, 플래시 잔상 색(러너마다 8개), 줄줄이 새끼 색(러너마다 4개), 네온 층(러너마다 4개), 그리고 개발용 빌드의 스킨 칸·뽑기 무대까지
     // 함께 그려도 넘치지 않게. 넘치면 통째로 비우고 다시 칠하므로, 모자라면 매 프레임 그림을 새로 만든다.
     private const int MaxCacheEntries = 160;
 
@@ -31,6 +31,11 @@ public sealed class FrameSprite : IRunnerSprite
         Ice,
         /// <summary>눈 없이 한 색으로 칠한 몸 모양. 잔상에 쓴다.</summary>
         Silhouette,
+        /// <summary>네온 스킨의 네 층(NeonSkin.Layer). 고른 색마다 따로 만든다.</summary>
+        NeonGlow,
+        NeonBase,
+        NeonTube,
+        NeonCore,
     }
 
     private readonly record struct FrameKey(FrameLook Look, uint Argb, int Height, bool LightBack, double UnitPixels);
@@ -100,6 +105,27 @@ public sealed class FrameSprite : IRunnerSprite
         var bmp = PickFrame(GetFrames(new FrameKey(FrameLook.Silhouette, color.ToUInt32(), pixelHeight, false, 1)), pose);
         using var _ = ctx.PushOpacity(Math.Min(1, opacity));
         Blit(ctx, bmp, box, pose.Facing, scale, 0);
+    }
+
+    public void DrawNeon(DrawingContext ctx, Rect box, RunnerPose pose, Color color, double renderScaling, double lit, double usagePercent)
+    {
+        double scale = renderScaling > 0 ? renderScaling : 1;
+        int pixelHeight = Math.Max(4, (int)Math.Round(box.Height * scale));
+        double unitPixels = OperatingSystem.IsMacOS() ? scale : 1;
+        double pad = NeonSkin.PaddingPixels(unitPixels) / scale;
+        uint argb = color.ToUInt32();
+        Bitmap Frame(FrameLook look) => PickFrame(GetFrames(new FrameKey(look, argb, pixelHeight, false, unitPixels)), pose);
+
+        // 밝기는 층마다 불투명도로만 바꿔서, 깜빡여도 그림을 새로 만들지 않는다.
+        double glow = NeonSkin.GlowOpacity * NeonSkin.Strength(usagePercent) * lit;
+        if (glow > 0.01)
+            using (ctx.PushOpacity(Math.Min(1, glow))) Blit(ctx, Frame(FrameLook.NeonGlow), box, pose.Facing, scale, pad);
+        Blit(ctx, Frame(FrameLook.NeonBase), box, pose.Facing, scale, pad);
+        if (lit > 0.01)
+            using (ctx.PushOpacity(Math.Min(1, lit))) Blit(ctx, Frame(FrameLook.NeonTube), box, pose.Facing, scale, pad);
+        double core = NeonSkin.CoreOpacityFor(usagePercent, lit);
+        if (core > 0.01)
+            using (ctx.PushOpacity(Math.Min(1, core))) Blit(ctx, Frame(FrameLook.NeonCore), box, pose.Facing, scale, pad);
     }
 
     public void DrawGlitch(DrawingContext ctx, Rect box, RunnerPose pose, Color color, double renderScaling, GlitchShape? shape)
@@ -243,6 +269,10 @@ public sealed class FrameSprite : IRunnerSprite
             FrameLook.Ghost => m.RenderGhost(width, height, key.LightBack, key.UnitPixels),
             FrameLook.Ice => m.RenderIce(width, height, key.LightBack, key.UnitPixels),
             FrameLook.Silhouette => m.RenderSilhouette(color, width, height),
+            FrameLook.NeonGlow => m.RenderNeon(color, NeonSkin.Layer.Glow, width, height, key.UnitPixels),
+            FrameLook.NeonBase => m.RenderNeon(color, NeonSkin.Layer.Base, width, height, key.UnitPixels),
+            FrameLook.NeonTube => m.RenderNeon(color, NeonSkin.Layer.Tube, width, height, key.UnitPixels),
+            FrameLook.NeonCore => m.RenderNeon(color, NeonSkin.Layer.Core, width, height, key.UnitPixels),
             _ => m.Render(color, width, height),
         }).ToArray();
         _cache[key] = frames;
@@ -406,6 +436,15 @@ public sealed class FrameSprite : IRunnerSprite
             var silhouette = ScaledAlpha(i => _eye[i] ? (byte)255 : _bodyAlpha[i], width, height);
             var eyes = ScaledAlpha(i => _eye[i] ? (byte)(255 - _bodyAlpha[i]) : (byte)0, width, height);
             var bytes = IceSkin.Compose(silhouette, eyes, width, height, lightBackground, unitPixels, out int w, out int h);
+            return FromPremultiplied(bytes, w, h);
+        }
+
+        /// <summary>네온 스킨 프레임의 한 층. 유령처럼 먼저 목표 크기로 줄여야 관이 늘 1단위로 또렷하다.</summary>
+        public Bitmap RenderNeon(Color color, NeonSkin.Layer layer, int width, int height, double unitPixels)
+        {
+            var silhouette = ScaledAlpha(i => _eye[i] ? (byte)255 : _bodyAlpha[i], width, height);
+            var eyes = ScaledAlpha(i => _eye[i] ? (byte)(255 - _bodyAlpha[i]) : (byte)0, width, height);
+            var bytes = NeonSkin.Compose(silhouette, eyes, width, height, color, layer, unitPixels, out int w, out int h);
             return FromPremultiplied(bytes, w, h);
         }
 

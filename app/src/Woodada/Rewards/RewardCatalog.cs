@@ -109,7 +109,7 @@ public static class RewardCatalog
 
     /// <summary>
     /// 모든 스킨, 도감 순서 그대로. 일반 버전에는 Released인 것만 보인다(AvailableSkins).
-    /// 1.0.0에 공개한 것: 유령냥·플래시냥·글리치냥. 얼음냥·줄줄이냥·포탈냥은 아직 개발용 빌드에서만.
+    /// 1.0.0에 공개한 것: 유령냥·플래시냥·글리치냥. 얼음냥·네온냥·줄줄이냥·포탈냥은 아직 개발용 빌드에서만.
     /// </summary>
     private static readonly LocText Rare = new("레어", "Rare");
     private static readonly LocText Epic = new("에픽", "Epic");
@@ -121,6 +121,10 @@ public static class RewardCatalog
             new("반투명한 몸으로 작업표시줄 위를 둥실둥실 떠다녀요. 고른 색 대신 유령색을 입어요.",
                 "Floats along your taskbar with a see-through body. Wears ghostly white instead of your color."),
             Color.FromRgb(0x8E, 0xC5, 0xFF), Color.FromRgb(0x3D, 0x86, 0xD6)),
+        new(RunnerSkin.Neon, new("네온냥", "Neon Cat"), 2, Rare, false,
+            new("몸 테두리가 네온사인처럼 빛나고 발밑까지 빛이 번져요. 가끔 간판처럼 깜빡이는데, 사용률이 높을수록 더 환하고 자주 깜빡여요.",
+                "Its outline glows like a neon sign and lights up the taskbar below. Now and then it flickers; the busier it gets, the brighter and more often."),
+            Color.FromRgb(0x3E, 0xF0, 0xFF), Color.FromRgb(0x12, 0xA3, 0xC4)),
         new(RunnerSkin.Flash, new("플래시냥", "Flash Cat"), 3, Epic, true,
             new("지나온 길에 잔상과 불꽃을 남겨요. 빠를수록 꼬리가 길어져요.",
                 "Leaves afterimages and sparks behind. The faster it runs, the longer the trail."),

@@ -42,6 +42,13 @@ public interface IRunnerSprite
     void DrawGlitch(DrawingContext ctx, Rect box, RunnerPose pose, Color color, double renderScaling, GlitchShape? shape) =>
         Draw(ctx, box, pose, color, renderScaling);
 
+    /// <summary>
+    /// 네온 스킨으로 그린다. lit은 관이 켜진 정도(깜빡임), usagePercent는 발광 세기를 정한다.
+    /// 지원하지 않는 스프라이트는 색만 칠한다.
+    /// </summary>
+    void DrawNeon(DrawingContext ctx, Rect box, RunnerPose pose, Color color, double renderScaling, double lit, double usagePercent) =>
+        Draw(ctx, box, pose, color, renderScaling);
+
     /// <summary>눈 없이 한 색으로 칠한 몸 모양을 opacity만큼 비치게 그린다. 플래시 스킨의 잔상이다.</summary>
     void DrawSilhouette(DrawingContext ctx, Rect box, RunnerPose pose, Color color, double opacity, double renderScaling)
     {
