@@ -27,6 +27,14 @@ internal static class GameArt
     public static Color Good => P.Good;
     public static Color Mystery => P.Mystery;
 
+    /// <summary>별 수(2 레어, 3 에픽, 4 전설)에 맞는 등급 글자색.</summary>
+    public static Color TierInk(int stars) => stars switch
+    {
+        >= 4 => P.TierLegendary,
+        3 => P.TierEpic,
+        _ => P.TierRare,
+    };
+
     // 글자 크기(논리 픽셀). 예전 WinForms 버전의 포인트 크기 × 4/3 이다.
     // 작은 글자 셋은 Windows 100% 배율에서 Skia 글자가 가늘고 흐려 보여 1px씩(메모는 0.7px) 키웠다.
     public const double FontSmall = 12;      // 8.25pt + 1px: 칸 이름·가격

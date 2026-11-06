@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
@@ -815,7 +816,7 @@ internal sealed class SettingsWindow : Window
             Margin = new Thickness(0, 10, 0, 0), MinHeight = 64, Child = new Panel { Children = { _pullRow, _resultRow } },
         });
 
-        // 도감: 스킨 3칸. 없는 칸은 실루엣과 물음표, 등급은 늘 보인다(확률은 보여 주지 않는다).
+        // 도감: 한 줄에 4칸씩, 스킨이 늘면 아래 줄로 넘어간다. 없는 칸은 실루엣과 "???"만 보이고 등급도 숨긴다(확률은 보여 주지 않는다).
         var dexTitle = Label(Loc.T("도감", "Collection"), GameArt.FontSection, GameArt.Text, FontWeight.Bold);
         dexTitle.Margin = new Thickness(0, 12, 8, 4);
         dexTitle.VerticalAlignment = VerticalAlignment.Bottom;
@@ -826,15 +827,14 @@ internal sealed class SettingsWindow : Window
         page.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Children = { dexTitle, _dexCount } });
 
         var skinsInDex = RewardCatalog.AvailableSkins;
-        var dex = new Grid { ColumnDefinitions = new ColumnDefinitions(string.Join(",8,", skinsInDex.Select(_ => "*"))) };
-        for (int i = 0; i < skinsInDex.Count; i++)
+        // 칸 사이 8px: 칸마다 4px 여백을 두고 바깥을 -4px 당겨 가장자리를 위 카드와 맞춘다.
+        var dex = new UniformGrid { Columns = DexColumns, Margin = new Thickness(-4) };
+        foreach (var info in skinsInDex)
         {
-            var info = skinsInDex[i];
             var view = new SkinRunnerView { Skin = info.Skin, Height = 54 };
             var name = new TextBlock { FontWeight = FontWeight.Bold, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 5, 0, 0) };
             var tier = new TextBlock { FontSize = GameArt.FontSmall, HorizontalAlignment = HorizontalAlignment.Center, TextAlignment = TextAlignment.Center };
-            var slot = new CardPanel { Padding = new Thickness(6), Child = new StackPanel { Children = { view, name, tier } } };
-            Grid.SetColumn(slot, i * 2);
+            var slot = new CardPanel { Padding = new Thickness(6), Margin = new Thickness(4), Child = new StackPanel { Children = { view, name, tier } } };
             dex.Children.Add(slot);
             _dexSlots.Add((info, view, name, tier));
         }
@@ -844,6 +844,9 @@ internal sealed class SettingsWindow : Window
         RefreshGacha();
         return page;
     }
+
+    /// <summary>도감 한 줄의 칸 수. 칸이 넉넉해 "★★★★ 전설"이 잘리지 않는다.</summary>
+    private const int DexColumns = 4;
 
     /// <summary>연출을 거듭 확인할 때 쓰는 도구. 개발용 빌드에만 붙는다.</summary>
     private Control BuildGachaDevBar()
@@ -909,10 +912,11 @@ internal sealed class SettingsWindow : Window
             view.InvalidateVisual();
             string stars = new('★', info.Stars);
             name.Text = has ? info.Name : "???";
-            // 한 줄로 쓰면 "Collected · ★★★★ Legendary"가 칸 폭을 넘어 잘리므로 두 줄로 나눈다.
-            tier.Text = has ? Loc.T($"모았어요\n{stars} {info.Tier}", $"Collected\n{stars} {info.Tier}") : $"{stars} {info.Tier}";
-            tier.Foreground = GameArt.Brush(has ? GameArt.Good : GameArt.SubText);
-            tier.FontWeight = has ? FontWeight.SemiBold : FontWeight.Normal;
+            // 없는 칸은 이름 "???"만 보이고 등급은 숨긴다. 칸 높이는 UniformGrid가 맞춰 주므로 줄이 빠져도 칸이 들쭉날쭉하지 않다.
+            tier.IsVisible = has;
+            tier.Text = $"{stars} {info.Tier}";
+            tier.Foreground = GameArt.Brush(GameArt.TierInk(info.Stars));
+            tier.FontWeight = FontWeight.SemiBold;
         }
         _dexCount.Text = Loc.T($"{all.Count}칸 중 {all.Count - left.Count}칸", $"{all.Count - left.Count} of {all.Count}");
 

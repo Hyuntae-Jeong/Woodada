@@ -21,6 +21,11 @@ public sealed class ThemePalette
     public Color SubText { get; init; } = Color.FromRgb(96, 105, 119);
     public Color Good { get; init; } = Color.FromRgb(76, 160, 110);
 
+    /// <summary>스킨 등급 글자색(레어 파랑 · 에픽 보라 · 전설 금색). 흰 카드 위에서 읽히도록 진하게 잡았다.</summary>
+    public Color TierRare { get; init; } = Color.FromRgb(46, 125, 210);
+    public Color TierEpic { get; init; } = Color.FromRgb(140, 82, 214);
+    public Color TierLegendary { get; init; } = Color.FromRgb(196, 128, 12);
+
     /// <summary>생선(재화) 색. 테마가 바뀌어도 생선은 파랑 계열로 둔다.</summary>
     public Color Fish { get; init; } = Color.FromRgb(92, 155, 213);
     /// <summary>생선 색과 짝을 이루는 글자색(살 수 있는 가격, 기록 탭의 생선 줄).</summary>
