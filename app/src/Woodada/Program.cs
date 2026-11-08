@@ -62,5 +62,8 @@ internal static class Program
         // Windows: GPU로 그리면 하이브리드 그래픽 노트북(Intel 화면)에서 드라이버가 화면 크기 버퍼를
         // 계속 잡았다 놓아 메모리가 수백 MB씩 출렁인다. 작업표시줄 띠는 작아서 CPU로 그려도 부담이 적다.
         .With(new Win32PlatformOptions { RenderingMode = new[] { Win32RenderingMode.Software } })
+        // macOS도 같은 이유로 CPU로 그린다. OpenGL로 그리면 화면 폭(5K 모니터면 5120px) 띠 버퍼를 그래픽 메모리에
+        // 잡아 메모리가 200MB를 넘고, 매 프레임 GPU에 넘기는 일로 CPU도 더 쓴다.
+        .With(new AvaloniaNativePlatformOptions { RenderingMode = new[] { AvaloniaNativeRenderingMode.Software } })
         .LogToTrace();
 }
