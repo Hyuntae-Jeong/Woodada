@@ -76,9 +76,12 @@ public sealed class SettingsStore
             // 파일이 깨졌으면 기본값으로 뜬다. 상주 앱이 시작조차 못 하는 것보단 낫다.
             settings = AppSettings.CreateDefault();
         }
-        // 설정 파일이 없거나 깨졌어도 달린 기록이 있으면 예전부터 쓰던 사용자다. 갑자기 영어로 바뀌지 않게 한다.
-        if (!loaded && File.Exists(Path.Combine(AppInfo.DataFolder, "stats.json")))
-            settings.Language = Loc.KoreanId;
+        // 새 설치는 컴퓨터 화면 언어를 따른다(한국어면 한국어, 그 밖엔 영어).
+        // 설정 파일이 없거나 깨졌어도 달린 기록이 있으면 예전부터 쓰던 사용자다. 갑자기 영어로 바뀌지 않게 한국어로 둔다.
+        if (!loaded)
+            settings.Language = File.Exists(Path.Combine(AppInfo.DataFolder, "stats.json"))
+                ? Loc.KoreanId
+                : Loc.SystemDefaultId();
         settings.Normalize();
         return settings;
     }

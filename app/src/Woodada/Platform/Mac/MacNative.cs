@@ -146,4 +146,28 @@ internal static class MacNative
         RuntimeInformation.ProcessArchitecture == Architecture.Arm64
             ? SendReturnRectArm(receiver, selector)
             : SendReturnRectIntel(receiver, selector);
+
+    // ---- Objective-C: 화면 언어 ----
+    /// <summary>
+    /// [NSLocale preferredLanguages]의 첫 언어(예: "ko-KR"). 시스템 설정 > 일반 > 언어 및 지역의 맨 위 언어다. 못 읽으면 null.
+    /// .NET의 CultureInfo는 Finder에서 띄우면 LANG이 없어 이 값을 못 볼 때가 있어서 직접 읽는다.
+    /// </summary>
+    public static string? PreferredLanguage()
+    {
+        var pool = objc_autoreleasePoolPush();
+        try
+        {
+            var locale = objc_getClass("NSLocale");
+            if (locale == IntPtr.Zero) return null;
+            var languages = Send(locale, sel_registerName("preferredLanguages"));
+            if (languages == IntPtr.Zero || SendReturnNUInt(languages, sel_registerName("count")) == 0) return null;
+            var first = SendIndex(languages, sel_registerName("objectAtIndex:"), 0);
+            if (first == IntPtr.Zero) return null;
+            return Marshal.PtrToStringUTF8(Send(first, sel_registerName("UTF8String")));
+        }
+        finally
+        {
+            objc_autoreleasePoolPop(pool);
+        }
+    }
 }

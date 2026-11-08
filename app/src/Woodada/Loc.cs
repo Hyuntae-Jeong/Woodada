@@ -35,6 +35,24 @@ public static class Loc
         string.Equals(id, KoreanId, StringComparison.OrdinalIgnoreCase) ? AppLanguage.Korean : AppLanguage.English;
 
     public static string ToId(AppLanguage language) => language == AppLanguage.Korean ? KoreanId : EnglishId;
+
+    /// <summary>새로 설치했을 때 쓸 언어. 컴퓨터 화면 언어가 한국어면 한국어, 그 밖에는 영어.</summary>
+    public static string SystemDefaultId()
+    {
+        string? name = null;
+        try
+        {
+            if (OperatingSystem.IsMacOS()) name = Platform.Mac.MacNative.PreferredLanguage();
+        }
+        catch (Exception)
+        {
+            // 못 읽으면 아래 .NET 값으로 정한다.
+        }
+        if (string.IsNullOrEmpty(name)) name = System.Globalization.CultureInfo.CurrentUICulture.Name;
+        // "ko", "ko-KR", "ko_KR"처럼 앞 언어 부분만 본다. "kok"(콘칸어) 같은 다른 언어와 헷갈리지 않게.
+        var primary = name.Split('-', '_')[0];
+        return string.Equals(primary, KoreanId, StringComparison.OrdinalIgnoreCase) ? KoreanId : EnglishId;
+    }
 }
 
 /// <summary>
