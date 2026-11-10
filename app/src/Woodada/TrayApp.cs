@@ -95,7 +95,11 @@ internal sealed class TrayApp : IDisposable
 
         _tooltipTimer.Tick += (_, _) =>
         {
-            _tray.ToolTipText = $"{AppInfo.Tag}CPU {_overlay.Sampler.Cpu:0}% · Memory {_overlay.Sampler.Memory:0}%";
+            // 설정 창을 열지 않고도 마우스만 올려 생선 수를 볼 수 있게 둘째 줄에 늘 넣는다.
+            // 이모지는 Windows 툴팁에서 흑백이나 네모로 깨질 수 있어 글자로만 쓴다.
+            string fish = GameArt.FormatCount(_rewards.Fish);
+            _tray.ToolTipText = $"{AppInfo.Tag}CPU {_overlay.Sampler.Cpu:0}% · Memory {_overlay.Sampler.Memory:0}%\n"
+                + Loc.T($"생선 {fish}개", $"{fish} fish");
             UpdateMenuBarCount();
         };
         _tooltipTimer.Start();
