@@ -77,7 +77,6 @@ internal sealed class SettingsWindow : Window
     private readonly TextBlock _resultName = new();
     private readonly TextBlock _resultStars = new();
     private readonly TextBlock _resultDesc = new();
-    private readonly StackPanel _wearButtons = new() { Orientation = Orientation.Horizontal, Spacing = 6 };
     private readonly GameButton _again = new(Loc.T("한 번 더", "Again"), primary: true);
     private readonly TextBlock _dexCount = new();
     private readonly List<(SkinInfo Info, SkinRunnerView View, TextBlock Name, TextBlock Tier)> _dexSlots = new();
@@ -822,7 +821,7 @@ internal sealed class SettingsWindow : Window
         _again.Click += (_, _) => Pull();
         var resultRight = new StackPanel
         {
-            Orientation = Orientation.Horizontal, Spacing = 6, VerticalAlignment = VerticalAlignment.Center, Children = { _wearButtons, _again },
+            Orientation = Orientation.Horizontal, Spacing = 6, VerticalAlignment = VerticalAlignment.Center, Children = { _again },
         };
         Grid.SetColumn(resultRight, 1);
         _resultRow.Children.Add(resultRight);
@@ -1011,7 +1010,6 @@ internal sealed class SettingsWindow : Window
             _resultDesc.Text = until <= 1
                 ? Loc.T($"{spent} 다음 번엔 꼭 스킨이 나와요", $"{spent} Your next pull is guaranteed a skin")
                 : Loc.T($"{spent} {until}번 안에 꼭 스킨이 나와요", $"{spent} A skin is guaranteed within {until} pulls");
-            _wearButtons.Children.Clear();
             RefreshGacha();
             return;
         }
@@ -1021,29 +1019,9 @@ internal sealed class SettingsWindow : Window
         _resultStars.Text = $"{new string('★', info.Stars)}{new string('☆', 4 - info.Stars)}  {info.Tier}";
         _resultStars.Foreground = GameArt.Brush(info.Ink);
         _resultDesc.Text = info.Description;
-        RefreshWearButtons();
+        // 입히기는 고양이 탭 스페셜 스킨 줄에서 한다(뽑기 탭은 뽑기만).
         RefreshGacha();
         RefreshSkinTiles();
-    }
-
-    /// <summary>결과 줄의 "○○ 고양이에 입히기". 이미 입은 고양이는 "입었어요"로 잠근다.</summary>
-    private void RefreshWearButtons()
-    {
-        _wearButtons.Children.Clear();
-        foreach (var r in _working.Runners)
-        {
-            string id = r.Id;
-            bool worn = RunnerSkins.Parse(r.Skin) == _pulled;
-            var button = new GameButton(worn
-                ? Loc.T($"{RunnerName(r)}가 입었어요", $"Worn by {RunnerName(r)}")
-                : Loc.T($"{RunnerName(r)}에 입히기", $"Put on {RunnerName(r)}")) { IsEnabled = !worn };
-            button.Click += (_, _) =>
-            {
-                WearSkin(id, _pulled);
-                RefreshWearButtons();
-            };
-            _wearButtons.Children.Add(button);
-        }
     }
 
     /// <summary>개발용: 뽑은 스킨을 다 지우고, 입고 있던 스킨도 벗긴다. 없는 스킨을 입은 채로 남지 않게.</summary>
