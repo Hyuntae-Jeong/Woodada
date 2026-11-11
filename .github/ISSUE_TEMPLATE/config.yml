@@ -1,0 +1,7 @@
+# 빈 이슈를 막아 버그 제보·기능 제안 양식 중 하나로만 올리게 한다.
+# 저장소에 쓰기 권한이 있는 사람(관리자)은 이 설정과 상관없이 빈 이슈를 열 수 있다.
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Questions & ideas / 질문·아이디어
+    url: https://github.com/Hyuntae-Jeong/Woodada/discussions
+    about: Ask how something works or share a rough idea. / 사용법을 묻거나 아직 다듬지 않은 아이디어를 나눠요.

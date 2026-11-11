@@ -1,0 +1,80 @@
+name: 🐛 Bug report / 버그 제보
+description: Something isn't working as it should. / 앱이 이상하게 동작해요.
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this! English or Korean, either is fine.
+        제보해 줘서 고마워요! 영어나 한국어 중 편한 말로 써 주세요.
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: OS / 운영체제
+      options:
+        - Windows 11
+        - Windows 10
+        - macOS (Apple Silicon)
+        - macOS (Intel)
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Woodada version / Woodada 버전
+      description: |
+        Windows: right-click Woodada.exe → Properties → Details → Product version. macOS: right-click Woodada.app → Get Info.
+        Windows: Woodada.exe 오른쪽 클릭 → 속성 → 자세히 → 제품 버전. 맥: Woodada.app 오른쪽 클릭 → 정보 가져오기.
+      placeholder: "1.2.2"
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened? / 무슨 일이 있었나요?
+      placeholder: |
+        The cat disappears when I press Show desktop.
+        바탕화면 보기를 누르면 고양이가 사라져요.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce / 재현 방법
+      placeholder: |
+        1. Open settings and pick ...
+        2. ...
+        3. See ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect? / 원래 어떻게 돼야 하나요?
+
+  - type: textarea
+    id: setup
+    attributes:
+      label: Screen setup / 화면 환경
+      description: |
+        Number of monitors, taskbar or Dock position, auto-hide, display scaling. Leave it empty if it doesn't seem related.
+        모니터 개수, 작업표시줄·독 위치, 자동 숨김, 화면 배율. 상관없어 보이면 비워 두세요.
+      placeholder: "2 monitors, taskbar at the bottom, 150% scaling / 모니터 2대, 작업표시줄 아래, 배율 150%"
+
+  - type: textarea
+    id: media
+    attributes:
+      label: Screenshots or recording / 스크린샷·화면 녹화
+      description: Drag files here. / 파일을 여기로 끌어다 놓으세요.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you submit / 올리기 전에
+      options:
+        - label: I searched existing issues and this hasn't been reported yet. / 이미 올라온 이슈가 없는지 찾아봤어요.
+          required: true

@@ -1,0 +1,46 @@
+name: 💡 Feature request / 기능 제안
+description: An idea to make Woodada better. / Woodada에 있으면 좋을 기능이 있어요.
+title: "[Idea] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        English or Korean, either is fine. Not sure yet? Start a Discussion first.
+        영어나 한국어 중 편한 말로 써 주세요. 아직 아이디어 단계라면 Discussions에 먼저 올려도 좋아요.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area / 어느 부분인가요?
+      options:
+        - Runners (cat, dog, rabbit) / 러너(고양이·강아지·토끼)
+        - Skins / 스킨
+        - Fish / 생선
+        - Settings window / 설정 창
+        - Tray or menu bar / 트레이·메뉴 막대
+        - Something else / 기타
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would you like? / 무엇을 원하나요?
+      description: |
+        What do you want to do, and why? Tell us the situation, not just the feature.
+        무엇을 하고 싶은지, 왜 필요한지 적어 주세요. 기능보다 어떤 상황인지가 더 도움이 돼요.
+      placeholder: |
+        I use two monitors and want the cat to run on both.
+        모니터를 두 대 쓰는데 고양이가 양쪽에서 다 달렸으면 좋겠어요.
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: How could it work? / 어떻게 동작하면 좋을까요?
+      description: Optional. Sketches and screenshots welcome. / 선택이에요. 그림이나 스크린샷도 좋아요.
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Anything you've tried instead? / 대신 써 본 방법이 있나요?
