@@ -187,7 +187,7 @@ internal sealed class TrayApp : IDisposable
         if (_downloadItem is null)
         {
             _downloadItem = new NativeMenuItem();
-            _downloadItem.Click += (_, _) => OpenUrl(_downloadUrl);
+            _downloadItem.Click += (_, _) => ExternalLinks.Open(_downloadUrl);
             _menu.Items.Insert(0, _downloadItem);
         }
         _downloadVersion = version;
@@ -197,19 +197,7 @@ internal sealed class TrayApp : IDisposable
         _notifiedVersion = release.Version;
         Toast.Show(Loc.T("새 버전이 나왔어요", "A new version is out"),
             Loc.T($"Woodada v{version}을 받을 수 있어요. 눌러서 다운로드 페이지를 열어요.", $"Woodada v{version} is ready. Click to open the download page."),
-            () => OpenUrl(_downloadUrl));
-    }
-
-    private static void OpenUrl(string url)
-    {
-        try
-        {
-            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
-        }
-        catch (Exception ex)
-        {
-            Updater.Log($"페이지를 열지 못했습니다: {ex.Message}");
-        }
+            () => ExternalLinks.Open(_downloadUrl));
     }
 
     private void ShowSettings(SettingsWindow.Page page = SettingsWindow.Page.Cats, PixelPoint? position = null)

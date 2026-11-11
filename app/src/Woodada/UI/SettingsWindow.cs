@@ -17,7 +17,7 @@ namespace Woodada.UI;
 /// <summary>
 /// 맨 위: 가진 생선 · 다음 생선까지 진행 막대.
 /// 고양이 — CPU·메모리 고양이 카드(표시 · 미리보기 · 크기)와 색 칸 20개(기본 10 + 나만의 색 10).
-/// 옷장 — 러너 모음. 기록 — 달린 거리. 일반 — 모니터 · 전체 화면 · 메뉴 막대 생선 수 · 언어.
+/// 옷장 — 러너 모음. 기록 — 달린 거리. 일반 — 모니터 · 전체 화면 · 메뉴 막대 생선 수 · 언어, 카드 아래 버전·버그 제보.
 /// 냥뽑기 — 생선으로 스페셜 스킨 뽑기(꽝 있음). 뽑은 스킨은 고양이 탭 맨 아래 스킨 줄에서 입힌다.
 /// 개발용 빌드는 아직 공개하지 않은 스킨까지 보이고, 뽑기 탭에 개발용 도구가 붙는다.
 /// 바꾸는 즉시 오버레이에 반영하고 저장한다.
@@ -1450,7 +1450,28 @@ internal sealed class SettingsWindow : Window
         grid.Children.Add(_language);
 
         var card = new CardPanel { Padding = new Thickness(16, 14, 16, 12), Child = grid, VerticalAlignment = VerticalAlignment.Top };
-        return new StackPanel { Margin = new Thickness(0, 12, 0, 0), Children = { card } };
+        return new StackPanel { Margin = new Thickness(0, 12, 0, 0), Children = { card, BuildAboutRow() } };
+    }
+
+    /// <summary>
+    /// 카드 아래 버전 줄. 설정이 아니라 정보라서 카드 밖에 흐리게 둔다.
+    /// 버그 제보 버튼은 버전·OS를 미리 채운 GitHub 양식을 열어, 사용자가 버전을 찾지 않아도 되게 한다.
+    /// </summary>
+    private static Control BuildAboutRow()
+    {
+        var version = Label($"Woodada {ExternalLinks.VersionText}", GameArt.FontNote, GameArt.SubText);
+        version.VerticalAlignment = VerticalAlignment.Center;
+
+        var report = new GameButton(Loc.T("버그 제보하기", "Report a bug")) { VerticalAlignment = VerticalAlignment.Center };
+        report.Click += (_, _) => ExternalLinks.Open(ExternalLinks.BugReportUrl());
+        Grid.SetColumn(report, 1);
+
+        return new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("*,Auto"),
+            Margin = new Thickness(4, 10, 0, 0),
+            Children = { version, report },
+        };
     }
 
     // ───────────────────────── 데이터 ↔ 화면 ─────────────────────────

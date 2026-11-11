@@ -9,15 +9,13 @@ body:
         Thanks for taking the time to report this! English or Korean, either is fine.
         제보해 줘서 고마워요! 영어나 한국어 중 편한 말로 써 주세요.
 
-  - type: dropdown
+  # 드롭다운은 주소(?os=…)로 미리 채울 수 없어서 글자 칸으로 둔다. 앱의 "버그 제보하기" 버튼이 채운다.
+  - type: input
     id: os
     attributes:
       label: OS / 운영체제
-      options:
-        - Windows 11
-        - Windows 10
-        - macOS (Apple Silicon)
-        - macOS (Intel)
+      description: Include Apple Silicon or Intel on a Mac. / 맥이면 Apple Silicon인지 Intel인지도 적어 주세요.
+      placeholder: "Windows 11 / macOS 15 (Apple Silicon)"
     validations:
       required: true
 
@@ -26,8 +24,8 @@ body:
     attributes:
       label: Woodada version / Woodada 버전
       description: |
-        Windows: right-click Woodada.exe → Properties → Details → Product version. macOS: right-click Woodada.app → Get Info.
-        Windows: Woodada.exe 오른쪽 클릭 → 속성 → 자세히 → 제품 버전. 맥: Woodada.app 오른쪽 클릭 → 정보 가져오기.
+        Shown at the bottom of Settings → General. The "Report a bug" button there fills this in for you.
+        설정 → 일반 탭 맨 아래에 있어요. 거기 있는 "버그 제보하기" 버튼으로 오면 자동으로 채워져요.
       placeholder: "1.2.2"
 
   - type: textarea
