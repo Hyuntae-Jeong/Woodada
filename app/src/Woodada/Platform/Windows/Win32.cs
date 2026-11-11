@@ -73,6 +73,12 @@ internal static class Win32
     [DllImport("shell32.dll")]
     public static extern int SHQueryUserNotificationState(out int pquns);
 
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern int GetClassName(IntPtr hWnd, char[] lpClassName, int nMaxCount);
+
     // ---- metrics ----
     [DllImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]

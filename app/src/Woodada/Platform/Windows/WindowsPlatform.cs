@@ -73,9 +73,28 @@ internal sealed class WindowsPlatform : IPlatform
         return Win32.GetMonitorInfo(MonitorHandle(screen), ref info) ? info.szDevice : null;
     }
 
-    public bool IsFullScreenAppActive() =>
-        Win32.SHQueryUserNotificationState(out int state) == 0 &&
-        state is Win32.QUNS_BUSY or Win32.QUNS_RUNNING_D3D_FULL_SCREEN or Win32.QUNS_PRESENTATION_MODE;
+    public bool IsFullScreenAppActive()
+    {
+        if (Win32.SHQueryUserNotificationState(out int state) != 0) return false;
+        return state switch
+        {
+            Win32.QUNS_RUNNING_D3D_FULL_SCREEN or Win32.QUNS_PRESENTATION_MODE => true,
+            // 바탕화면 창도 화면 전체를 덮어서, 바탕화면 보기(Win+D)나 바탕화면 빈 곳 클릭으로
+            // 바탕화면이 맨 앞에 오면 BUSY가 온다. 그때 숨기면 다른 앱을 띄울 때까지 고양이가 사라진다.
+            Win32.QUNS_BUSY => !IsDesktopForeground(),
+            _ => false,
+        };
+    }
+
+    /// <summary>맨 앞 창이 바탕화면(Progman, 바탕화면 보기·배경 슬라이드쇼 중엔 WorkerW)인지.</summary>
+    private static bool IsDesktopForeground()
+    {
+        var hwnd = Win32.GetForegroundWindow();
+        if (hwnd == IntPtr.Zero) return false;
+        var buf = new char[32];
+        int n = Win32.GetClassName(hwnd, buf, buf.Length);
+        return new string(buf, 0, n) is "Progman" or "WorkerW";
+    }
 
     // ───────── 오버레이 창 ─────────
 
