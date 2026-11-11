@@ -145,6 +145,9 @@ jobs:
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
+          # 링크가 저장소 밖(커뮤니티·알림)에서 보여도 무슨 제품인지 알 수 있게 제목에 제품명을 붙인다.
+          # 태그는 그대로 v1.2.3 형태라 자동 업데이트·홈페이지(tag_name을 읽음)에는 영향이 없다.
+          name: Woodada ${{ github.ref_name }}
           files: |
             artifacts/Woodada.exe
             artifacts/Woodada-mac-arm64.dmg
