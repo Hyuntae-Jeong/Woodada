@@ -33,6 +33,9 @@ internal sealed class TrayApp : IDisposable
     private readonly CancellationTokenSource _updateCts = new();
     private SettingsWindow? _settingsWindow;
 
+    /// <summary>설정 창을 만드는 중인지. 만드는 도중에 끼어든 트레이 클릭이 창을 하나 더 만들지 않게 막는다.</summary>
+    private bool _creatingSettings;
+
     /// <summary>메뉴 막대 아이콘에 지금 그려 둔 생선 수 글자. null이면 고양이만 있는 기본 아이콘이다.</summary>
     private string? _menuBarCount;
 
@@ -208,7 +211,14 @@ internal sealed class TrayApp : IDisposable
             _settingsWindow.Activate();
             return;
         }
-        var window = new SettingsWindow(_store, _stats, _rewards, _overlay.Sampler);
+        // 트레이 아이콘을 더블클릭하면 클릭이 두 번 오는데, 탐색기는 이 클릭을 줄 세우지 않고 바로 보내서(sent message)
+        // 첫 클릭으로 설정 창을 만드는 도중에 두 번째 클릭이 끼어들 수 있다. 그때는 _settingsWindow가 아직 비어 있어
+        // 창이 하나 더 생기므로, 만드는 중이면 새로 만들지 않는다.
+        if (_creatingSettings) return;
+        SettingsWindow window;
+        _creatingSettings = true;
+        try { window = new SettingsWindow(_store, _stats, _rewards, _overlay.Sampler); }
+        finally { _creatingSettings = false; }
         _settingsWindow = window;
         window.ShowPage(page);
         if (position is { } p)
