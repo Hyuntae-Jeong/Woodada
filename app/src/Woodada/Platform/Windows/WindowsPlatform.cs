@@ -73,17 +73,32 @@ internal sealed class WindowsPlatform : IPlatform
         return Win32.GetMonitorInfo(MonitorHandle(screen), ref info) ? info.szDevice : null;
     }
 
-    public bool IsFullScreenAppActive()
+    /// <summary>
+    /// 알림 상태는 시스템 전체 값 하나라서 어느 모니터가 전체 화면인지는 알려 주지 않는다.
+    /// 게임·전체 화면 창이면 맨 앞 창이 고양이가 달리는 모니터에 있을 때만 숨긴다.
+    /// 발표 모드는 발표자 보기를 다른 모니터에 띄우는 경우가 많아 모든 모니터에서 숨긴다.
+    /// </summary>
+    public bool IsFullScreenAppActive(Screen screen)
     {
         if (Win32.SHQueryUserNotificationState(out int state) != 0) return false;
         return state switch
         {
-            Win32.QUNS_RUNNING_D3D_FULL_SCREEN or Win32.QUNS_PRESENTATION_MODE => true,
+            Win32.QUNS_PRESENTATION_MODE => true,
+            Win32.QUNS_RUNNING_D3D_FULL_SCREEN => IsForegroundOn(screen),
             // 바탕화면 창도 화면 전체를 덮어서, 바탕화면 보기(Win+D)나 바탕화면 빈 곳 클릭으로
             // 바탕화면이 맨 앞에 오면 BUSY가 온다. 그때 숨기면 다른 앱을 띄울 때까지 고양이가 사라진다.
-            Win32.QUNS_BUSY => !IsDesktopForeground(),
+            Win32.QUNS_BUSY => !IsDesktopForeground() && IsForegroundOn(screen),
             _ => false,
         };
+    }
+
+    /// <summary>맨 앞 창이 이 모니터에 있는지. 창이 두 모니터에 걸쳐 있으면 더 많이 겹친 쪽으로 친다.</summary>
+    private static bool IsForegroundOn(Screen screen)
+    {
+        var hwnd = Win32.GetForegroundWindow();
+        if (hwnd == IntPtr.Zero) return true; // 모르면 예전처럼 숨긴다
+        var monitor = MonitorHandle(screen);
+        return monitor == IntPtr.Zero || Win32.MonitorFromWindow(hwnd, Win32.MONITOR_DEFAULTTONEAREST) == monitor;
     }
 
     /// <summary>맨 앞 창이 바탕화면(Progman, 바탕화면 보기·배경 슬라이드쇼 중엔 WorkerW)인지.</summary>

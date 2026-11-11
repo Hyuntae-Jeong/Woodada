@@ -122,9 +122,9 @@ internal sealed class MacPlatform : IPlatform
         }
     }
 
-    public bool IsFullScreenAppActive()
+    public bool IsFullScreenAppActive(Screen screen)
     {
-        try { return MacFullScreen.IsActive(); }
+        try { return MacFullScreen.IsActive(DisplayId(screen)); }
         catch (Exception) { return false; } // 못 읽으면 숨기지 않고 계속 달린다
     }
 

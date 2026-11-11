@@ -51,8 +51,8 @@ internal interface IPlatform
     /// <summary>모니터 실제 크기. 알 수 없으면 null(화면 배율로 추정한다).</summary>
     MonitorSize? MeasureMonitor(Screen screen);
 
-    /// <summary>게임·발표처럼 전체 화면 앱이 떠 있는지.</summary>
-    bool IsFullScreenAppActive();
+    /// <summary>게임·발표처럼 전체 화면 앱이 이 모니터를 덮고 있는지. 다른 모니터의 전체 화면은 상관없다.</summary>
+    bool IsFullScreenAppActive(Screen screen);
 
     /// <summary>작업표시줄·독이 밝은 색인지. 반투명 스킨이 배경에 묻히지 않게 외곽선 톤을 고르는 데 쓴다.</summary>
     bool IsBarLight();

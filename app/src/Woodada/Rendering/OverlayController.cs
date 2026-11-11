@@ -95,7 +95,7 @@ internal sealed class OverlayController : IDisposable
         _runway = Runway.FromBar(_platform.FindBar(screen));
         _pitch = MonitorPitch.For(screen);
         _lightBar = SafeIsBarLight();
-        _fullScreenApp = settings.HideInFullScreen && _platform.CanDetectFullScreen && _platform.IsFullScreenAppActive();
+        _fullScreenApp = settings.HideInFullScreen && _platform.CanDetectFullScreen && _platform.IsFullScreenAppActive(screen);
     }
 
     private void Tick()

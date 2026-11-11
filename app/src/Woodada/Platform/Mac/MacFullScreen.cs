@@ -4,9 +4,10 @@ using System.Runtime.Versioning;
 namespace Woodada.Platform.Mac;
 
 /// <summary>
-/// 맨 앞 앱이 전체 화면인지. 오버레이는 모든 데스크톱(Space)에 붙어 있어서 전체 화면 앱 위에도 보이므로 직접 알아내 숨긴다.
+/// 고양이가 달리는 모니터가 전체 화면 앱에 덮였는지. 오버레이는 모든 데스크톱(Space)에 붙어 있어서 전체 화면 앱 위에도 보이므로 직접 알아내 숨긴다.
+/// 다른 모니터만 전체 화면이면 숨기지 않는다(맥북 화면에 유튜브를 전체 화면으로 틀어도 외부 모니터의 고양이는 달린다).
 /// 화면에 떠 있는 창 목록(창 크기·층·주인만 읽어 화면 기록 권한이 필요 없다)에서 두 가지를 본다.
-/// 1) 맨 앞 앱의 창이 모니터 폭 전체와 바닥까지 채운다. 노치 맥북은 전체 화면 창이 노치 아래(메뉴 막대 높이)부터 시작한다.
+/// 1) 그 모니터에서 맨 앞 앱의 창이 모니터 폭 전체와 바닥까지 채운다. 노치 맥북은 전체 화면 창이 노치 아래(메뉴 막대 높이)부터 시작한다.
 /// 2) 그 모니터에 메뉴 막대 아이콘(상태 막대 층 창)이 하나도 안 보인다. 전체 화면에서는 메뉴 막대가 숨는다.
 /// 2)가 있어야 메뉴 막대 바로 아래까지 키운 보통 창(독을 숨겼을 때)과 구별된다.
 /// 초록 버튼 전체 화면뿐 아니라 메뉴 막대를 숨기고 화면을 덮는 게임도 같은 모양이라 함께 잡힌다.
@@ -33,18 +34,21 @@ internal static class MacFullScreen
 
     private static IntPtr _layerKey, _boundsKey, _pidKey;
 
-    public static bool IsActive()
+    /// <param name="displayId">고양이가 달리는 모니터. 모르면 모든 모니터를 본다.</param>
+    public static bool IsActive(uint? displayId)
     {
         if (!LoadKeys()) return false;
         var windows = ReadWindows();
         int self = Environment.ProcessId;
-        // 맨 앞 앱: 보통 층에서 가장 앞에 있는 창의 주인. 우리 설정 창은 뺀다.
-        int front = windows.FirstOrDefault(w => w.Layer == NormalLayer && w.Pid != self).Pid;
-        if (front == 0) return false;
 
-        foreach (var display in ActiveDisplays())
+        List<MacNative.CGRect> displays = displayId is { } id ? [CGDisplayBounds(id)] : ActiveDisplays();
+        foreach (var display in displays)
         {
             if (windows.Any(w => w.Layer == StatusLayer && Intersects(w.Bounds, display))) continue; // 메뉴 막대가 보인다
+            // 이 모니터의 맨 앞 앱: 가운데가 이 모니터에 있는 보통 층 창 중 가장 앞 창의 주인. 우리 설정 창은 뺀다.
+            // 전체 화면 창은 모니터마다 따로라서, 다른 모니터에서 다른 앱을 눌러도 이 모니터의 전체 화면 앱은 그대로다.
+            int front = windows.FirstOrDefault(w => w.Layer == NormalLayer && w.Pid != self && CenterIn(w.Bounds, display)).Pid;
+            if (front == 0) continue;
             if (windows.Any(w => w.Pid == front && w.Layer == NormalLayer && Fills(w.Bounds, display))) return true;
         }
         return false;
@@ -53,6 +57,12 @@ internal static class MacFullScreen
     private static bool Fills(MacNative.CGRect w, MacNative.CGRect d) =>
         w.X <= d.X + Slack && w.X + w.Width >= d.X + d.Width - Slack &&
         w.Y + w.Height >= d.Y + d.Height - Slack && w.Y <= d.Y + MenuBarAllowance;
+
+    private static bool CenterIn(MacNative.CGRect w, MacNative.CGRect d)
+    {
+        double cx = w.X + w.Width / 2, cy = w.Y + w.Height / 2;
+        return cx >= d.X && cx < d.X + d.Width && cy >= d.Y && cy < d.Y + d.Height;
+    }
 
     private static bool Intersects(MacNative.CGRect a, MacNative.CGRect b) =>
         a.X < b.X + b.Width && b.X < a.X + a.Width && a.Y < b.Y + b.Height && b.Y < a.Y + a.Height;
@@ -88,11 +98,11 @@ internal static class MacFullScreen
         return number != IntPtr.Zero && CFNumberGetValue(number, SInt32Type, out value);
     }
 
-    private static IEnumerable<MacNative.CGRect> ActiveDisplays()
+    private static List<MacNative.CGRect> ActiveDisplays()
     {
         var ids = new uint[16];
-        if (CGGetActiveDisplayList((uint)ids.Length, ids, out uint count) != 0) yield break;
-        for (int i = 0; i < count; i++) yield return CGDisplayBounds(ids[i]);
+        if (CGGetActiveDisplayList((uint)ids.Length, ids, out uint count) != 0) return [];
+        return ids.Take((int)count).Select(CGDisplayBounds).ToList();
     }
 
     /// <summary>창 정보 사전의 키(kCGWindowLayer 등)는 CoreGraphics가 내보내는 CFString 상수라 주소로 읽어 온다.</summary>
