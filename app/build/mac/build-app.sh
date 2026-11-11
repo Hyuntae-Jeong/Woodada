@@ -55,6 +55,8 @@ cat > "$APP/Contents/Info.plist" <<EOF
     <string>$VERSION</string>
     <key>CFBundleVersion</key>
     <string>$VERSION</string>
+    <key>NSHumanReadableCopyright</key>
+    <string>© 2026 Hyuntae Jeong</string>
     <key>LSMinimumSystemVersion</key>
     <string>12.0</string>
     <key>LSUIElement</key>
