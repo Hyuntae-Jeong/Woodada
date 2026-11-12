@@ -9,7 +9,8 @@
 글은 아래 CATS에 영어·한국어로 함께 적는다. 머리말·꼬리말·GA 같은 공통 부분은 이 파일의 틀 하나에서 나온다.
 그림·움직임·능력치 계산은 docs/cats/cats.js, 모양은 docs/cats/cats.css에 있다.
 새 스킨을 공개하면 CATS에 한 칸 더하고(앱 RewardCatalog의 이름·등급과 맞춘다), cats.js에 그 스킨 그리는 코드를 넣고,
-LOCKED를 하나 줄인 뒤 이 스크립트를 다시 돌린다. 공개 전 스킨은 여기에 넣지 않는다.
+LOCKED를 하나 줄인 뒤 이 스크립트를 다시 돌린다. 공유 미리보기 이미지는 app/tools/cat_og.py로 다시 만든다.
+공개 전 스킨은 여기에 넣지 않는다.
 """
 from __future__ import annotations
 
@@ -147,9 +148,11 @@ GA = """<!-- Google Analytics. 홈페이지(docs/index.html)와 같다. 유럽 �
 </script>"""
 
 
-def head(title_en: str, title_ko: str, desc: str, path: str, root: str) -> str:
-    """<head>. root는 docs/ 맨 위까지의 상대 경로(예: "../../")."""
+def head(title_en: str, title_ko: str, desc: str, path: str, root: str, og: str, og_alt: str) -> str:
+    """<head>. root는 docs/ 맨 위까지의 상대 경로(예: "../../").
+    og는 공유 미리보기 이미지 이름(docs/assets/og/<og>.png, app/tools/cat_og.py가 만든다)."""
     url = SITE + path
+    og_url = f"{SITE}assets/og/{og}.png"
     e = html.escape
     return f"""<!doctype html>
 <html lang="en" data-lang="en" data-title-en="{e(title_en)}" data-title-ko="{e(title_ko)}">
@@ -166,11 +169,12 @@ def head(title_en: str, title_ko: str, desc: str, path: str, root: str) -> str:
 <meta property="og:title" content="{e(title_en)}">
 <meta property="og:description" content="{e(desc)}">
 <meta property="og:url" content="{url}">
-<meta property="og:image" content="{SITE}assets/og-image.png">
+<meta property="og:image" content="{og_url}">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="{e(og_alt)}">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="{SITE}assets/og-image.png">
+<meta name="twitter:image" content="{og_url}">
 <!-- 첫 화면이 그려지기 전에 언어를 정한다. 홈페이지와 같은 저장 값을 쓴다. -->
 <script>
   (function () {{
@@ -266,7 +270,8 @@ def cat_page(c: dict) -> str:
             f'<div class="{cls}">{"<i></i>" * segs}</div><output></output></div>')
     ticks = "".join(f'<span style="left:{n}%">{n}</span>' for n in c["ticks"])
     desc = f'{en} — {c["intro"][0]} A special skin you can win in Woodada, the cat that runs on your taskbar.'
-    return f"""{head(f"{en} — Woodada", f"{ko} — Woodada", desc, f"cats/{c['id']}/", root)}
+    alt = f"{en} ({ko}) running on a neon arcade stage"
+    return f"""{head(f"{en} — Woodada", f"{ko} — Woodada", desc, f"cats/{c['id']}/", root, c["id"], alt)}
 <body data-cat="{c['id']}" data-root="{root}">
 
 {top(root, True)}
@@ -338,7 +343,8 @@ def index_page() -> str:
             f'<li><div class="card locked"><canvas data-thumb="unknown" aria-hidden="true"></canvas>'
             f'<div><b>???</b><small>{t("Coming soon!", "곧 만나요!")}</small></div></div></li>')
     desc = "Meet the special cats you can win in Woodada's Cat Gacha."
-    return f"""{head("Cats — Woodada", "고양이 도감 — Woodada", desc, "cats/", root)}
+    alt = "Ghost Cat, Flash Cat and Glitch Cat running on a neon arcade stage"
+    return f"""{head("Cats — Woodada", "고양이 도감 — Woodada", desc, "cats/", root, "cats", alt)}
 <body data-root="{root}">
 
 {top(root, False)}

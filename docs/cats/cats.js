@@ -367,35 +367,7 @@
             if (Math.random() < glitchRate(u) * dt) { st.until = t + GLITCH.burst * rand(0.6, 1.4); bursting = true; }
           }
           if (bursting && (!st.shape || Math.random() < GLITCH.reroll)) st.shape = glitchShape(u);
-          // 앱의 갈라짐 거리는 화면 단위라서, 무대에서 크게 그린 만큼 키운다
-          const unit = catH / 30;
-          const f = Math.floor(runner.frame);
-          const pad = catW * 0.45;
-          const off = mk((catW + pad * 2) * dpr, (catH + pad * 2) * dpr), ox = off.getContext('2d');
-          ox.setTransform(dpr, 0, 0, dpr, 0, 0);
-          const sp = (bursting ? st.shape.split * st.shape.side : 1) * unit;
-          ox.globalAlpha = bursting ? GLITCH.splitOpacity : GLITCH.idleFringe;
-          drawFlipped(ox, silFrame(masks, f, GLITCH.a, devH), pad - sp, pad, catW, catH, runner.dir);
-          drawFlipped(ox, silFrame(masks, f, GLITCH.b, devH), pad + sp, pad, catW, catH, runner.dir);
-          ox.globalAlpha = 1;
-          drawFlipped(ox, catFrame(masks, f, GLITCH.body, devH), pad, pad, catW, catH, runner.dir);
-          let img = off;
-          if (bursting) {
-            img = mk(off.width, off.height);
-            const qx = img.getContext('2d');
-            qx.drawImage(off, 0, 0);
-            for (const b of st.shape.bands) {
-              const sy = Math.round((pad + b.top * catH) * dpr), sh = Math.max(1, Math.round(b.height * catH * dpr));
-              qx.clearRect(0, sy, img.width, sh);
-              qx.drawImage(off, 0, sy, off.width, sh, Math.round(b.shift * catW * dpr), sy, off.width, sh);
-            }
-            qx.globalAlpha = GLITCH.noiseOpacity;
-            for (const n of st.shape.noise) {
-              qx.fillStyle = n.c;
-              qx.fillRect((pad + n.x * catW) * dpr, (pad + n.y * catH) * dpr, n.w * catW * dpr, n.h * catH * dpr);
-            }
-          }
-          ctx.drawImage(img, runner.x - pad, y - pad, catW + pad * 2, catH + pad * 2);
+          drawGlitch(ctx, masks, bursting ? st.shape : null, g);
         };
       },
       stats: u => {
@@ -409,6 +381,69 @@
       },
     },
   };
+
+  // 글리치 한 프레임. shape가 null이면 평소 모습(옅은 번짐), 있으면 터진 모습.
+  function drawGlitch(ctx, masks, shape, g) {
+    const { runner, catW, catH, devH, y, dpr } = g;
+    // 앱의 갈라짐 거리는 화면 단위라서, 무대에서 크게 그린 만큼 키운다
+    const unit = catH / 30;
+    const f = Math.floor(runner.frame);
+    const pad = catW * 0.45;
+    const off = mk((catW + pad * 2) * dpr, (catH + pad * 2) * dpr), ox = off.getContext('2d');
+    ox.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const sp = (shape ? shape.split * shape.side : 1) * unit;
+    ox.globalAlpha = shape ? GLITCH.splitOpacity : GLITCH.idleFringe;
+    drawFlipped(ox, silFrame(masks, f, GLITCH.a, devH), pad - sp, pad, catW, catH, runner.dir);
+    drawFlipped(ox, silFrame(masks, f, GLITCH.b, devH), pad + sp, pad, catW, catH, runner.dir);
+    ox.globalAlpha = 1;
+    drawFlipped(ox, catFrame(masks, f, GLITCH.body, devH), pad, pad, catW, catH, runner.dir);
+    let img = off;
+    if (shape) {
+      img = mk(off.width, off.height);
+      const qx = img.getContext('2d');
+      qx.drawImage(off, 0, 0);
+      for (const b of shape.bands) {
+        const sy = Math.round((pad + b.top * catH) * dpr), sh = Math.max(1, Math.round(b.height * catH * dpr));
+        qx.clearRect(0, sy, img.width, sh);
+        qx.drawImage(off, 0, sy, off.width, sh, Math.round(b.shift * catW * dpr), sy, off.width, sh);
+      }
+      qx.globalAlpha = GLITCH.noiseOpacity;
+      for (const n of shape.noise) {
+        qx.fillStyle = n.c;
+        qx.fillRect((pad + n.x * catW) * dpr, (pad + n.y * catH) * dpr, n.w * catW * dpr, n.h * catH * dpr);
+      }
+    }
+    ctx.drawImage(img, runner.x - pad, y - pad, catW + pad * 2, catH + pad * 2);
+  }
+
+  // 공유 미리보기 이미지(app/tools/cat_og.py)용 멈춘 한 장. 앱과 같은 효과를 가장 잘 보이는 순간으로 그린다.
+  // x: 몸 왼쪽, base: 발이 닿는 높이, catH: 키(CSS 픽셀), 오른쪽을 보고 달린다.
+  const POSTER = {
+    ghost: { u: 50, t: 0.2 },
+    flash: { u: 48 }, // 불꽃이 가장 세지만 아직 달아오르기 전(하얀 몸이 잘 보인다)
+    glitch: {
+      u: 80,
+      shape: {
+        split: 2.4, side: 1,
+        bands: [{ top: 0.16, height: 0.12, shift: 0.13 }, { top: 0.48, height: 0.09, shift: -0.11 }, { top: 0.74, height: 0.13, shift: 0.07 }],
+        noise: [
+          { x: -0.26, y: 0.3, w: 0.22, h: 0.05, c: GLITCH.a }, { x: 1.04, y: 0.55, w: 0.17, h: 0.045, c: GLITCH.b },
+          { x: 0.28, y: 0.04, w: 0.12, h: 0.04, c: '#FFFFFF' }, { x: 0.78, y: 0.92, w: 0.2, h: 0.05, c: GLITCH.a },
+        ],
+      },
+    },
+  };
+  function drawPoster(ctx, kind, masks, { x, base, catH, dpr = 1 }) {
+    const p = POSTER[kind];
+    const devH = Math.round(catH * dpr), catW = catH * masks[0].w / masks[0].h;
+    const y = base - catH + Math.max(2, catH * 0.05);
+    const runner = { x, dir: 1, frame: 1 };
+    // 플래시 꼬리는 지나온 길이 필요하다: 뒤로 3px마다 한 자리, 다리 모양도 조금씩 다르게
+    const trail = Array.from({ length: 240 }, (_, i) => ({ x: x - i * 3, f: ((1 - Math.floor(i / 8)) % 5 + 5) % 5, dir: 1 }));
+    const g = { u: p.u, t: p.t || 0.35, dt: 0, runner, trail, catW, catH, devH, dpr, y };
+    if (kind === 'glitch') drawGlitch(ctx, masks, p.shape, g);
+    else SKINS[kind].make(masks)(ctx, g);
+  }
 
   // 목록·카드의 작은 그림 (멈춘 한 장)
   function drawThumb(canvas, kind, masks) {
@@ -507,7 +542,11 @@
   }
 
   /* ───────── 시작 ───────── */
-  loadMasks().then(masks => {
+  const masksReady = loadMasks();
+  // 공유 미리보기 이미지를 그리는 도구(app/tools/cat_og.py)가 쓴다
+  window.WoodadaCats = { masks: masksReady, drawArcade, drawPoster };
+
+  masksReady.then(masks => {
     const thumbs = () => $$('canvas[data-thumb]').forEach(c => drawThumb(c, c.dataset.thumb, masks));
     thumbs();
     let resizeT = 0;
