@@ -107,7 +107,86 @@ jobs:
           path: artifacts
           merge-multiple: true
 
-      # 릴리즈 본문 = 이전 태그 이후 커밋 제목 목록 + 설치 안내.
+      # 설치 파일을 VirusTotal에 올려 백신 검사를 맡기고, 릴리즈 본문에 넣을 결과 링크(VT_SECTION.md)를 만든다.
+      # 서명하지 않은 앱이라 설치 경고를 본 사용자가 안심할 수 있게 하려는 것이다.
+      # VT_API_KEY 시크릿이 없으면 건너뛰고, 검사가 실패해도 릴리즈는 그대로 낸다(continue-on-error).
+      - name: Scan with VirusTotal
+        continue-on-error: true
+        env:
+          VT_API_KEY: ${{ secrets.VT_API_KEY }}
+        run: |
+          set -uo pipefail
+          if [ -z "${VT_API_KEY:-}" ]; then
+            echo "VT_API_KEY 시크릿이 없어 VirusTotal 검사를 건너뜁니다."
+            exit 0
+          fi
+          api=https://www.virustotal.com/api/v3
+          vt() { curl -sS --fail -H "x-apikey: $VT_API_KEY" "$@"; }
+          # 무료 API는 1분에 4번까지라 요청마다 16초씩 쉰다.
+          pause() { sleep 16; }
+
+          # 파일 이름|릴리즈 본문에 적을 이름. auto-update zip은 사용자가 받는 파일이 아니라 뺀다.
+          files=("Woodada.exe|Windows" "Woodada-mac-arm64.dmg|macOS (애플 실리콘)" "Woodada-mac-x64.dmg|macOS (인텔)")
+          declare -A analysis result
+
+          for entry in "${files[@]}"; do
+            name=${entry%%|*}
+            # 32MB가 넘는 파일은 일회용 업로드 주소를 받아서 올려야 한다.
+            if ! url=$(vt "$api/files/upload_url" | jq -er .data); then
+              echo "::warning::$name: 업로드 주소를 받지 못했습니다"; pause; continue
+            fi
+            pause
+            if id=$(vt -F "file=@artifacts/$name" "$url" | jq -er .data.id); then
+              analysis[$name]=$id
+            else
+              echo "::warning::$name: VirusTotal에 올리지 못했습니다"
+            fi
+            pause
+          done
+
+          # 검사는 파일마다 몇 분 걸린다. 최대 약 10분 기다리고, 끝나지 않은 파일은 숫자 없이 링크만 단다.
+          for round in $(seq 1 12); do
+            pending=0
+            for entry in "${files[@]}"; do
+              name=${entry%%|*}
+              if [ -z "${analysis[$name]:-}" ] || [ -n "${result[$name]:-}" ]; then continue; fi
+              if resp=$(vt "$api/analyses/${analysis[$name]}") \
+                && [ "$(jq -r .data.attributes.status <<<"$resp")" = completed ]; then
+                # 판정을 낸 엔진만 센다(파일 형식을 못 읽은 엔진은 빼서 VirusTotal 화면의 "0 / 61"과 같게).
+                result[$name]=$(jq -r '.data.attributes.stats
+                  | "\(.malicious + .suspicious) \(.malicious + .suspicious + .undetected + .harmless)"' <<<"$resp")
+              else
+                pending=1
+              fi
+              pause
+            done
+            [ "$pending" -eq 0 ] && break
+          done
+
+          warnings=()
+          {
+            echo "## 백신 검사 결과 (VirusTotal)"
+            echo
+            echo "서명하지 않은 앱이라 설치할 때 경고가 뜰 수 있습니다. 아래 파일을 여러 백신으로 검사한 결과를 확인할 수 있습니다."
+            echo
+            for entry in "${files[@]}"; do
+              name=${entry%%|*}; label=${entry#*|}
+              link="https://www.virustotal.com/gui/file/$(sha256sum "artifacts/$name" | cut -d' ' -f1)"
+              if [ -n "${result[$name]:-}" ]; then
+                read -r hits total <<<"${result[$name]}"
+                if [ "$hits" -gt 0 ]; then warnings+=("$name: $total개 엔진 중 $hits개가 탐지했습니다"); fi
+                echo "- **$label** \`$name\` — [${total}개 엔진 중 탐지 ${hits}]($link)"
+              else
+                echo "- **$label** \`$name\` — [검사 결과]($link)"
+              fi
+            done
+            echo
+          } > VT_SECTION.md
+          cat VT_SECTION.md
+          # 탐지가 있어도 릴리즈는 낸다(본문에 숫자가 그대로 보인다). 실행 요약에 경고로 남겨 알아채게 한다.
+          for w in "${warnings[@]}"; do echo "::warning::$w"; done
+
+      # 릴리즈 본문 = 이전 태그 이후 커밋 제목 목록 + 설치 안내 + 백신 검사 결과(있으면).
       - name: Build release notes
         run: |
           tag="$GITHUB_REF_NAME"
@@ -135,6 +214,7 @@ jobs:
             echo "그다음부터는 6시간마다 새 버전을 확인해 자동으로 업데이트합니다."
             echo "\`auto-update-\`로 시작하는 파일은 앱이 자동 업데이트에 쓰는 파일이라 받지 않아도 됩니다."
             echo
+            if [ -f VT_SECTION.md ]; then cat VT_SECTION.md; fi
             echo "고양이 이미지는 [RunCat365](https://github.com/runcat-dev/RunCat365)에서 가져왔으며 [Apache License 2.0](https://github.com/$GITHUB_REPOSITORY/blob/$tag/app/src/Woodada/Assets/RunCat/LICENSE)을 따릅니다."
             echo "냥뽑기 스페셜 스킨과 닥스훈트·토끼 디자인은 MIT License 적용 대상이 아니며 [별도 조건](https://github.com/$GITHUB_REPOSITORY/blob/$tag/app/src/Woodada/Sprites/Skins/LICENSE)을 따릅니다."
             echo
