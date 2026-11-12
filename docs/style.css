@@ -269,6 +269,9 @@ html[data-lang="ko"] .eyebrow { text-transform: none; letter-spacing: 0; }
   :root:not([data-theme="light"]) .skin[data-rarity="legendary"] .rarity { background: #3a2d12; color: #f4c766; }
 }
 .skin p { margin: 0; color: var(--muted); font-size: 15px; }
+.skin-more { display: inline-block; margin-top: 12px; font-size: 15px; font-weight: 700; }
+.all-cats { margin: 22px 0 0; font-size: 16px; font-weight: 700; }
+.all-cats + .soon { margin-top: 10px; }
 .soon { margin: 24px 0 0; color: var(--muted); }
 
 /* 설치 */

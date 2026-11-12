@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en" data-lang="en" data-title-en="Cats — Woodada" data-title-ko="고양이 도감 — Woodada">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cats — Woodada</title>
+<meta name="description" content="Meet the special cats you can win in Woodada&#x27;s Cat Gacha.">
+<meta name="theme-color" content="#07060f">
+<link rel="canonical" href="https://hyuntae-jeong.github.io/Woodada/cats/">
+<link rel="icon" href="../assets/icon.png">
+<link rel="apple-touch-icon" href="../assets/icon.png">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Cats — Woodada">
+<meta property="og:description" content="Meet the special cats you can win in Woodada&#x27;s Cat Gacha.">
+<meta property="og:url" content="https://hyuntae-jeong.github.io/Woodada/cats/">
+<meta property="og:image" content="https://hyuntae-jeong.github.io/Woodada/assets/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://hyuntae-jeong.github.io/Woodada/assets/og-image.png">
+<!-- 첫 화면이 그려지기 전에 언어를 정한다. 홈페이지와 같은 저장 값을 쓴다. -->
+<script>
+  (function () {
+    var l;
+    try { l = localStorage.getItem('woodada-lang'); } catch (e) {}
+    if (l !== 'en' && l !== 'ko') l = /^ko\b/i.test(navigator.language || '') ? 'ko' : 'en';
+    var r = document.documentElement;
+    r.lang = l;
+    r.setAttribute('data-lang', l);
+    document.title = r.getAttribute('data-title-' + l);
+  })();
+</script>
+<!-- Google Analytics. 홈페이지(docs/index.html)와 같다. 유럽 방문자는 두 겹으로 뺀다.
+     1) 브라우저 시간대가 유럽이면 GA를 아예 불러오지 않는다.
+     2) 그래도 들어온 유럽(EEA·영국·스위스) 방문자는 GA 지역 설정으로 쿠키를 남기지 않는다.
+     로컬 미리보기에서는 실제 주소가 아니라서 켜지지 않는다. -->
+<script>
+  (function () {
+    if (location.hostname !== 'hyuntae-jeong.github.io') return;
+    var tz = '';
+    try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) {}
+    if (/^(Europe\/|Atlantic\/(Reykjavik|Canary|Madeira|Azores|Faroe)$|Asia\/(Nicosia|Famagusta)$|Arctic\/)/.test(tz)) return;
+
+    var id = 'G-K1RDPDRTLX';
+    window.dataLayer = window.dataLayer || [];
+    window.gtag = function () { window.dataLayer.push(arguments); };
+    gtag('consent', 'default', { analytics_storage: 'granted', ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied' });
+    gtag('consent', 'default', {
+      analytics_storage: 'denied',
+      region: ['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE','IS','LI','NO','GB','CH']
+    });
+    gtag('js', new Date());
+    gtag('config', id);
+
+    var s = document.createElement('script');
+    s.async = true;
+    s.src = 'https://www.googletagmanager.com/gtag/js?id=' + id;
+    document.head.appendChild(s);
+  })();
+</script>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/black-han-sans@5.2.8/index.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/press-start-2p@5.2.7/index.css">
+<link rel="stylesheet" href="../cats/cats.css">
+</head>
+<body data-root="../">
+
+<header class="top gutter">
+  <div class="top-in">
+    <a class="brand" href="../"><img src="../assets/icon.png" alt="" width="28" height="28"><span>Woodada</span></a>
+    
+    <div class="lang" role="group" aria-label="Language">
+      <button type="button" data-set-lang="en">EN</button>
+      <button type="button" data-set-lang="ko">한국어</button>
+    </div>
+  </div>
+</header>
+
+<main class="gutter">
+  <div class="wrap">
+    <div class="head">
+      <span class="p1">1P</span>
+      <p class="head-title">SELECT YOUR CAT</p>
+      <span class="blink"><span class="en">PRESS START</span><span class="ko">고양이를 고르세요</span></span>
+    </div>
+    <h1 class="name"><span class="en">All cats</span><span class="ko">고양이 도감</span></h1>
+    <p class="lead"><span class="en">Special cats you can win with fish in the Cat Gacha. Pick one to take a closer look.</span><span class="ko">생선을 모아 냥뽑기로 만날 수 있는 고양이들이에요. 골라서 자세히 보세요.</span></p>
+    <ul class="deck">
+      <li><a class="card" href="ghost/"><canvas data-thumb="ghost" aria-hidden="true"></canvas><div><span class="tier"><span class="en">RARE ★★</span><span class="ko">레어 ★★</span></span><b><span class="en">Ghost Cat</span><span class="ko">유령냥</span></b><small><span class="en">Floats along with a see-through, softly glowing body.</span><span class="ko">반투명하게 빛나는 몸으로 둥실둥실 떠다녀요.</span></small></div></a></li>
+      <li><a class="card" href="flash/"><canvas data-thumb="flash" aria-hidden="true"></canvas><div><span class="tier"><span class="en">EPIC ★★★</span><span class="ko">에픽 ★★★</span></span><b><span class="en">Flash Cat</span><span class="ko">플래시냥</span></b><small><span class="en">Leaves a fiery trail. The faster it runs, the longer it gets.</span><span class="ko">불꽃 꼬리를 남겨요. 빠를수록 길어져요.</span></small></div></a></li>
+      <li><a class="card" href="glitch/"><canvas data-thumb="glitch" aria-hidden="true"></canvas><div><span class="tier"><span class="en">LEGENDARY ★★★★</span><span class="ko">전설 ★★★★</span></span><b><span class="en">Glitch Cat</span><span class="ko">글리치냥</span></b><small><span class="en">Every now and then it flickers like a broken screen.</span><span class="ko">가끔 화면이 고장 난 것처럼 지지직거려요.</span></small></div></a></li>
+      <li><div class="card locked"><canvas data-thumb="unknown" aria-hidden="true"></canvas><div><b>???</b><small><span class="en">Coming soon!</span><span class="ko">곧 만나요!</span></small></div></div></li>
+      <li><div class="card locked"><canvas data-thumb="unknown" aria-hidden="true"></canvas><div><b>???</b><small><span class="en">Coming soon!</span><span class="ko">곧 만나요!</span></small></div></div></li>
+    </ul>
+  </div>
+</main>
+
+<footer class="foot gutter">
+  <div class="wrap">
+    <p><span class="en"><a href="../">← Back to Woodada</a></span><span class="ko"><a href="../">← Woodada로 돌아가기</a></span></p>
+    <p><span class="en">Cat sprites from <a href="https://github.com/runcat-dev/RunCat365">RunCat365</a> (Apache License 2.0).</span><span class="ko">고양이 그림은 <a href="https://github.com/runcat-dev/RunCat365">RunCat365</a>(Apache License 2.0)에서 가져왔어요.</span></p>
+    <p><span class="en">Special skin designs © 2026 Hyuntae Jeong, not covered by the MIT License (<a href="https://github.com/Hyuntae-Jeong/Woodada/blob/main/app/src/Woodada/Sprites/Skins/LICENSE">terms</a>).</span><span class="ko">스페셜 스킨 디자인은 © 2026 Hyuntae Jeong이며 MIT License 적용 대상이 아니에요(<a href="https://github.com/Hyuntae-Jeong/Woodada/blob/main/app/src/Woodada/Sprites/Skins/LICENSE">조건 보기</a>).</span></p>
+    <p><a href="../privacy.html"><span class="en">Privacy</span><span class="ko">개인정보처리방침</span></a></p>
+  </div>
+</footer>
+
+<script src="../cats/cats.js"></script>
+</body>
+</html>

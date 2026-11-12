@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en" data-lang="en" data-title-en="Ghost Cat — Woodada" data-title-ko="유령냥 — Woodada">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ghost Cat — Woodada</title>
+<meta name="description" content="Ghost Cat — Floats along your taskbar with a see-through body. Wears ghostly white instead of your color. A special skin you can win in Woodada, the cat that runs on your taskbar.">
+<meta name="theme-color" content="#07060f">
+<link rel="canonical" href="https://hyuntae-jeong.github.io/Woodada/cats/ghost/">
+<link rel="icon" href="../../assets/icon.png">
+<link rel="apple-touch-icon" href="../../assets/icon.png">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Ghost Cat — Woodada">
+<meta property="og:description" content="Ghost Cat — Floats along your taskbar with a see-through body. Wears ghostly white instead of your color. A special skin you can win in Woodada, the cat that runs on your taskbar.">
+<meta property="og:url" content="https://hyuntae-jeong.github.io/Woodada/cats/ghost/">
+<meta property="og:image" content="https://hyuntae-jeong.github.io/Woodada/assets/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://hyuntae-jeong.github.io/Woodada/assets/og-image.png">
+<!-- 첫 화면이 그려지기 전에 언어를 정한다. 홈페이지와 같은 저장 값을 쓴다. -->
+<script>
+  (function () {
+    var l;
+    try { l = localStorage.getItem('woodada-lang'); } catch (e) {}
+    if (l !== 'en' && l !== 'ko') l = /^ko\b/i.test(navigator.language || '') ? 'ko' : 'en';
+    var r = document.documentElement;
+    r.lang = l;
+    r.setAttribute('data-lang', l);
+    document.title = r.getAttribute('data-title-' + l);
+  })();
+</script>
+<!-- Google Analytics. 홈페이지(docs/index.html)와 같다. 유럽 방문자는 두 겹으로 뺀다.
+     1) 브라우저 시간대가 유럽이면 GA를 아예 불러오지 않는다.
+     2) 그래도 들어온 유럽(EEA·영국·스위스) 방문자는 GA 지역 설정으로 쿠키를 남기지 않는다.
+     로컬 미리보기에서는 실제 주소가 아니라서 켜지지 않는다. -->
+<script>
+  (function () {
+    if (location.hostname !== 'hyuntae-jeong.github.io') return;
+    var tz = '';
+    try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) {}
+    if (/^(Europe\/|Atlantic\/(Reykjavik|Canary|Madeira|Azores|Faroe)$|Asia\/(Nicosia|Famagusta)$|Arctic\/)/.test(tz)) return;
+
+    var id = 'G-K1RDPDRTLX';
+    window.dataLayer = window.dataLayer || [];
+    window.gtag = function () { window.dataLayer.push(arguments); };
+    gtag('consent', 'default', { analytics_storage: 'granted', ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied' });
+    gtag('consent', 'default', {
+      analytics_storage: 'denied',
+      region: ['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE','IS','LI','NO','GB','CH']
+    });
+    gtag('js', new Date());
+    gtag('config', id);
+
+    var s = document.createElement('script');
+    s.async = true;
+    s.src = 'https://www.googletagmanager.com/gtag/js?id=' + id;
+    document.head.appendChild(s);
+  })();
+</script>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/black-han-sans@5.2.8/index.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/press-start-2p@5.2.7/index.css">
+<link rel="stylesheet" href="../../cats/cats.css">
+</head>
+<body data-cat="ghost" data-root="../../">
+
+<header class="top gutter">
+  <div class="top-in">
+    <a class="brand" href="../../"><img src="../../assets/icon.png" alt="" width="28" height="28"><span>Woodada</span></a>
+    <a class="crumb" href="../../cats/"><span class="en">← All cats</span><span class="ko">← 고양이 도감</span></a>
+    <div class="lang" role="group" aria-label="Language">
+      <button type="button" data-set-lang="en">EN</button>
+      <button type="button" data-set-lang="ko">한국어</button>
+    </div>
+  </div>
+</header>
+
+<main class="gutter">
+  <div class="wrap">
+    <div class="head">
+      <span class="p1">1P</span>
+      <p class="head-title">SELECT YOUR CAT</p>
+      <span class="blink"><span class="en">PRESS START</span><span class="ko">고양이를 고르세요</span></span>
+    </div>
+
+    <div class="stagebox">
+      <canvas class="js-stage" role="img" aria-label="Ghost Cat running"></canvas>
+      <div class="plate">
+        <span class="tier"><span class="en">RARE ★★</span><span class="ko">레어 ★★</span></span>
+        <h1 class="name"><span class="en">Ghost Cat</span><span class="ko">유령냥</span></h1>
+        <p class="sub"><span class="en">유령냥</span><span class="ko">GHOST CAT</span></p>
+      </div>
+      <p class="quote"><span class="en">Boo… did I scare you?</span><span class="ko">부우… 놀랐지?</span></p>
+    </div>
+    <p class="intro"><span class="en">Floats along your taskbar with a see-through body. Wears ghostly white instead of your color.</span><span class="ko">반투명한 몸으로 작업표시줄 위를 둥실둥실 떠다녀요. 고른 색 대신 유령색을 입어요.</span></p>
+
+    <div class="ctrl">
+      <label for="cpu">CPU</label>
+      <div class="range-box"><input type="range" id="cpu" min="0" max="100" value="70"><div class="ticks" aria-hidden="true"></div></div>
+      <output id="cpu-out" for="cpu">70%</output>
+      <button type="button" class="auto" id="auto" aria-pressed="true">AUTO ON</button>
+    </div>
+    <p class="ctrl-hint"><span class="en">It always floats the same way. Only its speed follows your CPU.</span><span class="ko">사용률과 상관없이 늘 둥실 떠 있어요. 빨라지기만 해요.</span></p>
+
+    <div class="bottom">
+      <ul class="roster" aria-label="Cats">
+        <li><a class="slot" href="../../cats/ghost/" aria-current="page"><canvas data-thumb="ghost" aria-hidden="true"></canvas><span><span class="en">Ghost Cat</span><span class="ko">유령냥</span></span></a></li>
+        <li><a class="slot" href="../../cats/flash/"><canvas data-thumb="flash" aria-hidden="true"></canvas><span><span class="en">Flash Cat</span><span class="ko">플래시냥</span></span></a></li>
+        <li><a class="slot" href="../../cats/glitch/"><canvas data-thumb="glitch" aria-hidden="true"></canvas><span><span class="en">Glitch Cat</span><span class="ko">글리치냥</span></span></a></li>
+        <li><div class="slot locked"><canvas data-thumb="unknown" aria-hidden="true"></canvas><span>???</span></div></li>
+        <li><div class="slot locked"><canvas data-thumb="unknown" aria-hidden="true"></canvas><span>???</span></div></li>
+      </ul>
+      <div class="stats" aria-label="Stats">
+        <div class="stat" data-stat="spd"><span class="lbl"><span class="en">SPD</span><span class="ko">속도</span></span><div class="seg"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><output></output></div>
+        <div class="stat" data-stat="float"><span class="lbl"><span class="en">FLOAT</span><span class="ko">둥실</span></span><div class="seg"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><output></output></div>
+        <div class="stat" data-stat="sheer"><span class="lbl"><span class="en">SHEER</span><span class="ko">투명</span></span><div class="seg"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><output></output></div>
+        <div class="stat" data-stat="glow"><span class="lbl"><span class="en">GLOW</span><span class="ko">빛</span></span><div class="seg"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><output></output></div>
+      </div>
+    </div>
+
+    <div class="info">
+      <div class="box">
+        <h2 class="lbl"><span class="en">SKILL</span><span class="ko">재주</span></h2>
+        <p><b><span class="en">Talent</span><span class="ko">특기</span></b><span class="en">Floating a little above the taskbar</span><span class="ko">작업표시줄 위로 살짝 떠 있기</span></p>
+        <p><b><span class="en">Habit</span><span class="ko">버릇</span></b><span class="en">Bobs up and down every 1.7 seconds</span><span class="ko">1.7초마다 위아래로 흔들려요</span></p>
+      </div>
+      <div class="box">
+        <h2 class="lbl"><span class="en">LIKE / DISLIKE</span><span class="ko">좋아함 / 싫어함</span></h2>
+        <p><b><span class="en">Likes</span><span class="ko">좋아함</span></b><span class="en">Late-night coding, dark mode</span><span class="ko">새벽 코딩, 다크 모드</span></p>
+        <p><b><span class="en">Dislikes</span><span class="ko">싫어함</span></b><span class="en">Light mode, bright lights</span><span class="ko">라이트 모드, 형광등</span></p>
+      </div>
+      <div class="box">
+        <h2 class="lbl"><span class="en">HOW TO GET</span><span class="ko">만나는 법</span></h2>
+        <p><span class="en">Win it from the Cat Gacha with 500 fish. Cats you already have never come up again.</span><span class="ko">냥뽑기에서 생선 500개로 뽑아요. 이미 만난 고양이는 다시 나오지 않아요.</span></p>
+        <a class="coin" href="../../#install"><span class="en">INSERT FISH ▶</span><span class="ko">Woodada 받기 ▶</span></a>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer class="foot gutter">
+  <div class="wrap">
+    <p><span class="en"><a href="../../">← Back to Woodada</a></span><span class="ko"><a href="../../">← Woodada로 돌아가기</a></span></p>
+    <p><span class="en">Cat sprites from <a href="https://github.com/runcat-dev/RunCat365">RunCat365</a> (Apache License 2.0).</span><span class="ko">고양이 그림은 <a href="https://github.com/runcat-dev/RunCat365">RunCat365</a>(Apache License 2.0)에서 가져왔어요.</span></p>
+    <p><span class="en">Special skin designs © 2026 Hyuntae Jeong, not covered by the MIT License (<a href="https://github.com/Hyuntae-Jeong/Woodada/blob/main/app/src/Woodada/Sprites/Skins/LICENSE">terms</a>).</span><span class="ko">스페셜 스킨 디자인은 © 2026 Hyuntae Jeong이며 MIT License 적용 대상이 아니에요(<a href="https://github.com/Hyuntae-Jeong/Woodada/blob/main/app/src/Woodada/Sprites/Skins/LICENSE">조건 보기</a>).</span></p>
+    <p><a href="../../privacy.html"><span class="en">Privacy</span><span class="ko">개인정보처리방침</span></a></p>
+  </div>
+</footer>
+
+<script src="../../cats/cats.js"></script>
+</body>
+</html>
