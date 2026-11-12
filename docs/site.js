@@ -48,8 +48,30 @@
       if (!j || !j.tag_name) return;
       $$('.ver').forEach(a => { a.textContent = j.tag_name; });
       $$('.ver-wrap').forEach(w => { w.hidden = false; });
+      updateScan(j);
     })
     .catch(() => {});
+
+  // 백신 검사 링크를 최신 릴리즈 파일로 맞춘다. VirusTotal 주소는 파일 SHA-256이라 릴리즈 파일의 digest로 만들고,
+  // 숫자는 릴리즈 워크플로가 본문에 적은 "`파일` — [N개 엔진 중 탐지 M]"에서 읽는다.
+  // 숫자가 없으면(검사가 늦게 끝났거나 키가 없던 릴리즈) 링크만 둔다. 해시를 못 받으면 HTML에 적힌 값을 그대로 쓴다.
+  function updateScan(rel) {
+    const body = rel.body || '';
+    $$('.scan-item[data-asset]').forEach(a => {
+      const name = a.dataset.asset;
+      const asset = (rel.assets || []).find(x => x.name === name);
+      const sha = asset && /^sha256:([0-9a-f]{64})$/.exec(asset.digest || '');
+      if (!sha) return;
+      a.href = 'https://www.virustotal.com/gui/file/' + sha[1];
+      const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const m = new RegExp('`' + esc + '`\\s*—\\s*\\[(\\d+)개 엔진 중 탐지 (\\d+)\\]').exec(body);
+      a.classList.toggle('no-count', !m);
+      if (!m) return;
+      $$('.scan-total', a).forEach(e => { e.textContent = m[1]; });
+      $$('.scan-hits', a).forEach(e => { e.textContent = m[2]; });
+      a.classList.toggle('has-hits', +m[2] > 0);
+    });
+  }
 
   /* ───────── 색 ───────── */
   // 앱의 기본 색 10가지 (Rewards/RewardCatalog.cs)
