@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using Woodada.Sprites;
 using Woodada.Update;
 
 namespace Woodada;
@@ -35,6 +36,15 @@ internal static class ExternalLinks
             return $"macOS {v.ToString(2)} ({(RuntimeInformation.OSArchitecture == Architecture.Arm64 ? "Apple Silicon" : "Intel")})";
         return null;
     }
+
+    private const string SiteUrl = "https://hyuntae-jeong.github.io/Woodada/";
+
+    /// <summary>
+    /// 홈페이지의 스킨 프로필 페이지(docs/cats/&lt;id&gt;/). 페이지가 앱과 같은 언어로 열리게 ?lang=을 붙인다.
+    /// 페이지가 있는 건 공개한 스킨뿐이라, 부르는 쪽에서 SkinInfo.Released를 먼저 본다.
+    /// </summary>
+    public static string? SkinProfileUrl(RunnerSkin skin) =>
+        RunnerSkins.ToId(skin) is { } id ? $"{SiteUrl}cats/{id}/?lang={Loc.ToId(Loc.Current)}" : null;
 
     public static void Open(string url)
     {

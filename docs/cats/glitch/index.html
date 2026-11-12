@@ -19,11 +19,12 @@
 <meta property="og:image:alt" content="Glitch Cat (글리치냥) running on a neon arcade stage">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="https://hyuntae-jeong.github.io/Woodada/assets/og/glitch.png">
-<!-- 첫 화면이 그려지기 전에 언어를 정한다. 홈페이지와 같은 저장 값을 쓴다. -->
+<!-- 첫 화면이 그려지기 전에 언어를 정한다. 주소의 ?lang=(앱 도감에서 열 때 앱 언어를 붙인다)을 먼저 따르고,
+     없으면 홈페이지와 같은 저장 값, 그것도 없으면 브라우저 언어. -->
 <script>
   (function () {
-    var l;
-    try { l = localStorage.getItem('woodada-lang'); } catch (e) {}
+    var m = /[?&]lang=(en|ko)(?:&|$)/.exec(location.search), l = m && m[1];
+    if (!l) try { l = localStorage.getItem('woodada-lang'); } catch (e) {}
     if (l !== 'en' && l !== 'ko') l = /^ko\b/i.test(navigator.language || '') ? 'ko' : 'en';
     var r = document.documentElement;
     r.lang = l;

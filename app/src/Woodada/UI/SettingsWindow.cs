@@ -79,7 +79,7 @@ internal sealed class SettingsWindow : Window
     private readonly TextBlock _resultDesc = new();
     private readonly GameButton _again = new(Loc.T("한 번 더", "Again"), primary: true);
     private readonly TextBlock _dexCount = new();
-    private readonly List<(SkinInfo Info, SkinRunnerView View, TextBlock Name, TextBlock Tier)> _dexSlots = new();
+    private readonly List<DexSlot> _dexSlots = new();
     private readonly ComboBox _devPick = new() { MinWidth = 110 };
     private List<RunnerSkin?> _devPickSkins = new();
     private readonly CheckBox _devFree = new() { Content = Loc.T("생선 안 쓰고 뽑기", "Pull without fish") };
@@ -831,6 +831,7 @@ internal sealed class SettingsWindow : Window
         });
 
         // 도감: 한 줄에 4칸씩, 스킨이 늘면 아래 줄로 넘어간다. 없는 칸은 실루엣과 "???"만 보이고 등급도 숨긴다(확률은 보여 주지 않는다).
+        // 모은 칸을 누르면 홈페이지의 그 스킨 프로필이 열린다(DexSlot).
         var dexTitle = Label(Loc.T("도감", "Collection"), GameArt.FontSection, GameArt.Text, FontWeight.Bold);
         dexTitle.Margin = new Thickness(0, 12, 8, 4);
         dexTitle.VerticalAlignment = VerticalAlignment.Bottom;
@@ -845,12 +846,9 @@ internal sealed class SettingsWindow : Window
         var dex = new UniformGrid { Columns = DexColumns, Margin = new Thickness(-4) };
         foreach (var info in skinsInDex)
         {
-            var view = new SkinRunnerView { Skin = info.Skin, Height = 54 };
-            var name = new TextBlock { FontWeight = FontWeight.Bold, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 5, 0, 0) };
-            var tier = new TextBlock { FontSize = GameArt.FontSmall, HorizontalAlignment = HorizontalAlignment.Center, TextAlignment = TextAlignment.Center };
-            var slot = new CardPanel { Padding = new Thickness(6), Margin = new Thickness(4), Child = new StackPanel { Children = { view, name, tier } } };
+            var slot = new DexSlot(info);
             dex.Children.Add(slot);
-            _dexSlots.Add((info, view, name, tier));
+            _dexSlots.Add(slot);
         }
         page.Children.Add(dex);
 
@@ -919,19 +917,7 @@ internal sealed class SettingsWindow : Window
         _again.IsVisible = !done;
         _again.IsEnabled = canPay;
 
-        foreach (var (info, view, name, tier) in _dexSlots)
-        {
-            bool has = Revealed(info.Skin);
-            view.Owned = has;
-            view.InvalidateVisual();
-            string stars = new('★', info.Stars);
-            name.Text = has ? info.Name : "???";
-            // 없는 칸은 이름 "???"만 보이고 등급은 숨긴다. 칸 높이는 UniformGrid가 맞춰 주므로 줄이 빠져도 칸이 들쭉날쭉하지 않다.
-            tier.IsVisible = has;
-            tier.Text = $"{stars} {info.Tier}";
-            tier.Foreground = GameArt.Brush(GameArt.TierInk(info.Stars));
-            tier.FontWeight = FontWeight.SemiBold;
-        }
+        foreach (var slot in _dexSlots) slot.Show(Revealed(slot.Info.Skin));
         _dexCount.Text = Loc.T($"{all.Count}칸 중 {all.Count - left.Count}칸", $"{all.Count - left.Count} of {all.Count}");
 
         // 결과 고르기: 무작위 · 꽝(None) · 남은 스킨. 남은 스킨이 바뀔 때만 다시 만든다. 매번 만들면 고른 항목이 풀린다.

@@ -36,6 +36,9 @@ internal sealed class SkinRunnerView : Control
 
     public bool Owned { get; set; }
 
+    /// <summary>도감 칸에 마우스가 올라와 있어 "프로필 보기" 덮개를 씌우는지(DexSlot이 정한다).</summary>
+    public bool LinkHover { get; set; }
+
     public override void Render(DrawingContext ctx)
     {
         var box = new Rect(Bounds.Size);
@@ -48,6 +51,34 @@ internal sealed class SkinRunnerView : Control
             if (Owned) _runner.Draw(ctx, box.Center.X, floor, height, Skin, RewardCatalog.ShowcaseColor(Skin), 30, scaling);
             else DrawMystery(ctx, box.Center.X, floor, height, scaling);
         }
+        if (Owned && LinkHover) DrawLinkCover(ctx, box);
+    }
+
+    // 덮개는 마우스를 올린 동안 프레임마다 그리므로 붓·펜·글자를 만들어 둔다. 글자는 언어가 바뀔 때만 다시 만든다.
+    private static readonly IImmutableBrush CoverBack = new ImmutableSolidColorBrush(Color.FromArgb(184, 20, 26, 40));
+    private static readonly ImmutablePen ArrowPen = new(new ImmutableSolidColorBrush(Colors.White), 1.6, lineCap: PenLineCap.Round, lineJoin: PenLineJoin.Round);
+    private static FormattedText? _coverText;
+    private static string? _coverTextFor;
+
+    /// <summary>무대 위 반투명 덮개와 "프로필 보기 ↗". 화살표는 글꼴마다 모양이 달라 선으로 그린다.</summary>
+    private static void DrawLinkCover(DrawingContext ctx, Rect box)
+    {
+        ctx.DrawRectangle(CoverBack, null, box, 7, 7);
+        string label = Loc.T("프로필 보기", "View profile");
+        if (_coverText is null || _coverTextFor != label)
+        {
+            _coverText = GameArt.Format(label, GameArt.FontBody, Colors.White, FontWeight.Bold);
+            _coverTextFor = label;
+        }
+        const double arrow = 7, gap = 6;
+        double width = _coverText.Width + gap + arrow;
+        double x = box.Center.X - width / 2, y = box.Center.Y - _coverText.Height / 2;
+        ctx.DrawText(_coverText, new Point(x, y));
+        double ax = x + _coverText.Width + gap, ay = box.Center.Y - arrow / 2;
+        var tip = new Point(ax + arrow, ay);
+        ctx.DrawLine(ArrowPen, new Point(ax, ay + arrow), tip);
+        ctx.DrawLine(ArrowPen, new Point(ax + arrow * 0.3, ay), tip);
+        ctx.DrawLine(ArrowPen, tip, new Point(ax + arrow, ay + arrow * 0.7));
     }
 
     /// <summary>바탕과 그 위의 짧은 바닥 줄. 보통은 어둡고, 까망 고양이처럼 어두운 몸이면 light로 밝게 깐다.</summary>
