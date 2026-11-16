@@ -19,6 +19,7 @@
   color-scheme: dark;
 }
 body[data-cat="ghost"] { --name-a: #ffffff; --name-b: #e4f1ff; --name-c: #8ec5ff; --name-d: #4f8fe0; }
+body[data-cat="yarn"] { --name-a: #fff2f4; --name-b: #ffc2cb; --name-c: #ff6b7a; --name-d: #d9434f; }
 body[data-cat="glitch"] { --name-a: #ffd1f0; --name-b: #ff3ea5; --name-c: #c07bff; --name-d: #2de2e6; }
 
 * { box-sizing: border-box; }
@@ -60,7 +61,14 @@ html[data-lang="en"] .ko, html[data-lang="ko"] .en { display: none !important; }
 /* ── 고르기 화면 머리 ── */
 .head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding-block: 24px 16px; }
 .head-title { margin: 0; font: 400 clamp(14px, 2.4vw, 22px)/1.3 var(--f-pixel); color: var(--yellow); text-shadow: 3px 3px 0 #b3105f; letter-spacing: .04em; }
-.p1 { font: 400 12px/1 var(--f-pixel); color: var(--bg); background: var(--cyan); padding: 7px 9px; }
+.p1, .p2 { font: 400 12px/1 var(--f-pixel); color: var(--bg); background: var(--cyan); padding: 7px 9px; }
+.p2 { background: var(--pink); }
+/* 두 마리가 주고받는 고양이(털실냥 등)의 프로필: 1P·2P를 누르면 2P(두 번째 고양이)가 나왔다 들어간다 */
+.players { display: flex; gap: 6px; }
+button.p1, button.p2 { border: 0; margin: 0; cursor: pointer; }
+button.p1:hover, button.p1:focus-visible, button.p2:hover, button.p2:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
+body[data-players="1"] .players .p2 { display: none; }
+.vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .blink { color: var(--cyan); animation: blink 1.1s steps(2, start) infinite; }
 .blink .en { font: 400 11px/1.4 var(--f-pixel); }
 .blink .ko { font: 400 15px/1.4 var(--f-title); }
@@ -114,7 +122,10 @@ a.slot:hover { border-color: var(--cyan); }
 .slot canvas { width: 100%; aspect-ratio: 1; height: auto; background: radial-gradient(circle at 50% 70%, #3a1250, #0d0820 70%); }
 .slot span { font: 400 clamp(12px, 1.6vw, 15px)/1.2 var(--f-title); padding: 6px 2px 7px; text-align: center; }
 .slot[aria-current="page"] { border-color: var(--yellow); box-shadow: 0 0 0 2px var(--bg), 0 0 18px rgba(255, 211, 25, .6); animation: pulse 1s ease-in-out infinite alternate; }
-.slot[aria-current="page"]::before { content: "1P"; position: absolute; top: -12px; left: 50%; transform: translateX(-50%); font: 400 9px/1 var(--f-pixel); background: var(--yellow); color: var(--bg); padding: 4px 5px; z-index: 1; }
+.slot[aria-current="page"]::before { content: "1P"; position: absolute; top: -12px; left: 50%; transform: translateX(-50%); font: 400 9px/1 var(--f-pixel); background: var(--yellow); color: var(--bg); padding: 4px 5px; z-index: 1; white-space: nowrap; }
+/* 두 마리가 달리면 고른 칸 위에 1P·2P를 나란히 */
+body[data-players="2"] .slot[aria-current="page"]::before { left: calc(50% - 15px); }
+body[data-players="2"] .slot[aria-current="page"]::after { content: "2P"; position: absolute; top: -12px; left: calc(50% + 15px); transform: translateX(-50%); font: 400 9px/1 var(--f-pixel); background: var(--pink); color: var(--bg); padding: 4px 5px; z-index: 1; white-space: nowrap; }
 @keyframes pulse { to { border-color: #ff8a1f; } }
 .slot.locked { color: #6c6290; }
 .stats { border: 3px solid var(--edge); background: var(--panel); padding: 14px 16px; display: grid; gap: 11px; align-content: start; }

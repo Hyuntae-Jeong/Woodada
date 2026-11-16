@@ -46,6 +46,7 @@ On an Intel Mac? Grab [this one](https://github.com/Hyuntae-Jeong/Woodada/releas
 |:-:|---|---|
 | ★★ | **Ghost Cat** | Floats along with a see-through body |
 | ★★★ | **Flash Cat** | Leaves afterimages and sparks behind. The faster it runs, the longer the trail |
+| ★★★ | **Yarn Cat** | Kicks a ball of yarn as it runs. Two cats wearing it pass one ball back and forth |
 | ★★★★ | **Glitch Cat** | Every now and then it flickers like a broken screen |
 
 A dachshund and a rabbit will be joining the run soon. 🐕 🐇
@@ -124,7 +125,7 @@ If the Dock is hidden or on the side of the screen, the cats run along the botto
 
 The cat sprites come from [RunCat365](https://github.com/runcat-dev/RunCat365) (runcat-dev, Apache License 2.0).
 The dachshund and rabbit were hand-drawn to match the cat's style.
-The special gacha skins (Flash, Ghost, Glitch, Ice, Kittens) are original effects designed on top of these cat sprites.
+The special gacha skins (Flash, Ghost, Glitch, Yarn, Ice, Kittens) are original effects designed on top of these cat sprites.
 
 ## 📄 License
 

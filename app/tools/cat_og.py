@@ -45,6 +45,7 @@ BROWSERS = [
 NAME_COLORS = {
     "ghost": ("#ffffff", "#e4f1ff", "#8ec5ff", "#4f8fe0"),
     "flash": ("#fff6c2", "#ffd319", "#ff8a1f", "#ff3e3e"),
+    "yarn": ("#fff2f4", "#ffc2cb", "#ff6b7a", "#d9434f"),
     "glitch": ("#ffd1f0", "#ff3ea5", "#c07bff", "#2de2e6"),
     "all": ("#fff6c2", "#ffd319", "#ff8a1f", "#ff3e3e"),
 }
@@ -112,11 +113,12 @@ def page_for(key: str) -> str:
     c1, c2, c3, c4 = NAME_COLORS[key]
     if key == "all":
         name, ko, tier, quote, size = "All Cats", "고양이 도감", "", "", 150
-        # 세 마리를 수평선 위에 나란히. 유령은 떠 있고, 플래시 꼬리는 왼쪽으로 뻗는다.
+        # 네 마리를 수평선 위에 나란히. 유령은 떠 있고, 플래시 꼬리는 왼쪽으로, 털실은 오른쪽 앞으로 나온다.
         draw = "\n    ".join([
-            "window.WoodadaCats.drawPoster(ctx, 'ghost', masks, { x: 400, base, catH: 128 });",
-            "window.WoodadaCats.drawPoster(ctx, 'flash', masks, { x: 690, base, catH: 128 });",
-            "window.WoodadaCats.drawPoster(ctx, 'glitch', masks, { x: 925, base, catH: 128 });",
+            "window.WoodadaCats.drawPoster(ctx, 'ghost', masks, { x: 225, base, catH: 108 });",
+            "window.WoodadaCats.drawPoster(ctx, 'flash', masks, { x: 470, base, catH: 108 });",
+            "window.WoodadaCats.drawPoster(ctx, 'yarn', masks, { x: 650, base, catH: 108 });",
+            "window.WoodadaCats.drawPoster(ctx, 'glitch', masks, { x: 965, base, catH: 108 });",
         ])
     else:
         c = next(c for c in CATS if c["id"] == key)
@@ -125,8 +127,8 @@ def page_for(key: str) -> str:
         tier = f'<span class="tier">{en_tier} {"★" * c["stars"]}</span>'
         quote = f'<p class="quote">{html.escape(c["quote"][0])}</p>'
         size = 150 if len(name) <= 9 else 138
-        # 글리치는 노이즈 조각이 몸 오른쪽으로 튀어나가서 조금 왼쪽에 둔다
-        x = 820 if key == "glitch" else 860
+        # 글리치는 노이즈 조각이, 털실냥은 털실이 몸 오른쪽으로 나가서 조금 왼쪽에 둔다
+        x = 820 if key == "glitch" else 690 if key == "yarn" else 860
         draw = f"window.WoodadaCats.drawPoster(ctx, '{key}', masks, {{ x: {x}, base, catH: 196 }});"
     out = PAGE
     for k, v in {"{{NAME_SIZE}}": str(size), "{{C1}}": c1, "{{C2}}": c2, "{{C3}}": c3, "{{C4}}": c4,

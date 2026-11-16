@@ -22,7 +22,7 @@ OUT = ROOT / "docs" / "cats"
 SITE = "https://hyuntae-jeong.github.io/Woodada/"
 
 # 목록 끝에 붙이는 "곧 만나요!" 칸 수
-LOCKED = 2
+LOCKED = 1
 
 
 def t(en: str, ko: str) -> str:
@@ -37,6 +37,7 @@ TIERS = {
 }
 
 # 능력치 줄: (키, 영어 이름표, 한국어 이름표, 칸 수, 빨간 칸인지). 값은 cats.js가 사용률로 계산한다.
+# duo: 두 마리가 서로 주고받는 스킨(털실냥의 패스처럼). 이 고양이만 1P·2P 단추가 생기고 처음엔 두 마리가 달린다.
 CATS = [
     {
         "id": "ghost",
@@ -89,6 +90,37 @@ CATS = [
         "habit": ("Turns red above 50% CPU", "50%를 넘으면 달아올라요"),
         "likes": ("Loading screens, 100% CPU", "게임 로딩, CPU 100%"),
         "dislikes": ("Sleep mode", "절전 모드"),
+    },
+    {
+        "id": "yarn",
+        "name": ("Yarn Cat", "털실냥"),
+        "stars": 3,
+        "duo": True,
+        "quote": ("Pass it here! …wait, that one's mine.", "패스! …아니, 그건 내 털실이야."),
+        "intro": (
+            "Kicks a ball of yarn along as it runs. The faster it goes, the harder the kick and the farther the yarn bounces. "
+            "Two cats wearing it pass one ball between them.",
+            "털실 뭉치를 툭툭 차면서 달려요. 빨리 달릴수록 세게 차서 털실이 통통 튀며 멀리 굴러가요. "
+            "두 마리가 함께 입으면 털실 하나로 패스해요.",
+        ),
+        "short": ("Kicks a ball of yarn as it runs. Two of them pass it back and forth.", "털실을 툭툭 차며 달려요. 두 마리면 서로 패스해요."),
+        "hint": (
+            "The busier your CPU, the harder it kicks: a gentle nudge when idle, a bouncing ball about 3 bodies ahead when busy. "
+            "The gray cat (2P) is the memory cat wearing it too. Press 1P to see just one.",
+            "CPU가 바쁠수록 세게 차요. 한가하면 코앞에 살포시, 바쁘면 털실이 통통 튀며 몸 3개쯤 앞까지 굴러가요. "
+            "회색 고양이(2P)는 같이 입은 메모리 고양이예요. 1P를 누르면 한 마리만 달려요.",
+        ),
+        "ticks": [],
+        "stats": [
+            ("spd", "SPD", "속도", 10, False),
+            ("kick", "KICK", "차기", 10, False),
+            ("roll", "ROLL", "굴리기", 10, False),
+            ("hop", "HOP", "튐", 10, True),
+        ],
+        "talent": ("Dribbling yarn along the taskbar", "작업표시줄 위 털실 드리블"),
+        "habit": ("Flips the yarn over its head when it turns around", "돌아설 때 뒷발로 털실을 머리 위로 넘겨요"),
+        "likes": ("A fresh ball of yarn, a teammate to pass to", "새 털실 뭉치, 패스 받아 줄 친구"),
+        "dislikes": ("Tangled thread, the vacuum cleaner", "엉킨 실, 청소기"),
     },
     {
         "id": "glitch",
@@ -243,9 +275,17 @@ def roster(current: str | None, root: str) -> str:
     return '<ul class="roster" aria-label="Cats">\n        ' + "\n        ".join(items) + "\n      </ul>"
 
 
-def head_row() -> str:
+def head_row(players: bool = False) -> str:
+    """players: 두 마리가 주고받는 고양이(duo)의 프로필. 1P를 누르면 2P(메모리 고양이)가 나왔다 들어가고, 떠 있는 2P를 눌러도 들어간다. 처음엔 두 마리."""
+    if players:
+        badge = ('<div class="players">\n'
+                 f'        <button type="button" class="p1" id="p1" aria-pressed="true">1P<span class="vh">{t(" — show 2P", " — 2P 같이 보기")}</span></button>\n'
+                 f'        <button type="button" class="p2" id="p2" aria-pressed="true">2P<span class="vh">{t(" — hide 2P", " — 2P 빼기")}</span></button>\n'
+                 '      </div>')
+    else:
+        badge = '<span class="p1">1P</span>'
     return f"""<div class="head">
-      <span class="p1">1P</span>
+      {badge}
       <p class="head-title">SELECT YOUR CAT</p>
       <span class="blink">{t("PRESS START", "고양이를 고르세요")}</span>
     </div>"""
@@ -270,16 +310,18 @@ def cat_page(c: dict) -> str:
             f'<div class="stat" data-stat="{key}"><span class="lbl">{t(lbl_en, lbl_ko)}</span>'
             f'<div class="{cls}">{"<i></i>" * segs}</div><output></output></div>')
     ticks = "".join(f'<span style="left:{n}%">{n}</span>' for n in c["ticks"])
+    duo = c.get("duo", False)
+    players = ' data-players="2"' if duo else ""
     desc = f'{en} — {c["intro"][0]} A special skin you can win in Woodada, the cat that runs on your taskbar.'
     alt = f"{en} ({ko}) running on a neon arcade stage"
     return f"""{head(f"{en} — Woodada", f"{ko} — Woodada", desc, f"cats/{c['id']}/", root, c["id"], alt)}
-<body data-cat="{c['id']}" data-root="{root}">
+<body data-cat="{c['id']}" data-root="{root}"{players}>
 
 {top(root, True)}
 
 <main class="gutter">
   <div class="wrap">
-    {head_row()}
+    {head_row(players=duo)}
 
     <div class="stagebox">
       <canvas class="js-stage" role="img" aria-label="{html.escape(en)} running"></canvas>
@@ -344,7 +386,7 @@ def index_page() -> str:
             f'<li><div class="card locked"><canvas data-thumb="unknown" aria-hidden="true"></canvas>'
             f'<div><b>???</b><small>{t("Coming soon!", "곧 만나요!")}</small></div></div></li>')
     desc = "Meet the special cats you can win in Woodada's Cat Gacha."
-    alt = "Ghost Cat, Flash Cat and Glitch Cat running on a neon arcade stage"
+    alt = "Ghost Cat, Flash Cat, Yarn Cat and Glitch Cat running on a neon arcade stage"
     return f"""{head("Cats — Woodada", "고양이 도감 — Woodada", desc, "cats/", root, "cats", alt)}
 <body data-root="{root}">
 

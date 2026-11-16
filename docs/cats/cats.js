@@ -296,6 +296,248 @@
     return { split: Math.max(1, GLITCH.split * power * rand(0.6, 1.4)), side: Math.random() < 0.5 ? 1 : -1, bands, noise };
   }
 
+  // 털실 (Sprites/Skins/YarnSkin.cs): 털실 뭉치를 툭툭 차며 달린다. 빨리 달릴수록 세게 차서 통통 튀며 멀리 굴러가고,
+  // 털실이 뒤로 빠지면 뒷발로 머리 위로 넘긴다. 두 마리가 같이 입으면 털실 하나로 패스한다. 값과 공식은 앱과 같다.
+  const YARN = {
+    ball: 0.40, kickSoft: 1.5, kickHard: 2.4, hopSoft: 0.04, hopHard: 0.65, bounce: 0.35, lobHeight: 1.4,
+    thread: 1.1, strands: 3, yieldBodies: 6, gravity: 30, cooldown: 0.15, segs: 10,
+    // 굴러가는 거리(몸 너비). 앱 작업표시줄은 0.5~3.2, 무대는 폭이 몸 6~8개라 앱 설정 창 미리보기(YarnTuning.Preview) 값을 쓴다.
+    softGap: 0.5, hardGap: 3.2, stageSoftGap: 0.5, stageHardGap: 2.0,
+    colors: ['#E0474C', '#F28AB2', '#4C8BF5', '#F2C14E', '#5DBB63'], // 빨강·분홍·파랑·노랑·초록
+  };
+  const lerp = (a, b, k) => a + (b - a) * k;
+  const yarnJitter = (a, b) => a + Math.random() * (b - a);
+  // 차는 힘: 앱은 달리는 속도로 정하는데, 그 값은 사용률^0.7과 같다(0 살포시 ~ 1 세게).
+  const yarnPower = u => Math.pow(clamp(u / 100, 0, 1), 0.7);
+  const yarnKick = p => lerp(YARN.kickSoft, YARN.kickHard, p);
+  const yarnHop = p => lerp(YARN.hopSoft, YARN.hopHard, p);
+  const yarnGap = p => lerp(YARN.softGap, YARN.hardGap, p);
+  const stageGap = p => lerp(YARN.stageSoftGap, YARN.stageHardGap, p);
+  function hsl(hex) {
+    const [r, g, b] = hexRgb(hex).map(v => v / 255), mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
+    if (!d) return { h: 0, s: 0, l };
+    const s = d / (1 - Math.abs(2 * l - 1));
+    const h = mx === r ? ((g - b) / d + 6) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    return { h: h * 60, s, l };
+  }
+  // 털실 색: 입은 고양이들 색과 색상환에서 가장 먼 것. 모두 무채색이면 빨강.
+  function yarnColor(bodies) {
+    const hues = bodies.map(hsl).filter(c => c.s >= 0.25 && c.l >= 0.15 && c.l <= 0.85).map(c => c.h);
+    if (!hues.length) return YARN.colors[0];
+    const dist = (a, b) => { const d = Math.abs(a - b) % 360; return d > 180 ? 360 - d : d; };
+    let best = YARN.colors[0], far = -1;
+    for (const y of YARN.colors) {
+      const d = Math.min(...hues.map(h => dist(h, hsl(y).h)));
+      if (d > far) { far = d; best = y; }
+    }
+    return best;
+  }
+
+  // 털실 하나와 그걸 차는 고양이들(앱의 YarnPlay). 고양이는 { x: 몸 왼쪽, dir, w, h, v: px/s, p: 차는 힘 } 이고,
+  // 프레임마다 같은 객체의 값을 고쳐 넘긴다. 털실 좌표는 x(가운데)와 바닥에서 뜬 높이 h, 실 꼬리 ry도 바닥에서 위로 잰다.
+  function makeYarn() {
+    const b = {
+      x: 0, h: 0, vx: 0, vh: 0, decel: 0, angle: 0, squash: 0, power: 0, lob: false, last: null, cool: 0, owner: null,
+      r: 2, bh: 1, bw: 1, time: 0, spark: NaN, sparkX: 0, sparkDir: 1, sparkP: 0, rx: [], ry: [], px: [], py: [], ready: false,
+    };
+    let acc = 0;
+    const center = c => c.x + c.w / 2;
+    const decelFor = (w, v, p) => Math.max(w * 0.03, Math.pow((yarnKick(p) - 1) * v, 2) / (2 * stageGap(p) * w));
+    function respawn(cat, drop) {
+      const w = cat.w, p = cat.p;
+      b.x = center(cat) + cat.dir * (w / 2 + b.r + stageGap(p) * w * 0.5);
+      b.h = drop ? cat.h * 0.9 : 0;
+      b.vx = cat.dir * cat.v; b.vh = 0; b.decel = decelFor(w, cat.v, p);
+      b.squash = 0; b.power = p; b.lob = false; b.last = cat; b.cool = 0; b.spark = NaN;
+      for (let i = 0; i <= YARN.segs; i++) { b.rx[i] = b.px[i] = b.x; b.ry[i] = b.py[i] = 0; }
+    }
+    function touched(cat, p, x) {
+      b.power = p; b.last = cat; b.cool = YARN.cooldown;
+      b.spark = b.time; b.sparkX = x; b.sparkDir = cat.dir; b.sparkP = p;
+    }
+    function kick(cat, front) {
+      const g = YARN.gravity * b.bh, p = cat.p;
+      b.vx = cat.dir * yarnKick(p) * cat.v * yarnJitter(0.9, 1.1);
+      b.decel = decelFor(cat.w, cat.v, p);
+      b.vh = yarnHop(p) * Math.sqrt(2 * g * b.bh * 0.6) * yarnJitter(0.7, 1.15);
+      b.squash = 0.25 + 0.75 * p; // 살포시 차면 거의 안 찌그러지고, 세게 차면 확 찌그러진다
+      touched(cat, p, front);
+    }
+    // 뒷발로 넘기기: 머리 위로 띄워 앞으로 보낸다. 날아가는 동안 고양이가 달린 거리까지 셈해서 앞에 떨어지게.
+    function lob(cat) {
+      const g = YARN.gravity * b.bh, p = cat.p;
+      const vh = Math.sqrt(2 * g * b.bh * YARN.lobHeight * lerp(0.6, 1.25, p)), flight = 2 * vh / g;
+      const land = center(cat) + cat.dir * (cat.v * flight + cat.w / 2 + b.r + stageGap(p) * cat.w * 0.6);
+      b.vx = (land - b.x) / flight; b.vh = vh; b.lob = true;
+      b.decel = decelFor(cat.w, cat.v, p);
+      b.squash = 0.25 + 0.75 * p;
+      touched(cat, p, b.x);
+    }
+    // 누가 차고, 넘기고, 맡기는지
+    function play(cats) {
+      for (const c of cats) {
+        if (b.owner && c !== b.owner) continue;
+        const front = c.dir > 0 ? c.x + c.w : c.x;
+        if (c.dir * (b.x - center(c)) > 0 && c.dir * (b.x - front) < b.r * 0.4 && b.h < b.bh * 0.45 && c.dir * b.vx < c.v * 1.05) {
+          kick(c, front);
+          return;
+        }
+      }
+      if (b.h >= b.bh * 0.2) return;
+      // 털실이 내 뒤로 빠졌으면 넘긴다. 같이 쓰는 털실이면, 털실을 앞에 두고 다가오는 고양이가 가까이 있을 때는 맡긴다.
+      let behind = null, coming = false;
+      for (const c of cats) {
+        if (b.owner && c !== b.owner) continue;
+        const ahead = c.dir * (b.x - center(c));
+        if (ahead <= 0 && -ahead < c.w * 2.5 && (!behind || Math.abs(center(c) - b.x) < Math.abs(center(behind) - b.x))) behind = c;
+        if (ahead > 0 && ahead < c.w * YARN.yieldBodies) coming = true;
+      }
+      if (behind) { if (!coming) lob(behind); }
+      else if (b.owner && b.owner.dir * (center(b.owner) - b.x) >= b.owner.w * 2.5) respawn(b.owner, true);
+    }
+    // 실 꼬리: 털실 가운데에 매달린 짧은 밧줄(버렛 적분). 바닥에 닿은 마디는 끌리며 느려진다.
+    function stepRope(dt) {
+      const air = Math.pow(0.98, dt * 30), drag = Math.pow(0.55, dt * 30);
+      const seg = Math.max(0.5, YARN.thread * b.bw / YARN.segs), g = YARN.gravity * b.bh * 0.6;
+      const x = b.rx, y = b.ry, px = b.px, py = b.py;
+      x[0] = b.x; y[0] = b.h + b.r;
+      for (let i = 1; i <= YARN.segs; i++) {
+        const vx = (x[i] - px[i]) * (y[i] <= 0.1 ? drag : air), vy = (y[i] - py[i]) * air;
+        px[i] = x[i]; py[i] = y[i];
+        x[i] += vx; y[i] += vy - g * dt * dt;
+      }
+      for (let k = 0; k < 6; k++) {
+        for (let i = 1; i <= YARN.segs; i++) {
+          const dx = x[i] - x[i - 1], dy = y[i] - y[i - 1], d = Math.max(1e-6, Math.hypot(dx, dy)), diff = (d - seg) / d;
+          if (i === 1) { x[i] -= dx * diff; y[i] -= dy * diff; }
+          else { x[i - 1] += dx * diff * 0.5; y[i - 1] += dy * diff * 0.5; x[i] -= dx * diff * 0.5; y[i] -= dy * diff * 0.5; }
+        }
+        for (let i = 1; i <= YARN.segs; i++) if (y[i] < 0) y[i] = 0;
+      }
+    }
+    function stepBall(dt, cats, left, right) {
+      const g = YARN.gravity * b.bh;
+      b.cool = Math.max(0, b.cool - dt);
+      b.vh -= g * dt; b.h += b.vh * dt;
+      if (b.h <= 0) {
+        b.h = 0;
+        // 넘긴 털실이 처음 땅에 닿으면 찬 것처럼 고양이보다 조금 빠른 속도만 남긴다
+        if (b.lob && b.vh < 0 && b.last) b.vx = Math.sign(b.vx) * Math.min(Math.abs(b.vx), yarnKick(b.power) * b.last.v);
+        if (b.vh < -Math.sqrt(2 * g * b.bh * 0.04)) { b.vh = -b.vh * YARN.bounce; b.squash = Math.max(b.squash, 0.7); }
+        else b.vh = 0;
+        if (b.vh === 0) b.lob = false;
+      }
+      if (b.h === 0) { const m = Math.abs(b.vx) - b.decel * dt; b.vx = m > 0 ? Math.sign(b.vx) * m : 0; }
+      b.x += b.vx * dt;
+      if (b.x < left + b.r) { b.x = left + b.r; b.vx = Math.abs(b.vx) * 0.5; }
+      if (b.x > right - b.r) { b.x = right - b.r; b.vx = -Math.abs(b.vx) * 0.5; }
+      b.angle += b.vx * dt / b.r;
+      b.squash *= Math.exp(-dt * 14);
+      if (!b.lob && b.cool <= 0) play(cats);
+      stepRope(dt);
+    }
+    // 고양이들이 움직인 바로 뒤에 부른다. left·right는 털실이 굴러갈 수 있는 끝.
+    b.step = (dt, cats, left, right) => {
+      if (!cats.length) return;
+      const owner = cats.length === 1 ? cats[0] : null;
+      b.bh = cats.reduce((s, c) => s + c.h, 0) / cats.length;
+      b.bw = cats.reduce((s, c) => s + c.w, 0) / cats.length;
+      b.r = Math.max(2, b.bh * YARN.ball / 2);
+      if (!b.ready || b.owner !== owner || b.x < left - b.r || b.x > right + b.r) { b.ready = true; b.owner = owner; respawn(owner || cats[0], false); }
+      // 앱처럼 1/60초씩 나눠 진행해서 화면 fps와 상관없이 같은 움직임이 나오게 한다
+      acc = Math.min(acc + dt, 0.25);
+      while (acc >= 1 / 60) { acc -= 1 / 60; b.time += 1 / 60; stepBall(1 / 60, cats, left, right); }
+    };
+    return b;
+  }
+
+  // 멈춘 털실 한 장(공유 이미지·작은 그림): 고양이 앞에서 막 차여 떠오른 털실과 바닥에 늘어진 실 꼬리.
+  function stillYarn(catX, catW, catH, p) {
+    const r = catH * YARN.ball / 2, x = catX + catW + r * 1.7, h = catH * 0.32 * p;
+    const b = { x, h, vx: 0, r, bh: catH, bw: catW, angle: 0.7, squash: 0, time: 0.05, spark: p > 0.2 ? 0 : NaN, sparkX: catX + catW, sparkDir: 1, sparkP: p, rx: [], ry: [] };
+    const seg = YARN.thread * catW / YARN.segs;
+    let rx = x, ry = h + r;
+    for (let i = 0; i <= YARN.segs; i++) {
+      b.rx[i] = rx; b.ry[i] = ry;
+      const down = Math.min(ry, seg * 0.8);
+      ry -= down;
+      rx -= Math.sqrt(Math.max(0, seg * seg - down * down)) * (0.9 + 0.2 * Math.sin(i * 1.7));
+    }
+    return b;
+  }
+
+  // 몸 뒤에 깔리는 것: 실 꼬리와 바닥 그림자. floor는 바닥 줄의 y(CSS 픽셀).
+  function drawYarnBack(ctx, b, color, floor, dpr) {
+    const lw = Math.max(1 / dpr, b.bh / 28);
+    ctx.save();
+    ctx.strokeStyle = mix(color, '#000000', 0.12); ctx.lineWidth = lw; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.beginPath();
+    for (let i = 0; i <= YARN.segs; i++) ctx[i ? 'lineTo' : 'moveTo'](b.rx[i], floor - b.ry[i] - lw / 2);
+    ctx.stroke();
+    // 높이 뜰수록 작고 옅은 그림자
+    const up = Math.min(1, b.h / (b.bh * 1.5));
+    ctx.fillStyle = `rgba(0,0,0,${0.35 * (1 - up * 0.7)})`;
+    ctx.beginPath(); ctx.ellipse(b.x, floor, b.r * (1 - up * 0.4), Math.max(0.8 / dpr, b.r * 0.22), 0, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+
+  // 몸 앞에 그리는 것: 바람 줄, 털실, 찰 때 발끝에서 튄 선.
+  function drawYarnFront(ctx, b, color, floor, dpr) {
+    const r = b.r, cx = b.x, cy = floor - b.h - r, body = b.bh;
+    ctx.save();
+    ctx.lineCap = 'round';
+    // 바람 줄: 세게 차서 빨리 굴러갈 때만 뒤로 끌린다
+    const fast = Math.min(1, (Math.abs(b.vx) / Math.max(1, b.bw) - 5) / 8);
+    if (fast > 0) {
+      const dir = Math.sign(b.vx), x0 = cx - dir * r * 1.3;
+      ctx.strokeStyle = '#FFFFFF'; ctx.globalAlpha = 0.55 * fast; ctx.lineWidth = Math.max(1 / dpr, body / 32);
+      for (const [dy, len] of [[-0.45, 0.8], [0, 1.2], [0.45, 0.7]]) {
+        ctx.beginPath(); ctx.moveTo(x0, cy + dy * r); ctx.lineTo(x0 - dir * r * 2.2 * len * fast, cy + dy * r); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
+    // 털실. 차이거나 바닥에 떨어진 순간 바닥 쪽을 축으로 옆으로 퍼졌다가 돌아온다.
+    const sq = b.squash * 0.22, bottom = floor - b.h, dark = mix(color, '#000000', 0.38);
+    ctx.save();
+    ctx.translate(cx, bottom); ctx.scale(1 + sq, 1 - sq); ctx.translate(-cx, -bottom);
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+    // 감긴 실 줄: 구르는 만큼 돌아간다
+    ctx.strokeStyle = dark; ctx.lineWidth = Math.max(1 / dpr, r / 5);
+    for (let i = 0; i < YARN.strands; i++) {
+      ctx.beginPath(); ctx.ellipse(cx, cy, r * 0.9, r * (0.28 + 0.5 * (i % 2)), b.angle + i * Math.PI / YARN.strands, 0, Math.PI * 2); ctx.stroke();
+    }
+    // 하이라이트와 테두리
+    ctx.fillStyle = mix(color, '#FFFFFF', 0.45); ctx.globalAlpha = 0.7;
+    ctx.beginPath(); ctx.arc(cx - r * 0.35, cy - r * 0.38, r * 0.28, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+    const outline = Math.max(1 / dpr, r / 6);
+    ctx.lineWidth = outline;
+    ctx.beginPath(); ctx.arc(cx, cy, r - outline / 2, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+    // 찰 때 튀는 짧은 선. 살포시 차면 옅은 선 하나, 세게 차면 길고 많은 선이 오래 남는다.
+    const p = b.sparkP, age = (b.time - b.spark) / lerp(0.12, 0.22, p);
+    if (age >= 0 && age < 1) {
+      const len = body * 0.18 * lerp(0.45, 1.5, p) * (0.5 + age), off = body * 0.1 + body * 0.15 * age * lerp(0.6, 1.4, p);
+      ctx.strokeStyle = '#FFFFFF'; ctx.globalAlpha = (1 - age) * lerp(0.45, 1, p); ctx.lineWidth = Math.max(1 / dpr, body / 28 * lerp(0.8, 1.4, p));
+      const angles = p < 0.3 ? [-0.35] : p < 0.6 ? [-0.9, -0.35, 0.2] : [-1.15, -0.75, -0.35, 0.05, 0.4];
+      for (const a of angles) {
+        const dx = Math.cos(a) * b.sparkDir, dy = Math.sin(a), sx = b.sparkX + dx * off, sy = floor - r + dy * off;
+        ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx + dx * len, sy + dy * len); ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
+  // 털실냥을 보여 줄 때 고양이 색: 앱 도감·뽑기처럼 하얀 고양이(무채색이라 털실은 빨강)
+  const YARN_BODY = '#ECE7DF', YARN_MATE = '#9A9AA0';
+  function drawYarnStill(ctx, masks, x, y, catW, catH, devH, dpr, p) {
+    const b = stillYarn(x, catW, catH, p), color = yarnColor([YARN_BODY]);
+    drawYarnBack(ctx, b, color, y + catH, dpr);
+    ctx.drawImage(catFrame(masks, 1, YARN_BODY, devH), x, y, catW, catH);
+    drawYarnFront(ctx, b, color, y + catH, dpr);
+  }
+
   const SKINS = {
     ghost: {
       make(masks) {
@@ -380,6 +622,37 @@
         };
       },
     },
+
+    yarn: {
+      pair: true, // 1P·2P를 한 번에 그린다. 두 마리면 털실 하나를 같이 쓰고, 한 마리면 제 털실을 찬다.
+      make(masks) {
+        const play = makeYarn(), players = [{}, {}];
+        return (ctx, g) => {
+          const { cats, catW, catH, devH, y, dpr, dt, w } = g;
+          // 2P(메모리 고양이)는 회색. 둘 다 무채색이라 털실은 빨강.
+          const color = yarnColor(cats.length > 1 ? [YARN_BODY, YARN_MATE] : [YARN_BODY]);
+          const on = cats.map((c, i) => Object.assign(players[i], { x: c.runner.x, dir: c.runner.dir, w: catW, h: catH, v: c.v, p: yarnPower(c.u) }));
+          play.step(reduceMotion ? 0 : dt, on, 0, w);
+          const floor = y + catH;
+          drawYarnBack(ctx, play, color, floor, dpr);
+          for (let i = cats.length - 1; i >= 0; i--) {
+            const r = cats[i].runner;
+            drawFlipped(ctx, catFrame(masks, Math.floor(r.frame), i ? YARN_MATE : YARN_BODY, devH), r.x, y, catW, catH, r.dir);
+          }
+          drawYarnFront(ctx, play, color, floor, dpr);
+        };
+      },
+      // 능력치는 앱 작업표시줄 값으로 센다(굴러가는 거리 몸 0.5~3.2개)
+      stats: u => {
+        const p = yarnPower(u), roll = yarnGap(p), hop = yarnHop(p) / YARN.hopHard;
+        return {
+          spd: [spd(u), pct(spd(u))],
+          kick: [p, pct(p)],
+          roll: [roll / YARN.hardGap, '×' + roll.toFixed(1)],
+          hop: [hop, pct(hop)],
+        };
+      },
+    },
   };
 
   // 글리치 한 프레임. shape가 null이면 평소 모습(옅은 번짐), 있으면 터진 모습.
@@ -421,6 +694,7 @@
   const POSTER = {
     ghost: { u: 50, t: 0.2 },
     flash: { u: 48 }, // 불꽃이 가장 세지만 아직 달아오르기 전(하얀 몸이 잘 보인다)
+    yarn: { u: 75 }, // 세게 차서 털실이 막 떠오른 순간
     glitch: {
       u: 80,
       shape: {
@@ -442,6 +716,7 @@
     const trail = Array.from({ length: 240 }, (_, i) => ({ x: x - i * 3, f: ((1 - Math.floor(i / 8)) % 5 + 5) % 5, dir: 1 }));
     const g = { u: p.u, t: p.t || 0.35, dt: 0, runner, trail, catW, catH, devH, dpr, y };
     if (kind === 'glitch') drawGlitch(ctx, masks, p.shape, g);
+    else if (kind === 'yarn') drawYarnStill(ctx, masks, x, y, catW, catH, devH, dpr, yarnPower(p.u));
     else SKINS[kind].make(masks)(ctx, g);
   }
 
@@ -467,6 +742,9 @@
       }
       ctx.globalAlpha = 1;
       ctx.drawImage(catFrame(masks, 1, FLASH_BODY, devH), x, y, catW, catH);
+    } else if (kind === 'yarn') {
+      // 털실이 앞에 오니 고양이를 조금 왼쪽에 둔다
+      drawYarnStill(ctx, masks, x - catW * 0.22, y, catW, catH, devH, dpr, 0.55);
     } else if (kind === 'glitch') {
       const s = Math.max(1.5, catH / 22);
       ctx.globalAlpha = 0.8;
@@ -487,28 +765,57 @@
   // ── 스페셜 스킨 끝 ──
 
   /* ───────── 무대 ───────── */
+  // 1P는 CPU 막대대로, 2P(메모리 고양이)는 반대쪽에서 늘 이 사용률로 달린다. 둘 다 같은 스킨을 입는다.
+  // 2P 단추는 두 마리가 주고받는 고양이(cat_pages.py의 duo) 페이지에만 있다. 나머지는 늘 한 마리.
+  const MATE_USAGE = 45;
   function makeStage(canvas, skin, masks) {
-    const draw = skin.make(masks);
-    const runner = new Runner(40, 1), trail = [];
-    let t = 0, scroll = 0;
-    return (dt, u) => {
+    const pairDraw = skin.pair ? skin.make(masks) : null;
+    const cats = [0, 1].map(() => ({ runner: new Runner(40, 1), trail: [], draw: pairDraw ? null : skin.make(masks), u: 0, v: 0 }));
+    let t = 0, scroll = 0, matePlaced = false;
+    return (dt, u, two) => {
       t += dt;
       const { ctx, w, h, dpr } = fitCanvas(canvas);
       if (w < 2 || h < 2) return t;
       const floorH = Math.round(h * 0.3);
       const catH = clamp(w * 0.1, 46, 74), devH = Math.round(catH * dpr);
       const catW = catH * masks[0].w / masks[0].h;
-      const v = speedFor(u / 100) * 1.15 * (catH / 40);
       scroll += dt * (0.4 + 1.6 * u / 100);
       drawArcade(ctx, w, h, floorH, t, scroll);
-      if (!reduceMotion) runner.step(dt, v, fpsFor(v * 40 / catH), 8, w - catW - 8);
-      trail.unshift({ x: runner.x, f: Math.floor(runner.frame), dir: runner.dir });
-      if (trail.length > 160) trail.length = 160;
+      if (!matePlaced) { cats[1].runner.x = w - catW - 40; cats[1].runner.dir = -1; matePlaced = true; }
+      const on = two ? cats : cats.slice(0, 1);
+      on.forEach((c, i) => {
+        c.u = i ? MATE_USAGE : u;
+        c.v = speedFor(c.u / 100) * 1.15 * (catH / 40);
+        if (!reduceMotion) c.runner.step(dt, c.v, fpsFor(c.v * 40 / catH), 8, w - catW - 8);
+        c.trail.unshift({ x: c.runner.x, f: Math.floor(c.runner.frame), dir: c.runner.dir });
+        if (c.trail.length > 160) c.trail.length = 160;
+      });
       const y = h - floorH - catH + Math.max(2, catH * 0.05);
-      draw(ctx, { u, t, dt, runner, trail, catW, catH, devH, dpr, y });
+      const g = { t, dt, catW, catH, devH, dpr, y, w };
+      if (pairDraw) pairDraw(ctx, { ...g, cats: on });
+      // 1P가 앞에 오게 2P부터 그린다
+      else for (let i = on.length - 1; i >= 0; i--) on[i].draw(ctx, { ...g, u: on[i].u, runner: on[i].runner, trail: on[i].trail });
       return t;
     };
   }
+
+  /* ───────── 1P·2P: 1P를 누르면 2P(메모리 고양이)가 나왔다 들어가고, 떠 있는 2P를 눌러도 들어간다. 처음엔 두 마리 ───────── */
+  function makePlayers() {
+    const btns = [$('#p1'), $('#p2')].filter(Boolean), s = { two: true };
+    try { s.two = localStorage.getItem('woodada-players') !== '1'; } catch (e) { /* 못 읽으면 두 마리 */ }
+    const sync = () => {
+      document.body.dataset.players = s.two ? '2' : '1';
+      btns.forEach(b => b.setAttribute('aria-pressed', String(s.two)));
+    };
+    btns.forEach(b => b.addEventListener('click', () => {
+      s.two = !s.two;
+      sync();
+      try { localStorage.setItem('woodada-players', s.two ? '2' : '1'); } catch (e) { /* 저장 못 해도 화면은 바뀐다 */ }
+    }));
+    sync();
+    return s;
+  }
+  const players = $('#p1') ? makePlayers() : { two: false };
 
   /* ───────── CPU 막대: 처음엔 저절로 오르내리다가, 만지면 멈춘다 ───────── */
   function makeCtl() {
@@ -565,7 +872,7 @@
       const dt = lastT ? Math.min(0.05, (now - lastT) / 1000) : 0;
       lastT = now;
       ctl.tick(dt);
-      t = stage(dt, ctl.u);
+      t = stage(dt, ctl.u, players.two);
       if (now - uiT > 90) { uiT = now; ctl.sync(); updateStats(rows, skin.stats(ctl.u, { t })); }
       if (visible && !document.hidden) requestAnimationFrame(frame);
       else lastT = 0;
