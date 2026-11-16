@@ -168,11 +168,32 @@ internal sealed class NavPill : ClickableControl
         }
     }
 
+    /// <summary>글자 오른쪽 위에 빨간 점을 띄운다(냥뽑기 탭: 아직 확인하지 않은 새 스킨이 있다).</summary>
+    public bool Dot
+    {
+        get => _dot;
+        set
+        {
+            if (_dot == value) return;
+            _dot = value;
+            InvalidateVisual();
+        }
+    }
+    private bool _dot;
+
     protected override void Paint(DrawingContext ctx)
     {
         var r = new Rect(Bounds.Size).Deflate(0.5);
         if (_selected) GameArt.FillRound(ctx, r, r.Height / 2, GameArt.Accent);
         else if (Hover) GameArt.FillRound(ctx, r, r.Height / 2, GameArt.AccentSoft);
-        GameArt.DrawCentered(ctx, GameArt.Format(_text, GameArt.FontLarge, _selected ? GameArt.OnAccent : GameArt.Text, FontWeight.Bold), r);
+        var text = GameArt.Format(_text, GameArt.FontLarge, _selected ? GameArt.OnAccent : GameArt.Text, FontWeight.Bold);
+        double textWidth = Math.Min(text.Width, r.Width), textHeight = text.Height;
+        GameArt.DrawCentered(ctx, text, r);
+        if (_dot)
+        {
+            const double d = 7;
+            double x = Math.Min(r.Center.X + textWidth / 2 + 2, r.Right - d - 4), y = r.Center.Y - textHeight / 2 - 1;
+            ctx.DrawEllipse(GameArt.Brush(GameArt.NewBadge), null, new Rect(x, y, d, d));
+        }
     }
 }

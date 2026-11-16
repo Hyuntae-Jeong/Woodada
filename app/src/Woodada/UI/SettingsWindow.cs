@@ -99,7 +99,6 @@ internal sealed class SettingsWindow : Window
         CornerRadius = new CornerRadius(9), Padding = new Thickness(7, 1), VerticalAlignment = VerticalAlignment.Center,
     };
     private readonly TextBlock _resultBadgeText = new() { FontSize = 10.5, FontWeight = FontWeight.Bold, Foreground = GameArt.Brush(Colors.White) };
-    private static readonly Color NewBadge = Color.FromRgb(0xD9, 0x62, 0x6B);
     private static readonly Color MissBadge = Color.FromRgb(0x8A, 0x93, 0xA1);
 
     // 옷장 탭
@@ -193,6 +192,7 @@ internal sealed class SettingsWindow : Window
             pill.Selected = p == page;
             view.IsVisible = p == page;
         }
+        RefreshNewDot();
         if (page == Page.Profile)
         {
             BuildRunnerStatRows();
@@ -207,6 +207,7 @@ internal sealed class SettingsWindow : Window
         }
         if (page == Page.Gacha)
         {
+            _rewards.MarkGachaTabOpened();
             // 다시 들어오면 지난 결과 대신 뽑기 전 화면부터(다 모았으면 "도감 완성!"). 연출 중이면 그대로 둔다.
             if (!_stage.IsPlaying)
             {
@@ -216,6 +217,12 @@ internal sealed class SettingsWindow : Window
             }
             RefreshGacha();
         }
+    }
+
+    /// <summary>냥뽑기 탭의 빨간 점: 아직 없는 새 스킨이 생긴 뒤로 탭을 열지 않았으면 켠다.</summary>
+    private void RefreshNewDot()
+    {
+        if (_pages.TryGetValue(Page.Gacha, out var gacha)) gacha.Pill.Dot = _rewards.HasUnopenedNewSkin;
     }
 
     /// <summary>생선이 어떻게 모이는지(FishMeter). 맨 위 생선 줄의 "?"에서 연다.</summary>
@@ -701,7 +708,8 @@ internal sealed class SettingsWindow : Window
         if (!_rewards.OwnsSkin(skin))
         {
             SkinRunnerView.DrawStage(ctx, box, 6, light: false, floorInset: 8);
-            using (ctx.PushClip(box)) SkinRunnerView.DrawMystery(ctx, box.Center.X, floor, height, scaling);
+            var hint = _rewards.IsNewSkin(skin) ? RewardCatalog.FindSkin(skin)?.Accent : null;
+            using (ctx.PushClip(box)) SkinRunnerView.DrawMystery(ctx, box.Center.X, floor, height, scaling, hint);
             return;
         }
         var color = ColorUtil.Parse(Selected?.Color, Colors.Black);
@@ -734,6 +742,7 @@ internal sealed class SettingsWindow : Window
             bool owned = _rewards.OwnsSkin(skin);
             tile.Caption = skin == RunnerSkin.None ? Loc.T("기본 모습", "Default") : owned ? RewardCatalog.FindSkin(skin)!.Name : "???";
             tile.LockedNote = owned ? null : Loc.T("뽑기에서 얻어요", "From the gacha");
+            tile.IsNew = !owned && _rewards.IsNewSkin(skin);
             tile.State = !owned ? TileState.TooExpensive : skin == wearing ? TileState.Equipped : TileState.Owned;
             tile.Redraw();
         }
@@ -868,10 +877,17 @@ internal sealed class SettingsWindow : Window
         addFish.Click += (_, _) => _rewards.DevAddFish(5000);
         var clear = new GameButton(Loc.T("도감 비우기", "Clear collection"));
         clear.Click += (_, _) => ClearSkinsForDev();
+        // 없는 스킨을 모두 방금 나온 새 스킨으로 만든다. 탭 빨간 점은 다른 탭으로 갔다 오면 보인다.
+        var resetNew = new GameButton(Loc.T("NEW 다시 켜기", "Reset NEW"));
+        resetNew.Click += (_, _) =>
+        {
+            _rewards.DevResetNewSkins();
+            RefreshSkinTiles();
+        };
 
         var title = Label(Loc.T("개발용", "Dev"), GameArt.FontBody, Color.FromRgb(0x8A, 0x64, 0x10), FontWeight.Bold);
         var pickLabel = Label(Loc.T("결과", "Result"), GameArt.FontBody, GameArt.Text);
-        foreach (var c in new Control[] { title, pickLabel, _devPick, _devFree, addFish, clear })
+        foreach (var c in new Control[] { title, pickLabel, _devPick, _devFree, addFish, clear, resetNew })
         {
             c.VerticalAlignment = VerticalAlignment.Center;
             c.Margin = new Thickness(0, 2, 12, 2);
@@ -885,7 +901,7 @@ internal sealed class SettingsWindow : Window
             CornerRadius = new CornerRadius(10),
             Padding = new Thickness(12, 4),
             Margin = new Thickness(0, 10, 0, 0),
-            Child = new WrapPanel { Children = { title, pickLabel, _devPick, _devFree, addFish, clear } },
+            Child = new WrapPanel { Children = { title, pickLabel, _devPick, _devFree, addFish, clear, resetNew } },
         };
     }
 
@@ -917,7 +933,9 @@ internal sealed class SettingsWindow : Window
         _again.IsVisible = !done;
         _again.IsEnabled = canPay;
 
-        foreach (var slot in _dexSlots) slot.Show(Revealed(slot.Info.Skin));
+        // 방금 뽑은 새 스킨은 정체가 드러날 때까지 NEW도 그대로 둔다. 먼저 꺼지면 무엇이 나왔는지 들킨다.
+        foreach (var slot in _dexSlots) slot.Show(Revealed(slot.Info.Skin), _rewards.IsNewSkin(slot.Info.Skin));
+        RefreshNewDot();
         _dexCount.Text = Loc.T($"{all.Count}칸 중 {all.Count - left.Count}칸", $"{all.Count - left.Count} of {all.Count}");
 
         // 결과 고르기: 무작위 · 꽝(None) · 남은 스킨. 남은 스킨이 바뀔 때만 다시 만든다. 매번 만들면 고른 항목이 풀린다.
@@ -999,7 +1017,7 @@ internal sealed class SettingsWindow : Window
             RefreshGacha();
             return;
         }
-        _resultBadge.Background = GameArt.Brush(NewBadge);
+        _resultBadge.Background = GameArt.Brush(GameArt.NewBadge);
         _resultBadgeText.Text = "NEW";
         _resultName.Text = info.Name;
         _resultStars.Text = $"{new string('★', info.Stars)}{new string('☆', 4 - info.Stars)}  {info.Tier}";

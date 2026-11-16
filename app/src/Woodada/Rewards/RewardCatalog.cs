@@ -87,6 +87,19 @@ public static class RewardCatalog
     public const int GachaRefundMax = 100;
 
     /// <summary>
+    /// 새로 공개한 스킨에 NEW를 붙여 두는 날 수. 출시일이 아니라 이 PC의 앱이 그 스킨을 처음 본 날부터 센다.
+    /// 업데이트를 늦게 받은 사람도 NEW를 보게 하려는 것이다. 그 전에 뽑으면 바로 꺼진다.
+    /// </summary>
+    public const int NewSkinDays = 7;
+
+    /// <summary>
+    /// NEW 표시가 생기기 전에 이미 공개한 스킨. 이 기능이 처음 도는 날 이 스킨들은 새것으로 치지 않는다.
+    /// 새 스킨을 공개할 때 여기에 더하지 않는다.
+    /// </summary>
+    public static readonly IReadOnlySet<RunnerSkin> SkinsBeforeNewMarks =
+        new HashSet<RunnerSkin> { RunnerSkin.Ghost, RunnerSkin.Flash, RunnerSkin.Glitch };
+
+    /// <summary>
     /// 돌려주는 생선 n개가 나올 무게는 e^(−n/25). 적은 수일수록 잘 나오고 하나 늘 때마다 약 4%씩 덜 나온다.
     /// 평균 약 24개를 돌려줘서 꽝 한 번에 실제로 드는 생선은 약 476개다. 10개 이하가 약 34%, 50개 이상이 약 12%,
     /// 90개 이상이 약 1%, 100개는 약 0.08%(1,300번에 한 번꼴)다. 확률은 화면에 보여 주지 않는다.

@@ -50,6 +50,9 @@ internal sealed class ShopTile : ClickableControl
     /// <summary>잠긴 칸에서 가격 대신 보여 줄 말(뽑기로만 얻는 스킨의 "뽑기에서 얻어요" 등).</summary>
     public string? LockedNote { get; set; }
 
+    /// <summary>잠긴 칸 오른쪽 위에 자물쇠 대신 "NEW" 배지를 단다(새로 나온 스페셜 스킨).</summary>
+    public bool IsNew { get; set; }
+
     public TileState State
     {
         get => _state;
@@ -116,7 +119,8 @@ internal sealed class ShopTile : ClickableControl
             byte veilAlpha = (byte)(_previewing ? 40 : _state == TileState.Buyable ? 90 : 150);
             ctx.FillRectangle(GameArt.Brush(Settings.ColorUtil.WithAlpha(GameArt.Locked, veilAlpha)), art);
             const double lockSize = 11;
-            GameArt.DrawLock(ctx, new Rect(outer.Right - lockSize - 6, outer.Y + 6, lockSize * 0.8, lockSize),
+            if (IsNew) GameArt.DrawNewBadge(ctx, outer.Right - 4, outer.Y + 4);
+            else GameArt.DrawLock(ctx, new Rect(outer.Right - lockSize - 6, outer.Y + 6, lockSize * 0.8, lockSize),
                 _state == TileState.Buyable ? GameArt.FishDark : GameArt.SubText);
         }
         if (_state == TileState.Equipped)

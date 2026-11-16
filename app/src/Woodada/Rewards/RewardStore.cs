@@ -25,6 +25,15 @@ public sealed class Inventory
 
     /// <summary>지금까지 꽝이 몇 번 이어졌는지. 천장(RewardCatalog.GachaPity)을 세는 데 쓰고, 스킨이 나오면 0이 된다.</summary>
     public int GachaMissStreak { get; set; }
+
+    /// <summary>
+    /// 스킨 Id마다 이 앱이 그 스킨을 처음 본 때(UTC). NEW 표시 기간을 여기서부터 센다.
+    /// DateTime.MinValue는 처음부터 있던 스킨이라 새것이 아니라는 뜻이다. null이면 NEW 표시가 생기기 전 파일이다.
+    /// </summary>
+    public Dictionary<string, DateTime>? SkinsFirstSeen { get; set; }
+
+    /// <summary>냥뽑기 탭을 마지막으로 열어 새 스킨 알림(탭의 빨간 점)을 확인한 때(UTC).</summary>
+    public DateTime? GachaTabOpenedAt { get; set; }
 }
 
 /// <summary>뽑기 한 번의 결과. Skin이 None이면 꽝이고, Refund는 꽝일 때 돌려준 생선이다.</summary>
@@ -53,6 +62,7 @@ public sealed class RewardStore
         _filePath = Path.Combine(AppInfo.DataFolder, "rewards.json");
         _isNew = !File.Exists(_filePath);
         Current = Load();
+        NoteSkinsSeen();
     }
 
     public Inventory Current { get; }
@@ -219,6 +229,66 @@ public sealed class RewardStore
         Save();
     }
 
+    // ───────────────────────── 새 스킨(NEW) ─────────────────────────
+
+    /// <summary>
+    /// 이 빌드에서 보이는 스킨 중 처음 보는 것을 지금 시각으로 적는다. 앱을 켤 때 한 번.
+    /// 처음 설치했으면 모든 스킨이 처음이라 NEW를 붙이지 않는다. NEW 표시가 생기기 전 파일이면
+    /// 그 전에 공개한 스킨(SkinsBeforeNewMarks)만 새것이 아닌 것으로 친다.
+    /// </summary>
+    private void NoteSkinsSeen()
+    {
+        bool before = Current.SkinsFirstSeen is null;
+        var seen = Current.SkinsFirstSeen ??= new(StringComparer.OrdinalIgnoreCase);
+        bool changed = before;
+        foreach (var info in RewardCatalog.AvailableSkins)
+        {
+            if (RunnerSkins.ToId(info.Skin) is not { } id || seen.ContainsKey(id)) continue;
+            bool old = _isNew || (before && RewardCatalog.SkinsBeforeNewMarks.Contains(info.Skin));
+            seen[id] = old ? DateTime.MinValue : DateTime.UtcNow;
+            changed = true;
+        }
+        // 처음 설치면 아직 저장하지 않는다. 파일이 생기면 GrantStartingItems가 처음 실행인 줄 모른다. 그쪽이 저장한다.
+        if (changed && !_isNew) Save();
+    }
+
+    private DateTime? FirstSeen(RunnerSkin skin) =>
+        RunnerSkins.ToId(skin) is { } id && Current.SkinsFirstSeen?.TryGetValue(id, out var t) == true ? t : null;
+
+    /// <summary>
+    /// 처음 본 지 NewSkinDays일이 안 된 스킨인지. 가졌는지는 보지 않는다(뽑기 연출 중에는 화면이 정한다).
+    /// </summary>
+    public bool IsNewSkin(RunnerSkin skin) =>
+        FirstSeen(skin) is { } t && t != DateTime.MinValue && DateTime.UtcNow - t < TimeSpan.FromDays(RewardCatalog.NewSkinDays);
+
+    /// <summary>냥뽑기 탭에 빨간 점을 띄울지: 아직 없는 새 스킨이 있고, 그 스킨이 생긴 뒤로 탭을 열지 않았다.</summary>
+    public bool HasUnopenedNewSkin
+    {
+        get
+        {
+            var opened = Current.GachaTabOpenedAt ?? DateTime.MinValue;
+            return RewardCatalog.AvailableSkins.Any(s => IsNewSkin(s.Skin) && !OwnsSkin(s.Skin) && FirstSeen(s.Skin) > opened);
+        }
+    }
+
+    /// <summary>냥뽑기 탭을 열었다. 빨간 점이 떠 있을 때만 적는다(탭을 열 때마다 파일을 쓰지 않게).</summary>
+    public void MarkGachaTabOpened()
+    {
+        if (!HasUnopenedNewSkin) return;
+        Current.GachaTabOpenedAt = DateTime.UtcNow;
+        Save();
+    }
+
+    /// <summary>개발용: 아직 없는 스킨을 모두 방금 나온 새 스킨으로 만들고, 탭 빨간 점도 다시 켠다.</summary>
+    public void DevResetNewSkins()
+    {
+        var seen = Current.SkinsFirstSeen ??= new(StringComparer.OrdinalIgnoreCase);
+        foreach (var info in RewardCatalog.AvailableSkins.Where(s => !OwnsSkin(s.Skin)))
+            if (RunnerSkins.ToId(info.Skin) is { } id) seen[id] = DateTime.UtcNow;
+        Current.GachaTabOpenedAt = null;
+        Save();
+    }
+
     /// <summary>개발용: 생선을 더 준다. 생선은 기록에서 계산하므로 쓴 생선을 줄이는 식으로 준다.</summary>
     public void DevAddFish(int amount)
     {
@@ -285,6 +355,8 @@ public sealed class RewardStore
                     inv.CustomColors ??= new();
                     inv.Runners ??= new();
                     inv.Skins ??= new();
+                    if (inv.SkinsFirstSeen is not null)
+                        inv.SkinsFirstSeen = new(inv.SkinsFirstSeen, StringComparer.OrdinalIgnoreCase);
                     inv.CustomColors = inv.CustomColors
                         .Where(h => ColorUtil.TryParse(h, out _)).Take(RewardCatalog.CustomSlotCount).ToList();
                     return inv;

@@ -4,6 +4,7 @@ using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using Avalonia.Threading;
 using Woodada.Rewards;
+using Woodada.Settings;
 using Woodada.Sprites;
 
 namespace Woodada.UI;
@@ -39,6 +40,9 @@ internal sealed class SkinRunnerView : Control
     /// <summary>도감 칸에 마우스가 올라와 있어 "프로필 보기" 덮개를 씌우는지(DexSlot이 정한다).</summary>
     public bool LinkHover { get; set; }
 
+    /// <summary>아직 없는 새 스킨이라 NEW 배지와 색 힌트를 그리는지(DexSlot이 정한다).</summary>
+    public bool IsNew { get; set; }
+
     public override void Render(DrawingContext ctx)
     {
         var box = new Rect(Bounds.Size);
@@ -46,11 +50,13 @@ internal sealed class SkinRunnerView : Control
         double scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
         DrawStage(ctx, box, 7);
         double floor = box.Bottom - 12, height = Math.Min(34, box.Height * 0.6);
+        bool showNew = IsNew && !Owned;
         using (ctx.PushClip(box))
         {
             if (Owned) _runner.Draw(ctx, box.Center.X, floor, height, Skin, RewardCatalog.ShowcaseColor(Skin), 30, scaling);
-            else DrawMystery(ctx, box.Center.X, floor, height, scaling);
+            else DrawMystery(ctx, box.Center.X, floor, height, scaling, showNew ? RewardCatalog.FindSkin(Skin)?.Accent : null);
         }
+        if (showNew) GameArt.DrawNewBadge(ctx, box.Right - 4, box.Y + 4);
         if (Owned && LinkHover) DrawLinkCover(ctx, box);
     }
 
@@ -103,13 +109,17 @@ internal sealed class SkinRunnerView : Control
     }
     private static readonly IImmutableBrush LightFloor = new ImmutableSolidColorBrush(Color.FromRgb(0xD5, 0xDA, 0xE1));
 
-    /// <summary>아직 없는 스킨: 회색 실루엣 위에 물음표.</summary>
-    public static void DrawMystery(DrawingContext ctx, double centerX, double floorY, double height, double scaling)
+    /// <summary>
+    /// 아직 없는 스킨: 회색 실루엣 위에 물음표. 새 스킨(NEW)이면 hint에 그 스킨의 대표색을 넘긴다.
+    /// 실루엣에 그 색이 은은하게 배어 어떤 고양이일지 살짝 궁금하게 한다. 이름·등급은 그대로 숨긴다.
+    /// </summary>
+    public static void DrawMystery(DrawingContext ctx, double centerX, double floorY, double height, double scaling, Color? hint = null)
     {
         var sprite = SpriteRegistry.Get("cat");
         var size = sprite.Measure(height);
+        var body = hint is { } h ? ColorUtil.Mix(MysteryBody, h, 0.6) : MysteryBody;
         sprite.DrawSilhouette(ctx, new Rect(centerX - size.Width / 2, floorY - size.Height, size.Width, size.Height),
-            new RunnerPose(1, 0.4, 0.5), MysteryBody, 1, scaling);
+            new RunnerPose(1, 0.4, 0.5), body, 1, scaling);
         int fontSize = Math.Clamp((int)Math.Round(height * 0.47), 8, QuestionMarks.Length - 1);
         var q = QuestionMarks[fontSize] ??= GameArt.Format("?", fontSize, Color.FromArgb(191, 255, 255, 255), FontWeight.Bold);
         ctx.DrawText(q, new Point(centerX + 2 - q.Width / 2, floorY - height * 0.55 - q.Height / 2));

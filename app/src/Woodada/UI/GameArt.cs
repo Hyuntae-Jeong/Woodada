@@ -70,6 +70,21 @@ internal static class GameArt
     public static bool LowContrast(Color a, Color b) =>
         Math.Abs(ColorUtil.Luminance(a) - ColorUtil.Luminance(b)) < 0.22;
 
+    /// <summary>"NEW" 배지·탭 빨간 점 색(체리). 뽑기 결과 줄의 NEW 배지와 같다.</summary>
+    public static readonly Color NewBadge = Color.FromRgb(0xD9, 0x62, 0x6B);
+
+    private static FormattedText? _newText;
+
+    /// <summary>오른쪽 위 모서리(right, top)에 붙는 작은 "NEW" 알약.</summary>
+    public static void DrawNewBadge(DrawingContext ctx, double right, double top)
+    {
+        _newText ??= Format("NEW", 9.5, Colors.White, FontWeight.Bold);
+        double w = _newText.Width + 10, h = 15;
+        var r = new Rect(right - w, top, w, h);
+        FillRound(ctx, r, h / 2, NewBadge);
+        ctx.DrawText(_newText, new Point(r.X + (w - _newText.Width) / 2, r.Y + (h - _newText.Height) / 2));
+    }
+
     public static void FillRound(DrawingContext ctx, Rect r, double radius, Color fill, Color? border = null, double borderWidth = 1)
     {
         double rr = Math.Max(0, Math.Min(radius, Math.Min(r.Width, r.Height) / 2));

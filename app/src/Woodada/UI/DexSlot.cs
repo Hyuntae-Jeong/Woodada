@@ -31,10 +31,11 @@ internal sealed class DexSlot : CardPanel
 
     public SkinInfo Info { get; }
 
-    /// <summary>가졌는지에 맞춰 칸을 다시 채운다.</summary>
-    public void Show(bool owned)
+    /// <summary>가졌는지에 맞춰 칸을 다시 채운다. isNew면 아직 없는 칸에 NEW 배지와 색 힌트를 단다(등급은 계속 숨긴다).</summary>
+    public void Show(bool owned, bool isNew = false)
     {
         _view.Owned = owned;
+        _view.IsNew = isNew;
         _name.Text = owned ? Info.Name : "???";
         // 칸 높이는 UniformGrid가 맞춰 주므로 등급 줄이 빠져도 칸이 들쭉날쭉하지 않다.
         _tier.IsVisible = owned;
