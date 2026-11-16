@@ -24,7 +24,9 @@ Desktop.ini
 .DS_Store
 
 # 로컬 Claude 설정 — 이 PC 경로가 들어간 실행 설정·잠금 파일뿐이라 폴더째 뺀다
-.claude/
+#   단, 프로젝트 스킬(.claude/skills/)은 다른 PC·맥에서도 쓰도록 올린다
+/.claude/*
+!/.claude/skills/
 
 # 루트 tools/는 로컬 작업용. 앞의 /가 없으면 저장소에 올라가 있는 app/tools/까지 막힌다
 /tools/
