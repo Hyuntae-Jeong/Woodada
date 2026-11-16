@@ -101,6 +101,7 @@ html[data-lang="en"] .ko, html[data-lang="ko"] .en { display: none !important; }
 .lang button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0, 0, 0, .12); }
 .gh { color: var(--ink-2); display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; }
 .gh:hover { background: var(--bg-alt); color: var(--ink); }
+.gh + .gh { margin-left: -8px; } /* GitHub·Threads 아이콘끼리는 붙여 둔다 */
 @media (max-width: 760px) { .nav-links { display: none; } }
 
 /* ── Hero ── */
