@@ -153,7 +153,7 @@ internal sealed class MacPlatform : IPlatform
 
     /// <summary>
     /// NSWindowSharingNone(0)이면 다른 앱이 창 내용을 읽지 못한다. 기본값은 NSWindowSharingReadOnly(1).
-    /// 최신 macOS의 ScreenCaptureKit 기반 캡처는 이 값을 무시할 수 있다.
+    /// macOS 26.6에서 기본 스크린샷·화면 녹화와 Shottr에 고양이가 찍히지 않는 것을 확인했다(2026-11-18).
     /// </summary>
     public void SetOverlayCaptureVisible(Window window, bool visible)
     {
