@@ -88,7 +88,7 @@ html[data-lang="en"] .ko, html[data-lang="ko"] .en { display: none !important; }
 .nav-in { display: flex; align-items: center; gap: 20px; height: 60px; }
 .brand { display: flex; align-items: center; gap: 10px; color: var(--ink); font-weight: 800; font-size: 18px; letter-spacing: -.01em; }
 .brand:hover { text-decoration: none; }
-.brand img { border-radius: 8px; }
+/* 아이콘 PNG가 둥근 모서리·회색 테두리를 직접 갖고 있다. CSS로 더 둥글게 깎으면 모서리 테두리가 잘린다. */
 .nav-links { display: flex; gap: 22px; margin-left: 12px; }
 .nav-links a { color: var(--ink-2); font-size: 15px; font-weight: 500; }
 .nav-links a:hover { color: var(--ink); text-decoration: none; }
@@ -106,7 +106,7 @@ html[data-lang="en"] .ko, html[data-lang="ko"] .en { display: none !important; }
 
 /* ── Hero ── */
 .hero { padding: 64px 0 40px; text-align: center; }
-.hero-icon { margin: 0 auto 22px; border-radius: 22px; box-shadow: var(--shadow); }
+.hero-icon { margin: 0 auto 22px; border-radius: 15.6%; box-shadow: var(--shadow); } /* 그림자 모양만 맞춘다. 15.6%는 PNG 모서리와 같은 중심이라 테두리를 깎지 않는다 */
 .hero h1 {
   margin: 0 0 14px;
   font-size: clamp(34px, 6.2vw, 62px);

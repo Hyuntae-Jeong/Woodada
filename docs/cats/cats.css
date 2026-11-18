@@ -49,7 +49,7 @@ html[data-lang="en"] .ko, html[data-lang="ko"] .en { display: none !important; }
 .top { border-bottom: 3px solid var(--edge); background: #0a0817; }
 .top-in { max-width: 1120px; margin: 0 auto; display: flex; align-items: center; gap: 12px 20px; flex-wrap: wrap; min-height: 58px; padding-block: 8px; }
 .brand { display: flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; font-weight: 800; font-size: 17px; }
-.brand img { border-radius: 7px; }
+/* 아이콘 PNG가 둥근 모서리를 직접 갖고 있어 CSS로 깎지 않는다(깎으면 모서리 테두리가 잘린다). */
 .crumb { color: var(--ink-2); text-decoration: none; font-size: 14px; font-weight: 700; }
 .crumb:hover, .brand:hover { color: var(--yellow); }
 .lang { margin-left: auto; display: flex; border: 2px solid var(--edge); }

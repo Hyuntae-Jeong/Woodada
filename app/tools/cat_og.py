@@ -75,7 +75,7 @@ PAGE = """<!doctype html>
   .ko { margin: 8px 0 0; font: 400 46px/1.1 "Black Han Sans", sans-serif; color: #2de2e6; }
   .quote { position: absolute; right: 64px; top: 52px; margin: 0; white-space: nowrap; background: #fff; color: #07060f; font: 400 28px/1.3 "Black Han Sans", sans-serif; padding: 13px 20px; box-shadow: 6px 6px 0 #ff3ea5; }
   .brand { position: absolute; left: 66px; bottom: 50px; display: flex; align-items: center; gap: 16px; text-shadow: 0 2px 8px #07060f; }
-  .brand img { width: 56px; height: 56px; border-radius: 13px; box-shadow: 0 0 0 3px #07060f; }
+  .brand img { width: 56px; height: 56px; border-radius: 15.6%; box-shadow: 0 0 0 3px #07060f; } /* 15.6%: PNG 모서리와 같은 중심이라 테두리를 깎지 않는다 */
   .brand b { font-size: 34px; font-weight: 800; letter-spacing: -.01em; }
   .brand span { font: 400 14px/1 "Press Start 2P", monospace; color: #2de2e6; margin-left: 4px; }
 </style>
