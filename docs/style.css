@@ -142,6 +142,36 @@ html[data-lang="ko"] .hero h1 { letter-spacing: -.045em; line-height: 1.18; }
 .dl-sub .dot { margin: 0 6px; opacity: .6; }
 .ver { font-variant-numeric: tabular-nums; }
 
+/* 다운로드 직후 아래에서 올라오는 응원 부탁 카드 */
+.thanks {
+  position: fixed; left: 50%; bottom: 20px; z-index: 60;
+  width: min(460px, calc(100% - 32px));
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 10px 12px 14px; border: 1px solid var(--line); border-radius: 16px;
+  background: var(--surface); color: var(--ink); box-shadow: var(--shadow);
+  opacity: 0; visibility: hidden; transform: translate(-50%, 16px);
+  transition: opacity .25s ease, transform .25s ease, visibility .25s;
+}
+.thanks.show { opacity: 1; visibility: visible; transform: translate(-50%, 0); }
+.thanks img { flex: none; }
+.thanks-text { flex: 1; min-width: 0; line-height: 1.35; }
+.thanks-text b { display: block; font-size: 15px; }
+.thanks-text small { display: block; color: var(--muted); font-size: 13px; margin-top: 2px; }
+.thanks-star {
+  display: inline-flex; align-items: center; gap: 6px; flex: none;
+  padding: 8px 12px; border-radius: 10px; background: var(--ink); color: var(--bg); /* 다크 모드에선 밝은 버튼으로 뒤집힌다 */
+  font-size: 13.5px; font-weight: 700; white-space: nowrap;
+}
+.thanks-star svg { color: #e3b341; flex: none; }
+.thanks-star:hover { text-decoration: none; filter: brightness(1.15); }
+.thanks-close {
+  flex: none; width: 30px; height: 30px; border: 0; border-radius: 8px;
+  background: none; color: var(--muted); font-size: 20px; line-height: 1; cursor: pointer;
+}
+.thanks-close:hover { background: var(--bg-alt); color: var(--ink); }
+@media (max-width: 420px) { .thanks img { display: none; } }
+@media (prefers-reduced-motion: reduce) { .thanks { transition: none; } }
+
 /* 가짜 작업표시줄 장면 */
 .scene {
   position: relative;

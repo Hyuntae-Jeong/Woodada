@@ -797,6 +797,30 @@
     });
   });
 
+  /* ───────── 다운로드 직후 별 부탁 ───────── */
+  // 다운로드 링크를 누르면 아래에서 카드를 한 번 올린다. 닫거나 별 주기를 누르면 이 브라우저에선 다시 안 띄운다.
+  // 별 버튼을 누르면 GA에 github_star_click 이벤트를 보낸다(link_location: toast).
+  const THANKS_KEY = 'woodada-star-asked';
+  const thanks = $('.thanks');
+  const thanksSeen = () => { try { return localStorage.getItem(THANKS_KEY) === '1'; } catch (e) { return false; } };
+  function closeThanks() {
+    thanks.classList.remove('show');
+    try { localStorage.setItem(THANKS_KEY, '1'); } catch (e) { /* 저장 못 하면 다음에 또 뜰 뿐이다 */ }
+  }
+  if (thanks) {
+    document.addEventListener('click', e => {
+      if (!e.target.closest('a[href*="/releases/latest/download/"]') || thanksSeen()) return;
+      setTimeout(() => thanks.classList.add('show'), 600);
+    });
+    $('.thanks-close', thanks).addEventListener('click', closeThanks);
+    $('.thanks-star', thanks).addEventListener('click', closeThanks);
+  }
+  document.addEventListener('click', e => {
+    const a = e.target.closest('[data-star]');
+    if (!a || typeof window.gtag !== 'function') return;
+    window.gtag('event', 'github_star_click', { link_location: a.dataset.star });
+  });
+
   /* ───────── 시작 ───────── */
   applyLang(lang);
   loadMasks().then(masks => {
