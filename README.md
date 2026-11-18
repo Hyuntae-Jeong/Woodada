@@ -33,7 +33,7 @@ On an Intel Mac? Grab [this one](https://github.com/Hyuntae-Jeong/Woodada/releas
 - 🎨 **Make it yours** — Pick from 20 colors for each cat and change its size.
 - 🎰 **Cat Gacha** — Save up fish and try your luck for a special cat.
 - 📏 **How far did it run today?** — Distance is based on your monitor's real size, so you'll see things like "1.2 km today".
-- 🪶 **Stays out of your way** — Clicks pass right through the cats to the window underneath, and they hide on their own in full-screen apps like games or presentations.
+- 🪶 **Stays out of your way** — Clicks pass right through the cats to the window underneath, they hide on their own in full-screen apps like games or presentations, and you can keep them out of screenshots and screen sharing.
 - 🔄 **Always up to date** — Updates itself when a new version comes out.
 
 <p align="center">

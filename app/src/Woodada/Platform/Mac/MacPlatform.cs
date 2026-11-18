@@ -149,6 +149,23 @@ internal sealed class MacPlatform : IPlatform
         HideFromWindowSwitchers(ns);
     }
 
+    public bool CanHideFromCapture => true;
+
+    /// <summary>
+    /// NSWindowSharingNone(0)이면 다른 앱이 창 내용을 읽지 못한다. 기본값은 NSWindowSharingReadOnly(1).
+    /// 최신 macOS의 ScreenCaptureKit 기반 캡처는 이 값을 무시할 수 있다.
+    /// </summary>
+    public void SetOverlayCaptureVisible(Window window, bool visible)
+    {
+        if (window.TryGetPlatformHandle() is not { HandleDescriptor: "NSWindow" } h || h.Handle == IntPtr.Zero) return;
+        MacNative.SendNUInt(h.Handle, MacNative.sel_registerName("setSharingType:"), visible ? MacNative.SharingReadOnly : MacNative.SharingNone);
+    }
+
+    /// <summary>맥은 sharingType만 바꾸면 되고, 창을 그리는 방식은 그대로 둔다.</summary>
+    public bool CaptureHidingNeedsLayeredSurface => false;
+
+    public ILayeredSurface CreateLayeredSurface() => throw new PlatformNotSupportedException();
+
     private static readonly IntPtr FloatingSubrole = Marshal.StringToHGlobalAnsi("AXFloatingWindow");
 
     /// <summary>

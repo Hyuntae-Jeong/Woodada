@@ -65,6 +65,20 @@ internal interface IPlatform
     /// <summary>작업표시줄을 누르면 그 위로 올라오는 OS가 있어 주기적으로 다시 맨 위로 올린다.</summary>
     void KeepOverlayOnTop(Window window);
 
+    /// <summary>오버레이를 화면 캡처에서 뺄 수 있는지. 아니면 설정 창에서 그 옵션을 숨긴다.</summary>
+    bool CanHideFromCapture { get; }
+
+    /// <summary>오버레이가 스크린샷·화면 녹화·화면 공유에 찍힐지 정한다. 내 화면에는 늘 보인다.</summary>
+    void SetOverlayCaptureVisible(Window window, bool visible);
+
+    /// <summary>
+    /// 캡처에서 뺄 때 Avalonia가 그리는 대신 <see cref="ILayeredSurface"/>로 OS에 그림을 직접 넘겨야 하는지.
+    /// Windows만 그렇다(자세한 이유는 WindowsPlatform). 아니면 <see cref="CreateLayeredSurface"/>를 부르지 않는다.
+    /// </summary>
+    bool CaptureHidingNeedsLayeredSurface { get; }
+
+    ILayeredSurface CreateLayeredSurface();
+
     // ───────── 지표 ─────────
 
     /// <summary>부팅 후 누적된 CPU 시간. 두 번 읽은 차이로 사용률을 낸다.</summary>
@@ -86,6 +100,22 @@ internal interface IPlatform
 
     /// <summary>이름을 바꾸기 전 버전이 남긴 자동 실행 등록을 정리한다.</summary>
     void MigrateLegacyStartup();
+}
+
+/// <summary>오버레이 그림을 OS 창에 픽셀 단위 투명도로 직접 넘기는 판.</summary>
+internal interface ILayeredSurface : IDisposable
+{
+    /// <summary>이 크기의 그림판을 준비하고, 32비트 BGRA(알파를 곱해 둔 값, 위에서 아래로) 픽셀을 쓸 주소를 돌려준다.</summary>
+    IntPtr Prepare(PixelSize size);
+
+    /// <summary>준비한 그림판을 창에 넘기고 창을 이 위치(화면 단위)로 옮긴다.</summary>
+    void Present(Window window, PixelPoint position);
+
+    /// <summary>
+    /// 창을 OS에서 바로 보이거나 숨긴다. Avalonia의 Show/Hide를 쓰면 다시 뜰 때 Avalonia가 투명 설정(뒤 흐림)을
+    /// 다시 걸어서, 캡처에서 뺀 창이 캡처 도구에 검은 띠로 찍힌다(2026-11-18 Win+Shift+S로 재현).
+    /// </summary>
+    void SetVisible(Window window, bool visible);
 }
 
 internal static class PlatformServices

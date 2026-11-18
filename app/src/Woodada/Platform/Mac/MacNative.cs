@@ -95,6 +95,10 @@ internal static class MacNative
     public const nuint Stationary = 1 << 4;
     public const nuint IgnoresCycle = 1 << 6;
 
+    // NSWindowSharingType
+    public const nuint SharingNone = 0;
+    public const nuint SharingReadOnly = 1;
+
     // ---- Objective-C: NSScreen 읽기 ----
     [DllImport(LibObjC, CharSet = CharSet.Ansi)]
     public static extern IntPtr objc_getClass(string name);

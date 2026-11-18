@@ -130,6 +130,29 @@ internal sealed class WindowsPlatform : IPlatform
             Win32.SWP_NOMOVE | Win32.SWP_NOSIZE | Win32.SWP_NOACTIVATE | Win32.SWP_NOOWNERZORDER);
     }
 
+    /// <summary>
+    /// WDA_EXCLUDEFROMCAPTURE는 Windows 10 2004(빌드 19041)부터 있다. 그 전 버전에서는 같은 값이 WDA_MONITOR로 읽혀
+    /// 캡처에 검은 사각형이 남으니 옵션을 숨긴다.
+    /// </summary>
+    public bool CanHideFromCapture => Environment.OSVersion.Version.Build >= 19041;
+
+    public void SetOverlayCaptureVisible(Window window, bool visible)
+    {
+        if (!CanHideFromCapture) return;
+        if (window.TryGetPlatformHandle()?.Handle is not { } hwnd || hwnd == IntPtr.Zero) return;
+        // 실패해도(원격 데스크톱 등) 고양이는 달린다. 캡처에 찍힐 뿐이다.
+        Win32.SetWindowDisplayAffinity(hwnd, visible ? Win32.WDA_NONE : Win32.WDA_EXCLUDEFROMCAPTURE);
+    }
+
+    /// <summary>
+    /// Avalonia는 투명 창을 DWM "뒤 흐림" 꼼수로 그린다. 여기에 클릭 통과용 WS_EX_LAYERED를 더한 창을 캡처에서 빼면
+    /// 캡처 도구(Win+Shift+S 등)에 창 자리가 검은 띠로 남는다. 그래서 캡처에서 뺄 때는 그림을
+    /// UpdateLayeredWindow로 직접 넘기는 진짜 반투명 창으로 그린다. 이러면 DWM이 투명한 곳을 알아 깨끗하게 빠진다.
+    /// </summary>
+    public bool CaptureHidingNeedsLayeredSurface => true;
+
+    public ILayeredSurface CreateLayeredSurface() => new LayeredSurface();
+
     // ───────── 지표 ─────────
 
     /// <summary>

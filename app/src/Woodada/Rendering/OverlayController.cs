@@ -22,7 +22,8 @@ internal sealed class OverlayController : IDisposable
     private readonly IPlatform _platform = PlatformServices.Current;
     private readonly SettingsStore _store;
     private readonly StatsStore _stats;
-    private readonly OverlayWindow _window = new();
+    /// <summary>캡처에서 빼는 방식이 바뀌면 새로 만든다(<see cref="EnsureWindowMode"/>).</summary>
+    private OverlayWindow _window;
     private readonly DispatcherTimer _timer = new();
     private readonly Stopwatch _clock = Stopwatch.StartNew();
     private readonly List<RunnerInstance> _runners = new();
@@ -42,16 +43,38 @@ internal sealed class OverlayController : IDisposable
         _store = store;
         _stats = stats;
         Sampler = new MetricSampler();
+        _window = CreateWindow(NeedsLayeredWindow(store.Current));
         _store.Changed += (_, _) => ApplySettings();
 
         ApplySettings();
 
         _timer.Tick += (_, _) => Tick();
         _timer.Start();
-        _window.Screens.Changed += OnDisplayChanged;
     }
 
     public MetricSampler Sampler { get; }
+
+    /// <summary>Windows에서 캡처에서 뺄 때는 그림을 OS에 직접 넘기는 창을 쓴다(WindowsPlatform 참고).</summary>
+    private bool NeedsLayeredWindow(AppSettings settings) =>
+        settings.HideFromCapture && _platform.CanHideFromCapture && _platform.CaptureHidingNeedsLayeredSurface;
+
+    private OverlayWindow CreateWindow(bool layered)
+    {
+        var window = new OverlayWindow(layered);
+        window.Screens.Changed += OnDisplayChanged;
+        return window;
+    }
+
+    /// <summary>그리는 방식이 설정과 다르면 창을 바꾼다. 새 창은 다음 프레임에 뜬다.</summary>
+    private void EnsureWindowMode(AppSettings settings)
+    {
+        bool layered = NeedsLayeredWindow(settings);
+        if (_window.IsLayered == layered) return;
+        var old = _window;
+        _window = CreateWindow(layered);
+        old.Screens.Changed -= OnDisplayChanged;
+        old.Close();
+    }
 
     private void OnDisplayChanged(object? sender, EventArgs e)
     {
@@ -65,6 +88,8 @@ internal sealed class OverlayController : IDisposable
         var settings = _store.Current;
         RefreshEnvironment(); // 모니터가 바뀌었을 수 있으니 다음 주기를 기다리지 않고 바로 다시 잡는다
         _timer.Interval = TimeSpan.FromMilliseconds(Math.Max(1, 1000 / settings.FramesPerSecond));
+        EnsureWindowMode(settings);
+        _window.SetCaptureVisible(!settings.HideFromCapture);
 
         var existing = _runners.ToDictionary(r => r.Config.Id);
         _runners.Clear();

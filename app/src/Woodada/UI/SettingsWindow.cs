@@ -119,6 +119,7 @@ internal sealed class SettingsWindow : Window
     private readonly ComboBox _monitor = new();
     private List<ScreenCatalog.MonitorItem> _monitorItems = new();
     private readonly CheckBox _hideFullScreen = new();
+    private readonly CheckBox _hideFromCapture = new();
     private readonly CheckBox _menuBarFish = new();
     private readonly ComboBox _language = new() { Width = 200 };
 
@@ -1363,7 +1364,7 @@ internal sealed class SettingsWindow : Window
         var grid = new Grid
         {
             ColumnDefinitions = new ColumnDefinitions("Auto,*"),
-            RowDefinitions = new RowDefinitions("Auto,Auto,Auto,Auto"),
+            RowDefinitions = new RowDefinitions("Auto,Auto,Auto,Auto,Auto"),
         };
 
         var label = Label(Loc.T("달릴 모니터", "Monitor"), GameArt.FontBody, GameArt.Text, FontWeight.Bold);
@@ -1398,6 +1399,20 @@ internal sealed class SettingsWindow : Window
         Grid.SetColumn(_hideFullScreen, 1);
         grid.Children.Add(_hideFullScreen);
 
+        // 캡처에서 뺄 수 없는 OS(Windows 10 2004 이전)에서는 옵션을 숨긴다.
+        _hideFromCapture.Content = Loc.T("스크린샷·화면 녹화·화면 공유에서 고양이 숨기기", "Hide cats from screenshots, recordings and screen sharing");
+        _hideFromCapture.Margin = new Thickness(0, 10, 0, 0);
+        _hideFromCapture.IsVisible = _platform.CanHideFromCapture;
+        _hideFromCapture.IsCheckedChanged += (_, _) =>
+        {
+            if (_loading) return;
+            _working.HideFromCapture = _hideFromCapture.IsChecked == true;
+            Commit();
+        };
+        Grid.SetRow(_hideFromCapture, 2);
+        Grid.SetColumn(_hideFromCapture, 1);
+        grid.Children.Add(_hideFromCapture);
+
         // Windows 트레이 아이콘은 작은 정사각형이라 숫자를 붙일 자리가 없어 macOS에서만 보인다.
         _menuBarFish.Content = Loc.T("메뉴 막대 아이콘 옆에 생선 수 보여 주기", "Show fish count next to the menu bar icon");
         _menuBarFish.Margin = new Thickness(0, 10, 0, 0);
@@ -1408,7 +1423,7 @@ internal sealed class SettingsWindow : Window
             _working.ShowFishInMenuBar = _menuBarFish.IsChecked == true;
             Commit();
         };
-        Grid.SetRow(_menuBarFish, 2);
+        Grid.SetRow(_menuBarFish, 3);
         Grid.SetColumn(_menuBarFish, 1);
         grid.Children.Add(_menuBarFish);
 
@@ -1416,7 +1431,7 @@ internal sealed class SettingsWindow : Window
         var languageLabel = Label(Loc.T("언어", "Language"), GameArt.FontBody, GameArt.Text, FontWeight.Bold);
         languageLabel.VerticalAlignment = VerticalAlignment.Center;
         languageLabel.Margin = new Thickness(0, 12, 16, 0);
-        Grid.SetRow(languageLabel, 3);
+        Grid.SetRow(languageLabel, 4);
         grid.Children.Add(languageLabel);
 
         _language.ItemsSource = Languages.Select(l => l.Label).ToList();
@@ -1427,7 +1442,7 @@ internal sealed class SettingsWindow : Window
             _working.Language = Loc.ToId(Languages[_language.SelectedIndex].Language);
             Commit();
         };
-        Grid.SetRow(_language, 3);
+        Grid.SetRow(_language, 4);
         Grid.SetColumn(_language, 1);
         grid.Children.Add(_language);
 
@@ -1466,6 +1481,7 @@ internal sealed class SettingsWindow : Window
             if (_working.Runners.All(r => r.Id != _selectedId)) _selectedId = _working.Runners.FirstOrDefault()?.Id ?? "cpu";
             BuildRunnerCards();
             _hideFullScreen.IsChecked = _working.HideInFullScreen;
+            _hideFromCapture.IsChecked = _working.HideFromCapture;
             _menuBarFish.IsChecked = _working.ShowFishInMenuBar;
             _language.SelectedIndex = Array.FindIndex(Languages, l => l.Language == Loc.Parse(_working.Language));
             LoadMonitors();

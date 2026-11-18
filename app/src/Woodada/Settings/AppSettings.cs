@@ -18,6 +18,12 @@ public sealed class AppSettings
     /// <summary>전체 화면 앱(게임·발표)이 떠 있으면 숨김.</summary>
     public bool HideInFullScreen { get; set; } = true;
 
+    /// <summary>
+    /// 스크린샷·화면 녹화·화면 공유에서 러너를 뺄지. 켜면 내 화면에서는 그대로 달리지만 캡처에서는 빠진다.
+    /// 기본은 끔(지금처럼 찍힘). OS가 지원하지 않으면(IPlatform.CanHideFromCapture) 이 값과 상관없이 찍힌다.
+    /// </summary>
+    public bool HideFromCapture { get; set; }
+
     /// <summary>macOS 메뉴 막대 아이콘 옆에 지금 가진 생선 수를 보여 준다. 메뉴 막대 자리를 차지하니 기본은 끔.</summary>
     public bool ShowFishInMenuBar { get; set; }
 
