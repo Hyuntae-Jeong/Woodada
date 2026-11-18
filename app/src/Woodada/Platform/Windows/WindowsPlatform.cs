@@ -92,6 +92,32 @@ internal sealed class WindowsPlatform : IPlatform
         };
     }
 
+    public IDisposable WatchForeground(Action onChange) => new ForegroundWatcher(onChange);
+
+    /// <summary>
+    /// EVENT_SYSTEM_FOREGROUND를 받는다. OUTOFCONTEXT라 훅을 건 스레드(UI 스레드)의 메시지 루프로 온다.
+    /// 콜백 대리자를 필드에 잡아 둬야 GC가 치우지 않는다.
+    /// </summary>
+    private sealed class ForegroundWatcher : IDisposable
+    {
+        private readonly Win32.WinEventProc _proc;
+        private IntPtr _hook;
+
+        public ForegroundWatcher(Action onChange)
+        {
+            _proc = (_, _, _, _, _, _, _) => onChange();
+            _hook = Win32.SetWinEventHook(Win32.EVENT_SYSTEM_FOREGROUND, Win32.EVENT_SYSTEM_FOREGROUND, IntPtr.Zero, _proc, 0, 0,
+                Win32.WINEVENT_OUTOFCONTEXT | Win32.WINEVENT_SKIPOWNPROCESS);
+        }
+
+        public void Dispose()
+        {
+            if (_hook == IntPtr.Zero) return;
+            Win32.UnhookWinEvent(_hook);
+            _hook = IntPtr.Zero;
+        }
+    }
+
     /// <summary>맨 앞 창이 이 모니터에 있는지. 창이 두 모니터에 걸쳐 있으면 더 많이 겹친 쪽으로 친다.</summary>
     private static bool IsForegroundOn(Screen screen)
     {

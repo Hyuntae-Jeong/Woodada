@@ -54,6 +54,12 @@ internal interface IPlatform
     /// <summary>게임·발표처럼 전체 화면 앱이 이 모니터를 덮고 있는지. 다른 모니터의 전체 화면은 상관없다.</summary>
     bool IsFullScreenAppActive(Screen screen);
 
+    /// <summary>
+    /// 맨 앞 창이 바뀔 때마다 onChange를 UI 스레드에서 부른다. 전체 화면 검사를 1초 주기보다 빨리 하려는 것이다.
+    /// 알 수 없는 OS는 아무것도 하지 않는 값을 돌려준다(그래도 1초 주기 검사는 돈다).
+    /// </summary>
+    IDisposable WatchForeground(Action onChange);
+
     /// <summary>작업표시줄·독이 밝은 색인지. 반투명 스킨이 배경에 묻히지 않게 외곽선 톤을 고르는 데 쓴다.</summary>
     bool IsBarLight();
 

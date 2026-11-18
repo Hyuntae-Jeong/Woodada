@@ -18,6 +18,12 @@ internal sealed class OverlayController : IDisposable
     private const double GeometryInterval = 1.0;
     private const double TopmostInterval = 0.5;
     private const double MaxFrameDelta = 0.25; // 절전·디버거 정지 후 돌아왔을 때 순간이동 방지
+    /// <summary>
+    /// 맨 앞 창이 바뀐 뒤 이 시간 동안은 전체 화면 여부를 <see cref="FastFullScreenInterval"/>마다 본다.
+    /// 캡처 도구(Win+Shift+S)처럼 화면을 덮는 창은 앞에 온 뒤 조금 있다 화면을 다 덮어서, 바뀐 순간 한 번만 보면 놓친다.
+    /// </summary>
+    private const double FastFullScreenWindow = 1.5;
+    private const double FastFullScreenInterval = 0.1;
 
     private readonly IPlatform _platform = PlatformServices.Current;
     private readonly SettingsStore _store;
@@ -32,7 +38,11 @@ internal sealed class OverlayController : IDisposable
     private readonly FishMeter _fish = new();
 
     private double _last;
-    private double _sampleAcc, _geometryAcc, _topmostAcc;
+    private double _sampleAcc, _geometryAcc, _topmostAcc, _fullScreenAcc;
+    /// <summary>이 시각(_clock 초)까지 전체 화면 여부를 자주 본다.</summary>
+    private double _fastFullScreenUntil;
+    private readonly IDisposable _foregroundWatch;
+    private Screen? _screen;
     private Runway _runway;
     private PixelPitch _pitch = new(0.25, false, null, 0, 0);
     private bool _fullScreenApp;
@@ -50,6 +60,15 @@ internal sealed class OverlayController : IDisposable
 
         _timer.Tick += (_, _) => Tick();
         _timer.Start();
+        _foregroundWatch = _platform.WatchForeground(OnForegroundChanged);
+    }
+
+    /// <summary>맨 앞 창이 바뀌었다. 바로 한 번 보고, 잠시 동안 자주 본다.</summary>
+    private void OnForegroundChanged()
+    {
+        _fastFullScreenUntil = _clock.Elapsed.TotalSeconds + FastFullScreenWindow;
+        _fullScreenAcc = 0;
+        RefreshFullScreen();
     }
 
     public MetricSampler Sampler { get; }
@@ -112,7 +131,8 @@ internal sealed class OverlayController : IDisposable
     private void RefreshEnvironment()
     {
         var settings = _store.Current;
-        if (ScreenCatalog.Resolve(_window.Screens, settings.MonitorDeviceName) is not { } screen)
+        _screen = ScreenCatalog.Resolve(_window.Screens, settings.MonitorDeviceName);
+        if (_screen is not { } screen)
         {
             _runway = default;
             return;
@@ -120,7 +140,15 @@ internal sealed class OverlayController : IDisposable
         _runway = Runway.FromBar(_platform.FindBar(screen));
         _pitch = MonitorPitch.For(screen);
         _lightBar = SafeIsBarLight();
-        _fullScreenApp = settings.HideInFullScreen && _platform.CanDetectFullScreen && _platform.IsFullScreenAppActive(screen);
+        RefreshFullScreen();
+    }
+
+    /// <summary>전체 화면 여부만 다시 본다. 가벼워서 맨 앞 창이 바뀐 직후 자주 불러도 된다.</summary>
+    private void RefreshFullScreen()
+    {
+        var settings = _store.Current;
+        _fullScreenApp = _screen is { } screen && settings.HideInFullScreen && _platform.CanDetectFullScreen
+            && _platform.IsFullScreenAppActive(screen);
     }
 
     private void Tick()
@@ -143,6 +171,15 @@ internal sealed class OverlayController : IDisposable
         {
             RefreshEnvironment();
             _geometryAcc = 0;
+        }
+        else if (now < _fastFullScreenUntil)
+        {
+            _fullScreenAcc += dt;
+            if (_fullScreenAcc >= FastFullScreenInterval)
+            {
+                RefreshFullScreen();
+                _fullScreenAcc = 0;
+            }
         }
 
         if (_runners.Count == 0 || _fullScreenApp || _runway.Width <= 0)
@@ -200,6 +237,7 @@ internal sealed class OverlayController : IDisposable
 
     public void Dispose()
     {
+        _foregroundWatch.Dispose();
         _window.Screens.Changed -= OnDisplayChanged;
         _timer.Stop();
         _stats.Save();

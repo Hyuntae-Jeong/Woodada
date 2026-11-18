@@ -161,6 +161,14 @@ internal sealed class MacPlatform : IPlatform
         MacNative.SendNUInt(h.Handle, MacNative.sel_registerName("setSharingType:"), visible ? MacNative.SharingReadOnly : MacNative.SharingNone);
     }
 
+    /// <summary>맥은 아직 1초 주기 검사만 한다.</summary>
+    public IDisposable WatchForeground(Action onChange) => new NoWatch();
+
+    private sealed class NoWatch : IDisposable
+    {
+        public void Dispose() { }
+    }
+
     /// <summary>맥은 sharingType만 바꾸면 되고, 창을 그리는 방식은 그대로 둔다.</summary>
     public bool CaptureHidingNeedsLayeredSurface => false;
 
