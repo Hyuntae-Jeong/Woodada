@@ -7,7 +7,8 @@ namespace Woodada.Update;
 
 /// <summary>
 /// GitHub 최신 릴리즈를 확인하고, 더 새 버전이 있으면 묻지 않고 바꿔 끼운 뒤 다시 실행한다.
-/// 확인은 켜질 때 한 번, 그 뒤로 켜져 있는 동안 <see cref="CheckInterval"/>(6시간)마다 한 번 한다(TrayApp이 정한다).
+/// 확인은 켜질 때 한 번, 그 뒤로 켜져 있는 동안 실제 시간으로 <see cref="CheckInterval"/>(6시간)마다 한 번 한다
+/// (TrayApp이 정한다. 잠자는 동안 흐른 시간도 센다).
 /// macOS의 .app 교체는 Updater.Mac.cs에 있다. 바꿔 끼울 수 없는 곳(.dmg 안, 쓰기 권한 없는 폴더)에서 돌면
 /// 알림만 띄운다(<see cref="FindNewerReleaseAsync"/>).
 ///

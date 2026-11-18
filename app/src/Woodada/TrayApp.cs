@@ -40,10 +40,20 @@ internal sealed class TrayApp : IDisposable
     private string? _menuBarCount;
 
     /// <summary>
-    /// 다음 업데이트 확인 때 한 번 울리는 타이머. 울리면 멈추고, 확인을 마친 뒤 6시간 뒤로 다시 건다.
-    /// 그 사이에는 깨어나지 않아 CPU를 쓰지 않는다.
+    /// 업데이트 확인할 때가 됐는지 <see cref="UpdatePollInterval"/>마다 보는 타이머.
+    /// 타이머 하나로 6시간을 세지 않는다. 맥에서 DispatcherTimer는 잠자는 동안 멈추는 시계로 재서,
+    /// 맥을 가끔만 깨우면 며칠이 지나도 6시간이 차지 않아 확인을 한 번도 안 했다(2026-11-18, v1.3.0이 6일간 그대로).
+    /// 그래서 마지막 확인 시각(<see cref="_lastUpdateCheck"/>)을 실제 시계로 기억해 두고, 깨어날 때마다 비교한다.
     /// </summary>
-    private readonly DispatcherTimer _updateTimer = new();
+    private readonly DispatcherTimer _updateTimer = new() { Interval = UpdatePollInterval };
+
+    /// <summary>확인할 때가 됐는지 보는 간격. 맥을 깨운 뒤 이 시간 안에 밀린 확인을 한다.</summary>
+    private static readonly TimeSpan UpdatePollInterval = TimeSpan.FromMinutes(15);
+
+    /// <summary>마지막으로 업데이트를 확인한 실제 시각(UTC). 잠자는 동안에도 흐른다.</summary>
+    private DateTime _lastUpdateCheck;
+
+    private bool _updateCheckRunning;
 
     /// <summary>설정 창이 열려 있을 때 받아 둔 업데이트. 창을 닫으면 설치한다.</summary>
     private Updater.Staged? _pendingInstall;
@@ -116,27 +126,37 @@ internal sealed class TrayApp : IDisposable
         // 로컬 빌드(0.0.0)는 업데이트하지 않는다.
         if (Updater.IsReleaseBuild)
         {
-            _updateTimer.Tick += (_, _) => _ = RunUpdateCheckAsync();
+            _updateTimer.Tick += (_, _) => RunUpdateCheckIfDue();
             Updater.DeleteLegacyCheckRecord();
             // 켜질 때 바로 한 번 확인하고, 그 뒤로 켜져 있는 동안 6시간마다 확인한다.
             // 설치에 실패해 다시 뜬 실행(checkForUpdate=false)은 같은 업데이트를 또 받지 않도록 6시간을 꽉 채워 기다린다.
             if (checkForUpdate) _ = RunUpdateCheckAsync();
-            else ScheduleUpdateCheck(Updater.CheckInterval);
+            else _lastUpdateCheck = DateTime.UtcNow;
+            _updateTimer.Start();
         }
     }
 
-    private void ScheduleUpdateCheck(TimeSpan wait)
+    /// <summary>마지막 확인에서 실제 시간으로 6시간이 지났으면 확인한다. 시계를 뒤로 돌렸으면 지난 것으로 본다.</summary>
+    private void RunUpdateCheckIfDue()
     {
-        _updateTimer.Interval = wait;
-        _updateTimer.Start();
+        var now = DateTime.UtcNow;
+        if (now - _lastUpdateCheck >= Updater.CheckInterval || now < _lastUpdateCheck) _ = RunUpdateCheckAsync();
     }
 
-    /// <summary>새 릴리즈를 한 번 확인하고 6시간 뒤로 다음 확인을 건다. 실패해도 다음 확인은 6시간 뒤다.</summary>
+    /// <summary>새 릴리즈를 한 번 확인한다. 실패해도 다음 확인은 6시간 뒤다.</summary>
     private async Task RunUpdateCheckAsync()
     {
-        _updateTimer.Stop();
-        await CheckForUpdateAsync();
-        if (!_updateCts.IsCancellationRequested) ScheduleUpdateCheck(Updater.CheckInterval);
+        if (_updateCheckRunning) return;
+        _updateCheckRunning = true;
+        _lastUpdateCheck = DateTime.UtcNow;
+        try
+        {
+            await CheckForUpdateAsync();
+        }
+        finally
+        {
+            _updateCheckRunning = false;
+        }
     }
 
     /// <summary>
