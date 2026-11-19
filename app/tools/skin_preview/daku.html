@@ -1,0 +1,728 @@
+<!doctype html>
+<!-- Copyright (c) 2026 Hyuntae Jeong. All rights reserved. Woodada 스페셜 스킨 디자인으로, MIT License 적용 대상이 아닙니다. 사용 조건: app/src/Woodada/Sprites/Skins/LICENSE -->
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>다꾸냥 미리보기</title>
+<style>
+:root{--bg:#f4f5f8;--card:#fff;--text:#1d1f23;--muted:#6b7180;--line:#e2e5ea;--accent:#d0608f}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 "Segoe UI","Malgun Gothic",sans-serif}
+main{max-width:780px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:18px;margin:0 0 2px;font-weight:600}
+p.sub{margin:0 0 14px;color:var(--muted);font-size:13px}
+.scene{position:relative;border-radius:10px;overflow:hidden;margin-bottom:10px;border:1px solid var(--line)}
+.scene canvas{display:block;width:100%;height:130px}
+.tag{position:absolute;left:10px;top:8px;font-size:12px;padding:1px 9px;border-radius:99px;background:rgba(0,0,0,.45);color:#fff}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-top:14px}
+.panel h2{font-size:13px;margin:0 0 10px;color:var(--muted);font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px 24px}
+label.row{display:grid;grid-template-columns:118px 1fr 58px;align-items:center;gap:8px;font-size:13px}
+label.row output{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.checks{display:flex;gap:18px;flex-wrap:wrap;margin-top:12px;font-size:13px;align-items:center}
+.checks label{display:flex;gap:6px;align-items:center}
+button,select{font:inherit;font-size:13px;padding:3px 8px;border:1px solid var(--line);background:#fff;border-radius:6px}
+button{cursor:pointer;padding:4px 12px}
+#zoom{width:100%;height:200px;display:block;border-radius:8px;image-rendering:pixelated}
+#sheet,#sheetSmall{width:100%;height:120px;display:block;border-radius:8px;background:#e9ecf1}
+#sheetSmall{height:90px}
+#summary,#stats{margin:12px 0 0;font-size:13px;color:var(--muted)}
+#summary{user-select:all}
+.modes{display:flex;gap:6px;margin:0 0 12px;flex-wrap:wrap}
+.modes button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+</style>
+</head>
+<body>
+<main>
+  <h1>다꾸냥 미리보기</h1>
+  <p class="sub">실제 RunCat 5프레임으로 그렸어요. 크기는 앱과 같은 물리 픽셀 기준이고, 30fps로 움직여요.
+    고양이는 흰 테두리를 두른 스티커 모습으로 달리고, 지나간 자리에 가끔 스티커를 붙여서 작업표시줄 위를 다이어리처럼 꾸며요.
+    빨리 달릴수록 자주 붙이고, 스티커끼리는 몸 몇 개만큼 떨어져서 겹치지 않아요. 빈자리가 없으면 안 붙여요.
+    스티커는 1분쯤 남아 있다가 귀퉁이부터 들리며 떨어지고, 다른 스킨을 입으면 우수수 다 떨어져요. 겉모습만 바뀌고 속도와 생선은 그대로예요.</p>
+  <div class="modes" id="modes">
+    <button data-mode="two" class="on">두 마리 다 다꾸냥</button>
+    <button data-mode="single">한 마리</button>
+    <button id="peel">다른 스킨 입기 (스티커 다 떼짐)</button>
+  </div>
+
+  <div class="scene"><canvas data-scene="light"></canvas><span class="tag">밝은 작업표시줄</span></div>
+  <div class="scene"><canvas data-scene="dark"></canvas><span class="tag">어두운 작업표시줄</span></div>
+  <div class="scene"><canvas data-scene="busy"></canvas><span class="tag">화려한 배경화면 + 흰 창</span></div>
+
+  <div class="panel">
+    <h2>확대 (밝은 작업표시줄 CPU 고양이 주변, 픽셀 그대로)</h2>
+    <canvas id="zoom"></canvas>
+  </div>
+
+  <div class="panel">
+    <h2>스티커 13종 (모양 8 + RunCat 자세 5, 색은 붙일 때마다 랜덤 파스텔) · 누르면 다시 섞어요</h2>
+    <canvas id="sheet"></canvas>
+  </div>
+
+  <div class="panel">
+    <h2>작은 스티커 8종 (큰 스티커를 붙일 때 그 둘레에 0~3장씩 같이 붙고, 큰 스티커 가장자리에 겹쳐 위에 붙기도 해요) · 누르면 다시 섞어요</h2>
+    <canvas id="sheetSmall"></canvas>
+  </div>
+
+  <div class="panel">
+    <h2>조절</h2>
+    <div class="grid" id="controls"></div>
+    <div class="checks">
+      <label>CPU 고양이 <select autocomplete="off" id="color0"></select></label>
+      <label>메모리 고양이 <select autocomplete="off" id="color1"></select></label>
+      <label>사라지기 <select autocomplete="off" id="vanish"><option value="peel" selected>귀퉁이부터 들리며 떨어지기</option><option value="fade">옅어지기</option></select></label>
+      <label><input type="checkbox" autocomplete="off" id="labels" checked> 이름표</label>
+      <label><input type="checkbox" autocomplete="off" id="auto"> 사용률 자동 변동</label>
+      <button id="reset">기본값</button>
+    </div>
+    <p id="stats"></p>
+    <p id="summary"></p>
+  </div>
+</main>
+<script>
+const FRAMES = __FRAMES__;
+const DEFS = [
+  ['size','크기',16,72,1,28,'px'],
+  ['cpu','CPU 사용률',0,100,1,15,'%'],
+  ['mem','메모리 사용률',0,100,1,50,'%'],
+  ['speed','스티커 시간 배속',1,30,1,1,'×'],
+  ['slow','느릴 때 붙이는 간격',1,60,0.5,12,'초'],
+  ['fast','빠를 때 붙이는 간격',0.5,30,0.5,3,'초'],
+  ['gap','스티커 사이 간격',1.5,6,0.1,3,'몸'],
+  ['life','남아 있는 시간',5,600,5,60,'초'],
+  ['peel','떨어지는 시간',0.3,3,0.1,1.1,'초'],
+  ['stMin','스티커 크기 (작게)',20,120,1,45,'%'],
+  ['stMax','스티커 크기 (크게)',20,120,1,85,'%'],
+  ['smallMax','작은 스티커 (주변에 0~최대)',0,5,1,3,'장'],
+  ['smMin','작은 스티커 크기 (작게)',8,60,1,22,'%'],
+  ['smMax','작은 스티커 크기 (크게)',8,60,1,40,'%'],
+  ['spread','작은 스티커 퍼지는 범위',10,200,5,30,'%'],
+  ['tilt','기울기 (최대)',0,45,1,20,'°'],
+  ['outline','흰 테두리',2,16,0.5,7,'%'],
+  ['shadow','그림자',0,60,1,30,'%'],
+];
+const CAT_COLORS = [['#1E1E22','까망'],['#ECE7DF','하양'],['#F4A261','치즈'],['#6D8BA8','고등어'],['#9A9AA0','회색'],
+  ['#C9825B','삼색'],['#7FB8A4','민트'],['#E6C55A','레몬'],['#AE8FC7','라벤더'],['#D9626B','체리']];
+const DEFAULT_COLORS = ['#F4A261', '#1E1E22'];
+const KINDS = ['star', 'heart', 'flower', 'cloud', 'ribbon', 'strawberry', 'paw', 'rainbow', 'cat0', 'cat1', 'cat2', 'cat3', 'cat4'];
+const SMALL_KINDS = ['sparkle', 'dot', 'miniheart', 'ministar', 'note', 'moon', 'drop', 'clover'];
+const KIND_NAMES = { star: '별', heart: '하트', flower: '꽃', cloud: '구름', ribbon: '리본', strawberry: '딸기', paw: '발바닥', rainbow: '무지개',
+  sparkle: '반짝이', dot: '점', miniheart: '작은 하트', ministar: '작은 별', note: '음표', moon: '초승달', drop: '물방울', clover: '클로버' };
+const P = {};
+const $ = id => document.getElementById(id);
+const mk = (w, h) => { const c = document.createElement('canvas'); c.width = Math.max(1, Math.ceil(w)); c.height = Math.max(1, Math.ceil(h)); return c; };
+
+const ctl = $('controls');
+const fmt = (v, step) => step < 1 ? (+v).toFixed(step < 0.1 ? 2 : 1) : v;
+for (const [k, name, min, max, step, def, unit] of DEFS) {
+  P[k] = def;
+  const l = document.createElement('label'); l.className = 'row';
+  l.innerHTML = `<span>${name}</span><input type="range" autocomplete="off" min="${min}" max="${max}" step="${step}" value="${def}" id="r_${k}"><output id="o_${k}"></output>`;
+  ctl.appendChild(l);
+  const inp = l.querySelector('input'), out = l.querySelector('output');
+  const show = () => out.textContent = fmt(inp.value, step) + unit;
+  show();
+  inp.addEventListener('input', () => { P[k] = +inp.value; show(); invalidate(); });
+}
+P.colors = DEFAULT_COLORS.slice(); P.mode = 'two';
+
+for (const i of [0, 1]) {
+  const sel = $('color' + i);
+  sel.innerHTML = CAT_COLORS.map(([v, n]) => `<option value="${v}">${n}</option>`).join('');
+  sel.value = P.colors[i];
+  sel.addEventListener('change', e => { P.colors[i] = e.target.value; invalidate(); });
+}
+$('reset').addEventListener('click', () => {
+  for (const [k, , , , step, def, unit] of DEFS) { P[k] = def; $('r_' + k).value = def; $('o_' + k).textContent = fmt(def, step) + unit; }
+  P.colors = DEFAULT_COLORS.slice(); $('color0').value = P.colors[0]; $('color1').value = P.colors[1];
+  $('auto').checked = false; invalidate();
+});
+for (const b of document.querySelectorAll('#modes button[data-mode]')) b.addEventListener('click', () => setMode(b.dataset.mode));
+// 다른 스킨을 입으면: 전부 동시에, 조금씩 어긋나게 우수수 떨어진다.
+$('peel').addEventListener('click', () => { for (const sc of scenes) for (const k of sc.stickers) k.goneAt = Math.min(k.goneAt ?? Infinity, t + rand(0, 0.5)); });
+function setMode(m) {
+  P.mode = m;
+  for (const b of document.querySelectorAll('#modes button[data-mode]')) b.classList.toggle('on', b.dataset.mode === m);
+  for (const sc of scenes) resetScene(sc);
+  Object.assign(stats, { placed: 0, t0: t });
+}
+function updateSummary() {
+  $('summary').textContent = `현재 값: 붙이는 간격 ${P.slow}초(느릴 때)~${P.fast}초(빠를 때) · 스티커 사이 몸 ${P.gap}개 · ${P.life}초 남았다가 떨어짐 · 크기 키의 ${P.stMin}~${P.stMax}% · 기울기 ±${P.tilt}° · 흰 테두리 키의 ${P.outline}% · 그림자 ${P.shadow}% · 작은 스티커 키의 ${P.smMin}~${P.smMax}%, 둘레에 0~${P.smallMax}장 · 떨어지는 데 ${P.peel}초`;
+}
+
+// ── 색 ──
+function hexRgb(h) { const n = parseInt(h.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
+const rgbHex = ([r, g, b]) => '#' + [r, g, b].map(v => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')).join('');
+const mix = (a, b, k) => { const A = hexRgb(a), B = hexRgb(b); return rgbHex(A.map((v, i) => v + (B[i] - v) * k)); };
+function hslHex(h, s, l) {
+  h = ((h % 360) + 360) % 360;
+  const c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = l - c / 2;
+  const [r, g, b] = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+  return rgbHex([(r + m) * 255, (g + m) * 255, (b + m) * 255]);
+}
+const rand = (a, b) => a + Math.random() * (b - a);
+const lerp = (a, b, k) => a + (b - a) * k;
+// 파스텔: 색상은 아무거나, 채도는 높게, 밝기는 높게.
+// 파스텔: 색상은 아무거나, 채도는 높게, 밝기는 높게. 한 화면에 이것저것 섞이는 게 더 다꾸 같다(테마로 맞추는 건 해 보고 뺐다).
+const pastelHue = h => hslHex(h, rand(0.62, 0.85), rand(0.76, 0.84));
+const pastel = () => pastelHue(rand(0, 360));
+function lum(h) { const [r, g, b] = hexRgb(h); return (0.299 * r + 0.587 * g + 0.114 * b) / 255; }
+const eyeFor = c => lum(c) > 0.7 ? '#2d2a30' : '#ffffff';
+
+// ── 마스크 (FrameSprite와 같은 방식: 합집합으로 자르고, 머리 쪽 작은 구멍을 눈으로) ──
+let crop, masks;
+function findEyes(alpha, w, h) {
+  const visited = new Uint8Array(w * h), eye = new Uint8Array(w * h);
+  for (let s = 0; s < w * h; s++) {
+    if (visited[s] || alpha[s] >= 128) continue;
+    const comp = [], q = [s]; visited[s] = 1; let border = false;
+    while (q.length) {
+      const i = q.pop(); comp.push(i);
+      const x = i % w, y = (i / w) | 0;
+      if (x === 0 || y === 0 || x === w - 1 || y === h - 1) border = true;
+      for (const [nx, ny] of [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]]) {
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+        const j = ny * w + nx; if (visited[j] || alpha[j] >= 128) continue;
+        visited[j] = 1; q.push(j);
+      }
+    }
+    if (border || comp.length > w * h / 100) continue;
+    const cx = comp.reduce((a, i) => a + i % w, 0) / comp.length;
+    if (cx < w * 0.55) continue;
+    for (const i of comp) eye[i] = 1;
+  }
+  const grown = eye.slice();
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    if (!eye[y * w + x]) continue;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const nx = x + dx, ny = y + dy; if (nx >= 0 && ny >= 0 && nx < w && ny < h) grown[ny * w + nx] = 1;
+    }
+  }
+  return grown;
+}
+async function loadMasks() {
+  const imgs = await Promise.all(FRAMES.map(src => new Promise(r => { const i = new Image(); i.onload = () => r(i); i.src = src; })));
+  const W = imgs[0].width, H = imgs[0].height;
+  const alphas = imgs.map(img => {
+    const c = mk(W, H), x = c.getContext('2d'); x.drawImage(img, 0, 0);
+    const d = x.getImageData(0, 0, W, H).data, a = new Uint8Array(W * H);
+    for (let i = 0; i < W * H; i++) a[i] = d[i * 4 + 3];
+    return a;
+  });
+  let x0 = W, y0 = H, x1 = -1, y1 = -1;
+  for (const a of alphas) for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (a[y * W + x] > 8) {
+    x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+  }
+  const cw = x1 - x0 + 1, ch = y1 - y0 + 1;
+  crop = { w: cw, h: ch };
+  masks = alphas.map(a => {
+    const al = new Uint8Array(cw * ch);
+    for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) al[y * cw + x] = a[(y + y0) * W + x + x0];
+    const eye = findEyes(al, cw, ch);
+    const sil = mk(cw, ch), eyeC = mk(cw, ch);
+    const sd = sil.getContext('2d').createImageData(cw, ch), ed = eyeC.getContext('2d').createImageData(cw, ch);
+    for (let i = 0; i < cw * ch; i++) {
+      sd.data.set([255, 255, 255, eye[i] ? 255 : al[i]], i * 4);
+      ed.data.set([255, 255, 255, eye[i] ? 255 - al[i] : 0], i * 4);
+    }
+    sil.getContext('2d').putImageData(sd, 0, 0); eyeC.getContext('2d').putImageData(ed, 0, 0);
+    return { sil, eye: eyeC };
+  });
+}
+function place(src, w, h) {
+  const c = mk(w, h), x = c.getContext('2d');
+  x.imageSmoothingQuality = 'high'; x.drawImage(src, 0, 0, w, h); return c;
+}
+function tint(c, color) {
+  const t = mk(c.width, c.height), x = t.getContext('2d');
+  x.drawImage(c, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = color; x.fillRect(0, 0, t.width, t.height); return t;
+}
+/** 고른 색 몸 + 눈(앱과 같은 눈 색). */
+function catBody(frame, w, h, color) {
+  const body = mk(w, h), o = body.getContext('2d');
+  o.drawImage(tint(place(masks[frame].sil, w, h), color), 0, 0);
+  o.drawImage(tint(place(masks[frame].eye, w, h), eyeFor(color)), 0, 0);
+  return body;
+}
+
+// ── 스티커로 만들기: 모양 둘레를 흰 테두리로 넓히고, 아래로 살짝 뜬 그림자를 깐다 ──
+const border = () => Math.max(1, Math.round(P.size * P.outline / 100));
+function disk(r) {
+  const out = [];
+  for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (dx * dx + dy * dy <= r * r + r * 0.5) out.push([dx, dy]);
+  return out;
+}
+/** art(투명 바탕에 그린 그림, 둘레에 여백이 있어야 함)를 스티커로 감싼다. */
+function stickerize(art, b = border()) {
+  const W = art.width, H = art.height;
+  const white = mk(W, H), wx = white.getContext('2d');
+  for (const [dx, dy] of disk(b)) wx.drawImage(art, dx, dy);
+  wx.globalCompositeOperation = 'source-in'; wx.fillStyle = '#ffffff'; wx.fillRect(0, 0, W, H);
+  const out = mk(W, H), o = out.getContext('2d');
+  if (P.shadow > 0) {
+    o.save();
+    o.filter = `blur(${Math.max(0.5, b * 0.6)}px)`; o.globalAlpha = P.shadow / 100;
+    o.drawImage(tint(white, '#000000'), 0, Math.max(1, Math.round(b * 0.7)));
+    o.restore();
+  }
+  o.drawImage(white, 0, 0);
+  o.drawImage(art, 0, 0);
+  out.back = tint(white, '#f3f1ee');
+  return out;
+}
+
+// ── 스티커 모양 (가운데 0,0 · 키 s) ──
+function drawShape(x, kind, s, color) {
+  const dark = mix(color, '#000000', 0.25);
+  x.lineJoin = 'round'; x.lineCap = 'round';
+  x.lineWidth = Math.max(1, s / 16); x.strokeStyle = dark; x.fillStyle = color;
+  const fs = () => { x.fill(); x.stroke(); };
+  switch (kind) {
+    case 'star': {
+      x.beginPath();
+      for (let i = 0; i < 10; i++) {
+        const r = i % 2 ? s * 0.25 : s * 0.52, a = -Math.PI / 2 + i * Math.PI / 5;
+        x.lineTo(Math.cos(a) * r, Math.sin(a) * r + s * 0.04);
+      }
+      x.closePath(); fs(); break;
+    }
+    case 'heart': {
+      x.beginPath();
+      x.moveTo(0, s * 0.42);
+      x.bezierCurveTo(-s * 0.62, s * 0.02, -s * 0.5, -s * 0.5, 0, -s * 0.2);
+      x.bezierCurveTo(s * 0.5, -s * 0.5, s * 0.62, s * 0.02, 0, s * 0.42);
+      fs(); break;
+    }
+    case 'flower': {
+      for (let i = 0; i < 5; i++) {
+        const a = -Math.PI / 2 + i * Math.PI * 2 / 5;
+        x.beginPath(); x.arc(Math.cos(a) * s * 0.26, Math.sin(a) * s * 0.26, s * 0.21, 0, Math.PI * 2); fs();
+      }
+      x.beginPath(); x.arc(0, 0, s * 0.15, 0, Math.PI * 2);
+      x.fillStyle = '#fff2a6'; x.fill(); x.stroke(); break;
+    }
+    case 'cloud': {
+      x.beginPath();
+      x.arc(-s * 0.26, s * 0.08, s * 0.2, Math.PI * 0.5, Math.PI * 1.5);
+      x.arc(-s * 0.04, -s * 0.08, s * 0.26, Math.PI * 1.05, Math.PI * 1.85);
+      x.arc(s * 0.27, s * 0.06, s * 0.2, Math.PI * 1.4, Math.PI * 0.5);
+      x.closePath(); fs(); break;
+    }
+    case 'ribbon': {
+      for (const side of [-1, 1]) {
+        x.beginPath();
+        x.moveTo(0, 0);
+        x.quadraticCurveTo(side * s * 0.3, -s * 0.42, side * s * 0.52, -s * 0.22);
+        x.quadraticCurveTo(side * s * 0.6, s * 0.02, side * s * 0.5, s * 0.2);
+        x.quadraticCurveTo(side * s * 0.3, s * 0.3, 0, 0);
+        fs();
+        x.beginPath();
+        x.moveTo(side * s * 0.05, s * 0.06); x.lineTo(side * s * 0.26, s * 0.46); x.lineTo(side * s * 0.12, s * 0.42); x.lineTo(side * s * 0.02, s * 0.5);
+        x.closePath(); fs();
+      }
+      x.beginPath(); x.arc(0, 0, s * 0.11, 0, Math.PI * 2); fs(); break;
+    }
+    case 'strawberry': {
+      x.beginPath();
+      x.moveTo(0, s * 0.48);
+      x.quadraticCurveTo(-s * 0.5, s * 0.1, -s * 0.36, -s * 0.18);
+      x.quadraticCurveTo(0, -s * 0.34, s * 0.36, -s * 0.18);
+      x.quadraticCurveTo(s * 0.5, s * 0.1, 0, s * 0.48);
+      fs();
+      x.fillStyle = '#ffffff';
+      for (const [px, py] of [[-0.16, -0.04], [0.14, -0.06], [0, 0.1], [-0.12, 0.22], [0.12, 0.2], [0, 0.34]]) {
+        x.beginPath(); x.ellipse(px * s, py * s, Math.max(0.6, s * 0.035), Math.max(0.8, s * 0.05), 0, 0, Math.PI * 2); x.fill();
+      }
+      x.fillStyle = '#9fd99b'; x.strokeStyle = '#5f9e5b';
+      x.beginPath();
+      for (let i = 0; i < 10; i++) {
+        const r = i % 2 ? s * 0.08 : s * 0.24, a = Math.PI + i * Math.PI / 9;
+        x.lineTo(Math.cos(a) * r, -s * 0.24 + Math.sin(a) * r * 0.55);
+      }
+      x.closePath(); x.fill(); x.stroke(); break;
+    }
+    case 'paw': {
+      x.beginPath(); x.ellipse(0, s * 0.18, s * 0.27, s * 0.21, 0, 0, Math.PI * 2); fs();
+      for (const [px, py, a] of [[-0.33, -0.08, -0.4], [-0.12, -0.3, -0.12], [0.12, -0.3, 0.12], [0.33, -0.08, 0.4]]) {
+        x.beginPath(); x.ellipse(px * s, py * s, s * 0.11, s * 0.14, a, 0, Math.PI * 2); fs();
+      }
+      break;
+    }
+    case 'miniheart': return drawShape(x, 'heart', s * 1.1, color);
+    case 'ministar': return drawShape(x, 'star', s, color);
+    case 'sparkle': {
+      // 반짝이: 네 끝이 뾰족하고 옆구리가 오목하다.
+      const R = s * 0.52, r = s * 0.12;
+      x.beginPath();
+      x.moveTo(0, -R);
+      for (let i = 0; i < 4; i++) {
+        const a = -Math.PI / 2 + i * Math.PI / 2, b = a + Math.PI / 4, c = a + Math.PI / 2;
+        x.quadraticCurveTo(Math.cos(b) * r, Math.sin(b) * r, Math.cos(c) * R, Math.sin(c) * R);
+      }
+      x.closePath(); fs(); break;
+    }
+    case 'dot': { x.beginPath(); x.arc(0, 0, s * 0.42, 0, Math.PI * 2); fs(); break; }
+    case 'note': {
+      // 음표: 기운 동그란 머리 + 기둥 + 깃발.
+      x.beginPath(); x.ellipse(-s * 0.14, s * 0.3, s * 0.18, s * 0.13, -0.4, 0, Math.PI * 2); fs();
+      x.lineWidth = Math.max(1, s * 0.09);
+      x.beginPath(); x.moveTo(s * 0.03, s * 0.28); x.lineTo(s * 0.03, -s * 0.44);
+      x.quadraticCurveTo(s * 0.22, -s * 0.3, s * 0.32, -s * 0.12); x.strokeStyle = color; x.stroke();
+      x.lineWidth = Math.max(1, s / 16); x.strokeStyle = dark; break;
+    }
+    case 'moon': {
+      // 초승달: 바깥 원호와 안쪽 원호를 이어 닫는다.
+      const R = s * 0.46;
+      x.beginPath();
+      x.arc(0, 0, R, Math.PI * 0.35, Math.PI * 1.65);
+      x.arc(R * 0.42, -R * 0.08, R * 0.8, Math.PI * 1.45, Math.PI * 0.55, true);
+      x.closePath(); fs(); break;
+    }
+    case 'drop': {
+      x.beginPath();
+      x.moveTo(0, -s * 0.48);
+      x.bezierCurveTo(s * 0.18, -s * 0.2, s * 0.36, 0, s * 0.36, s * 0.16);
+      x.arc(0, s * 0.16, s * 0.36, 0, Math.PI);
+      x.bezierCurveTo(-s * 0.36, 0, -s * 0.18, -s * 0.2, 0, -s * 0.48);
+      fs(); break;
+    }
+    case 'clover': {
+      for (let i = 0; i < 4; i++) {
+        const a = Math.PI / 4 + i * Math.PI / 2;
+        x.beginPath(); x.arc(Math.cos(a) * s * 0.19, Math.sin(a) * s * 0.19 - s * 0.04, s * 0.19, 0, Math.PI * 2); fs();
+      }
+      x.beginPath(); x.moveTo(0, s * 0.1); x.quadraticCurveTo(s * 0.06, s * 0.32, s * 0.2, s * 0.46); x.stroke();
+      break;
+    }
+    case 'rainbow': {
+      const h0 = rand(0, 360), bands = 4, outer = s * 0.56, th = s * 0.1;
+      x.lineCap = 'butt';
+      for (let i = 0; i < bands; i++) {
+        const r = outer - th * (i + 0.5);
+        x.beginPath(); x.arc(0, s * 0.26, r, Math.PI, Math.PI * 2);
+        x.strokeStyle = pastelHue(h0 + i * 55); x.lineWidth = th + 0.6; x.stroke();
+      }
+      x.lineCap = 'round'; x.strokeStyle = dark; x.lineWidth = Math.max(1, s / 16);
+      x.beginPath(); x.arc(0, s * 0.26, outer, Math.PI, Math.PI * 2); x.stroke();
+      x.beginPath(); x.arc(0, s * 0.26, outer - th * bands, Math.PI, Math.PI * 2); x.stroke();
+      x.beginPath(); x.moveTo(-outer, s * 0.26); x.lineTo(-outer + th * bands, s * 0.26);
+      x.moveTo(outer, s * 0.26); x.lineTo(outer - th * bands, s * 0.26); x.stroke();
+      break;
+    }
+  }
+}
+
+/** 스티커 한 장: 모양·크기·색·기울기를 정해 미리 그려 둔다. */
+function makeSticker(kind, s, tilt) {
+  // 작은 스티커는 흰 테두리도 크기에 맞춰 얇게. 안 그러면 흰 덩어리만 보인다.
+  const b = Math.max(1, Math.round(border() * Math.min(1, Math.max(0.5, s / (P.size * 0.6)))));
+  const pad = Math.ceil(s * 0.9 + b * 2 + 3), S = pad * 2;
+  const art = mk(S, S), x = art.getContext('2d');
+  x.translate(S / 2, S / 2); x.rotate(tilt);
+  if (kind.startsWith('cat')) {
+    // RunCat 자세 스티커: 파스텔 몸 + 눈. 키를 s로 맞추면 고양이는 옆으로 길어서 조금 줄인다.
+    const h = Math.round(s * 0.85), w = Math.round(h * crop.w / crop.h);
+    if (Math.random() < 0.5) x.scale(-1, 1);
+    x.drawImage(catBody(+kind[3], w, h, pastel()), -w / 2, -h / 2);
+  } else {
+    drawShape(x, kind, s, pastel());
+  }
+  return stickerize(art, b);
+}
+
+// ── 고양이도 스티커: 프레임마다 흰 테두리·그림자를 두른 그림을 만들어 둔다 ──
+let cache = new Map();
+function invalidate() { cache = new Map(); updateSummary(); drawSheet(); }
+function frames(h, color) {
+  const key = h + color + P.outline + P.shadow;
+  if (!cache.has(key)) {
+    const w = Math.max(1, Math.round(h * crop.w / crop.h)), pad = border() + 3;
+    cache.set(key, masks.map((_, i) => {
+      const art = mk(w + pad * 2, h + pad * 2);
+      art.getContext('2d').drawImage(catBody(i, w, h, color), pad, pad);
+      return { img: stickerize(art), w, h, pad };
+    }));
+  }
+  return cache.get(key);
+}
+
+// ── 씬 ──
+const SCENES = {
+  dark:  { desk: '#1a2537', bar: '#202020', edge: 'rgba(255,255,255,.08)', icon: 'rgba(255,255,255,.18)', dark: true },
+  light: { desk: '#e6e9ee', bar: '#f3f3f3', edge: 'rgba(0,0,0,.08)', icon: 'rgba(0,0,0,.14)', dark: false },
+  busy:  { desk: null, bar: '#2a2530', edge: 'rgba(255,255,255,.1)', icon: 'rgba(255,255,255,.2)', dark: true },
+};
+const BAR_H = 40;
+const LABELS = ['CPU', 'MEM'];
+const scenes = [...document.querySelectorAll('canvas[data-scene]')].map((cv, si) => ({ cv, si, s: SCENES[cv.dataset.scene], cats: [], stickers: [] }));
+const stats = { placed: 0, t0: 0 };
+
+// 고양이: x(몸 왼쪽), dir, phase, id(0 CPU, 1 메모리), next(다음에 붙일 스티커 시계)
+// 스티커: x·y(가운데), img, born(스티커 시계), kind
+function resetScene(sc) {
+  const n = P.mode === 'single' ? 1 : 2;
+  sc.cats = Array.from({ length: n }, (_, i) => ({
+    id: i, x: (sc.cv.width || 600) * (i === 0 ? 0.12 + sc.si * 0.1 : 0.78 - sc.si * 0.1),
+    dir: i === 0 ? 1 : -1, phase: Math.random(), next: rand(1, 3),
+  }));
+  sc.stickers = [];
+}
+
+function drawBackground(ctx, W, H, s, dpr) {
+  const ground = H - BAR_H * dpr;
+  if (s.desk) { ctx.fillStyle = s.desk; ctx.fillRect(0, 0, W, ground); }
+  else {
+    const g = ctx.createLinearGradient(0, 0, W, ground);
+    g.addColorStop(0, '#f2994a'); g.addColorStop(0.5, '#c0549b'); g.addColorStop(1, '#3b3f8f');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, ground);
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(W * 0.55, 18 * dpr, W * 0.3, ground - 18 * dpr);
+    ctx.fillStyle = '#eceff3'; ctx.fillRect(W * 0.55, 18 * dpr, W * 0.3, 18 * dpr);
+  }
+  ctx.fillStyle = s.bar; ctx.fillRect(0, ground, W, H - ground);
+  ctx.fillStyle = s.edge; ctx.fillRect(0, ground, W, Math.max(1, dpr | 0));
+  ctx.fillStyle = s.icon;
+  const n = 6, size = 22 * dpr, gap = 10 * dpr, start = W / 2 - (n * size + (n - 1) * gap) / 2;
+  for (let i = 0; i < n; i++) {
+    ctx.beginPath(); ctx.roundRect(start + i * (size + gap), ground + (BAR_H * dpr - size) / 2, size, size, 5 * dpr); ctx.fill();
+  }
+  return ground;
+}
+
+let t = 0, st = 0, last = performance.now(), acc = 0;
+const usage = [P.cpu, P.mem];
+const bodyW = () => P.size * crop.w / crop.h;
+const catSpeed = (w, u) => w * (0.4 + (7 - 0.4) * Math.pow(u, 0.7));  // 앱의 SpeedProfile과 같은 곡선
+const speedOf = c => catSpeed(bodyW(), usage[c.id] / 100);
+const powerOf = c => Math.min(1, Math.max(0, (speedOf(c) / bodyW() - 0.4) / 6.6));  // 가장 느릴 때 0 ~ 가장 빠를 때 1
+const centerOf = c => c.x + bodyW() / 2;
+const maxCount = W => Math.floor(W / (P.gap * bodyW())) + 1;   // 가운데끼리 간격이라 양 끝에 하나씩 더 들어간다
+const POP = 0.22;      // 붙이는 순간 톡 눌리는 시간(초, 실제 시간)
+const RETRY = 0.5;     // 빈자리가 없으면 이만큼 뒤에 다시 본다(스티커 시계)
+
+function tryPlace(sc, c, W, ground) {
+  const w = bodyW(), H = P.size;
+  const s = H * rand(Math.min(P.stMin, P.stMax), Math.max(P.stMin, P.stMax)) / 100;
+  const x = centerOf(c) - c.dir * w * 0.7;              // 방금 지나온 자리
+  if (x < s * 0.6 || x > W - s * 0.6) return false;
+  if (sc.stickers.some(k => k.main && Math.abs(k.x - x) < P.gap * w)) return false;
+  const kind = KINDS[Math.floor(Math.random() * KINDS.length)];
+  const img = makeSticker(kind, s, rand(-P.tilt, P.tilt) * Math.PI / 180);
+  // 높이: 고양이 키 안에서 아무 데나. 스티커 자체 키(s)만큼은 안쪽으로.
+  const y = ground - rand(s * 0.5, Math.max(s * 0.5, H - s * 0.5));
+  const main = { x, y, r: s * 0.5, img, born: st, popAt: t, kind, main: true, spin: rand(-1, 1) };
+  sc.stickers.push(main);
+  scatterSmall(sc, main, W, ground);
+  return true;
+}
+
+/** 큰 스티커 둘레에 작은 스티커 0~최대 장. 작은 스티커는 혼자 붙지 않는다(따로 있으면 지저분해 보인다).
+ *  제 큰 스티커 가장자리에는 걸쳐도 되고, 나중에 붙어서 그 위에 올라온다. 작은 것끼리·다른 무리와는 안 겹친다.
+ *  고양이 키 안에만, 하나씩 톡톡 뒤따라 붙는다. */
+function scatterSmall(sc, main, W, ground) {
+  const H = P.size, want = Math.floor(Math.random() * (P.smallMax + 1));
+  if (want <= 0) return;
+  let placed = 0;
+  for (let tries = 0; tries < want * 30 && placed < want; tries++) {   // 넓게 흩으면 빗나가는 자리가 많아서 넉넉히 시도한다
+    const s = H * rand(Math.min(P.smMin, P.smMax), Math.max(P.smMin, P.smMax)) / 100, r = s * 0.5;
+    // 큰 스티커 가장자리 안쪽(반지름의 60%)부터 키의 spread%만큼 떨어진 곳까지. 안쪽이면 가장자리에 걸쳐 붙는다.
+    // 높이는 고양이 키 안이라 좁으니 옆으로 더 퍼뜨리고, 거리는 √로 뽑아 넓은 쪽에도 고르게 흩어지게 한다.
+    const a = rand(0, Math.PI * 2), d = lerp(main.r * 0.6, main.r + r + H * P.spread / 100, Math.sqrt(Math.random()));
+    const x = main.x + Math.cos(a) * d * 1.6, y = main.y + Math.sin(a) * d;
+    if (x < r || x > W - r || y < ground - H + r || y > ground - r) continue;
+    if (sc.stickers.some(k => k !== main && Math.hypot(k.x - x, k.y - y) < k.r + r + H * 0.12)) continue;   // 작은 것끼리도 살짝 띄운다
+    const kind = SMALL_KINDS[Math.floor(Math.random() * SMALL_KINDS.length)];
+    placed++;
+    sc.stickers.push({ x, y, r, img: makeSticker(kind, s, rand(-P.tilt, P.tilt) * Math.PI / 180), born: main.born,
+      popAt: t + 0.09 * placed, kind, main: false, order: placed, spin: rand(-1, 1) });
+  }
+}
+
+function step(dt) {
+  t += dt; st += dt * P.speed;
+  usage[0] = $('auto').checked ? 50 + 48 * Math.sin(t * 0.6) : P.cpu;
+  usage[1] = $('auto').checked ? 55 + 30 * Math.sin(t * 0.13 + 1) : P.mem;
+  for (const sc of scenes) {
+    const W = sc.cv.width, w = bodyW();
+    if (W < w * 3) continue;
+    const ground = sc.cv.height - BAR_H * (window.devicePixelRatio || 1);
+    if (!sc.cats.length) resetScene(sc);
+    for (const c of sc.cats) {
+      const v = speedOf(c);
+      let x = c.x + v * dt * c.dir;
+      if (x > W - w) { x = 2 * (W - w) - x; c.dir = -1; }
+      if (x < 0) { x = -x; c.dir = 1; }
+      c.x = x;
+      c.phase = (c.phase + v * dt / w * 0.8) % 1;
+      if (st >= c.next) {
+        if (tryPlace(sc, c, W, ground)) {
+          stats.placed++;
+          // 다꾸냥이 두 마리면 각자 두 배 간격으로 붙인다. 안 그러면 사용률 50%만 넘어도 자리가 꽉 차서 더 바빠져도 똑같아 보인다.
+          const interval = (P.slow + (P.fast - P.slow) * powerOf(c)) * sc.cats.length;
+          c.next = st + interval * rand(0.7, 1.3);
+        } else c.next = st + RETRY;
+      }
+    }
+    for (const k of sc.stickers)
+      if (k.goneAt === undefined && st - k.born >= P.life) k.goneAt = t + (k.main ? 0 : 0.12 * k.order);   // 작은 것은 조금씩 뒤따라
+    sc.stickers = sc.stickers.filter(k => k.goneAt === undefined || t - k.goneAt < vanishSeconds());
+  }
+  const secs = Math.max(1, t - stats.t0), sc0 = scenes[0];
+  $('stats').textContent = `밝은 작업표시줄: 지금 큰 스티커 ${sc0.stickers.filter(k => k.main).length}장(이 폭에서 최대 ${maxCount(sc0.cv.width)}장) + 작은 스티커 ${sc0.stickers.filter(k => !k.main).length}장 · ` +
+    `지난 ${secs.toFixed(0)}초(스티커 시계 ${(secs * P.speed / 60).toFixed(1)}분) 동안 세 장면에서 붙인 스티커 ${stats.placed}장`;
+}
+
+// 떨어지기: 접히는 동안(FOLD) 귀퉁이부터 뒷면이 넘어오고, 그다음(DROP) 툭 떨어져 돌며 아래로 사라진다.
+const FOLD = 0.65, DROP = 0.55;   // 떨어지는 시간(P.peel)에 곱하는 비율
+const vanishSeconds = () => $('vanish').value === 'fade' ? P.peel : P.peel * (FOLD + DROP);
+const ease = q => q * q * (3 - 2 * q);
+
+/** 선(p·u = d) 너머를 접어 넘긴 스티커. 평평한 쪽은 그대로, 넘어온 쪽은 선에 비친 자리에 뒷면으로. */
+function drawFolded(ctx, img, ux, uy, d) {
+  const W2 = img.width / 2, H2 = img.height / 2, far = Math.max(W2, H2) * 3;
+  const half = (c, side) => {     // c를 반평면으로 자른다. side=-1: p·u < d 쪽, +1: p·u > d 쪽
+    const vx = -uy, vy = ux, cx = ux * d, cy = uy * d;
+    c.beginPath();
+    c.moveTo(cx + vx * far, cy + vy * far); c.lineTo(cx - vx * far, cy - vy * far);
+    c.lineTo(cx - vx * far + side * ux * far, cy - vy * far + side * uy * far);
+    c.lineTo(cx + vx * far + side * ux * far, cy + vy * far + side * uy * far);
+    c.closePath(); c.clip();
+  };
+  ctx.save(); half(ctx, -1); ctx.drawImage(img, -W2, -H2); ctx.restore();
+  // 넘어온 뒷면(흰 종이): 원래 접힌 쪽(p·u > d)의 뒷면만 따로 만든 다음, 선에 대해 뒤집어 평평한 쪽 위에 얹는다.
+  // 따로 만드는 까닭: 접힌 선 쪽 그늘을 뒷면 위에만 칠해야 한다. 바로 칠하면 바탕까지 어두워진다.
+  const flap = mk(img.width, img.height), fx = flap.getContext('2d');
+  fx.translate(W2, H2);
+  fx.save(); half(fx, 1);
+  fx.drawImage(img.back ?? img, -W2, -H2);
+  // 접힌 선 쪽이 살짝 어둡게: 들려서 그림자가 진 것처럼.
+  const g = fx.createLinearGradient(ux * d, uy * d, ux * (d + W2 * 0.5), uy * (d + W2 * 0.5));
+  g.addColorStop(0, 'rgba(0,0,0,.18)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+  fx.globalCompositeOperation = 'source-atop'; fx.fillStyle = g; fx.fillRect(-W2 * 2, -H2 * 2, W2 * 4, H2 * 4);
+  fx.restore();
+  ctx.save(); half(ctx, -1);
+  ctx.transform(1 - 2 * ux * ux, -2 * ux * uy, -2 * ux * uy, 1 - 2 * uy * uy, 2 * d * ux, 2 * d * uy);
+  ctx.drawImage(flap, -W2, -H2);
+  ctx.restore();
+}
+
+function drawSticker(ctx, k) {
+  let alpha = 1;
+  // 붙이는 순간: 살짝 크게 들렸다가 톡 눌리며(옆으로 퍼짐) 제자리.
+  if (t < k.popAt) return;
+  if (k.goneAt !== undefined && t >= k.goneAt) {
+    const q = t - k.goneAt;
+    if ($('vanish').value === 'fade') alpha = Math.max(0, 1 - q / P.peel);
+    else return drawPeeling(ctx, k, q);
+  }
+  const p = Math.min(1, (t - k.popAt) / POP);
+  const sx = p < 0.5 ? 1.25 - 0.25 * (p / 0.5) + 0.12 * (p / 0.5) : 1.12 - 0.12 * ((p - 0.5) / 0.5);
+  const sy = p < 0.5 ? 1.25 - 0.4 * (p / 0.5) : 0.85 + 0.15 * ((p - 0.5) / 0.5);
+  ctx.save();
+  ctx.globalAlpha = alpha * Math.min(1, p * 4);
+  ctx.translate(k.x, k.y); ctx.scale(sx, sy);
+  ctx.drawImage(k.img, -k.img.width / 2, -k.img.height / 2);
+  ctx.restore();
+}
+
+function drawPeeling(ctx, k, q) {
+  // 어느 귀퉁이부터 들릴지는 스티커마다 다르게(처음 떨어질 때 한 번 정한다).
+  if (k.peelAngle === undefined) k.peelAngle = rand(0, Math.PI * 2);
+  const ux = Math.cos(k.peelAngle), uy = Math.sin(k.peelAngle), R = k.r + border() + 1;
+  const fold = P.peel * FOLD, drop = P.peel * DROP;
+  const f = ease(Math.min(1, q / fold));
+  const d = R * (1 - 1.55 * f);               // 가장자리에서 시작해 반 넘게 접힌다
+  ctx.save();
+  ctx.translate(k.x, k.y);
+  if (q > fold) {
+    // 툭 떨어진다: 접힌 쪽으로 살짝 튀었다가 돌면서 아래로, 옅어지며.
+    const g = Math.min(1, (q - fold) / drop), H = P.size;
+    ctx.translate(ux * H * 0.15 * g, -H * 0.25 * g + H * 1.6 * g * g);
+    ctx.rotate(k.spin * 2.2 * g);
+    ctx.scale(1 - 0.25 * g, 1 - 0.25 * g);
+    ctx.globalAlpha = 1 - g;
+  }
+  drawFolded(ctx, k.img, ux, uy, d);
+  ctx.restore();
+}
+
+function drawCat(ctx, c, ground, s, dpr) {
+  const color = P.colors[c.id], fs = frames(P.size, color), f = fs[Math.floor(c.phase * fs.length) % fs.length];
+  const x = Math.round(c.x), y = ground - f.h;
+  ctx.save();
+  if (c.dir < 0) { ctx.translate(x * 2 + f.w, 0); ctx.scale(-1, 1); }
+  ctx.drawImage(f.img, x - f.pad, y - f.pad);
+  ctx.restore();
+  if ($('labels').checked && P.mode !== 'single') {
+    ctx.save();
+    ctx.font = `600 ${Math.round(10 * dpr)}px "Segoe UI", sans-serif`; ctx.textAlign = 'center';
+    ctx.fillStyle = s.dark ? 'rgba(255,255,255,.75)' : 'rgba(0,0,0,.55)';
+    ctx.fillText(LABELS[c.id], x + f.w / 2, y - 4 * dpr);
+    ctx.restore();
+  }
+}
+
+function render() {
+  const dpr = window.devicePixelRatio || 1;
+  for (const sc of scenes) {
+    const cv = sc.cv, W = Math.round(cv.clientWidth * dpr), H = Math.round(cv.clientHeight * dpr);
+    if (!W || !H) continue;   // 창이 가려져 크기가 0이면 건너뛴다
+    if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+    const ctx = cv.getContext('2d');
+    const ground = drawBackground(ctx, W, H, sc.s, dpr);
+    for (const k of sc.stickers) drawSticker(ctx, k);   // 스티커는 고양이 뒤에 깔린다
+    for (const c of sc.cats) drawCat(ctx, c, ground, sc.s, dpr);
+  }
+  renderZoom();
+}
+function renderZoom() {
+  const dpr = window.devicePixelRatio || 1, cv = $('zoom');
+  const W = Math.round(cv.clientWidth * dpr), H = Math.round(cv.clientHeight * dpr);
+  const sc = scenes[0];
+  if (!W || !H || !sc.cv.width || !sc.cats.length) return;
+  if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+  const src = sc.cv, h = P.size;
+  const scale = Math.max(2, Math.floor(H / (h * 2.4)));
+  const sw = Math.floor(W / scale), sh = Math.floor(H / scale);
+  const ground = src.height - BAR_H * dpr;
+  const sx = Math.max(0, Math.min(src.width - sw, Math.round(centerOf(sc.cats[0])) - (sw >> 1)));
+  const sy = Math.max(0, Math.min(src.height - sh, Math.round(ground + sh * 0.2 - sh)));
+  const ctx = cv.getContext('2d'); ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(src, sx, sy, sw, sh, 0, 0, sw * scale, sh * scale);
+}
+
+// 스티커 견본: 큰 스티커 13종과 작은 스티커 8종을 각각 한 줄로 늘어놓는다.
+function drawSheet() {
+  drawSheetOf($('sheet'), KINDS, P.size * Math.max(P.stMin, P.stMax) / 100, 2);
+  drawSheetOf($('sheetSmall'), SMALL_KINDS, P.size * Math.max(P.smMin, P.smMax) / 100, 3);
+}
+// 실제 크기(키의 최대 %)로 그리고 zoom배로 키워 보여 준다.
+function drawSheetOf(cv, kinds, s, zoom) {
+  const dpr = window.devicePixelRatio || 1;
+  const W = Math.round(cv.clientWidth * dpr), H = Math.round(cv.clientHeight * dpr);
+  if (!W || !H || !masks) return;
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d'), cell = W / kinds.length;
+  ctx.imageSmoothingEnabled = false;
+  zoom = Math.max(1, Math.min(zoom, Math.floor(cell * 0.9 / (s * 1.35))));   // 칸이 좁으면 덜 키워 옆 칸과 안 겹치게
+  kinds.forEach((kind, i) => {
+    const img = makeSticker(kind, s, rand(-P.tilt, P.tilt) * Math.PI / 180);
+    const dw = img.width * zoom, dh = img.height * zoom;
+    ctx.drawImage(img, cell * (i + 0.5) - dw / 2, H * 0.45 - dh / 2, dw, dh);
+    ctx.fillStyle = '#6b7180'; ctx.font = `${Math.round(11 * dpr)}px "Segoe UI","Malgun Gothic",sans-serif`; ctx.textAlign = 'center';
+    ctx.fillText(KIND_NAMES[kind] ?? `냥${+kind[3] + 1}`, cell * (i + 0.5), H - 8 * dpr);
+  });
+}
+$('sheet').addEventListener('click', drawSheet);
+$('sheetSmall').addEventListener('click', drawSheet);
+
+function loop(now) {
+  const dt = Math.min(0.1, (now - last) / 1000); last = now; acc += dt;
+  if (acc >= 1 / 30) { step(acc); acc = 0; render(); }   // 앱 기본값처럼 30fps
+  requestAnimationFrame(loop);
+}
+loadMasks().then(() => { updateSummary(); drawSheet(); setMode('two'); render(); requestAnimationFrame(loop); });
+</script>
+</body>
+</html>
