@@ -35,6 +35,8 @@ internal sealed class OverlayController : IDisposable
     private readonly List<RunnerInstance> _runners = new();
     /// <summary>털실냥들이 차는 털실. 두 마리가 털실냥이면 하나를 같이 쓴다.</summary>
     private readonly YarnPlay _yarn = new();
+    /// <summary>다꾸냥들이 붙인 스티커. 두 마리가 다꾸냥이면 같은 판에 붙인다.</summary>
+    private readonly DakuBoard _daku = new();
     private readonly FishMeter _fish = new();
 
     private double _last;
@@ -196,6 +198,7 @@ internal sealed class OverlayController : IDisposable
             _stats.Add(r.Config.Id, moved, moved / Math.Max(1, r.BodySize.Width), moved * _pitch.MillimetersPerPixel);
         }
         _yarn.Step(dt, _runners, _runway);
+        _daku.Step(dt, _runners, _runway);
         // 생선은 러너 기록과 따로 센다. 한 마리라도 떠 있으면 켜고 끈 것과 상관없이 CPU·메모리 몫이 다 쌓인다.
         // 둘 다 끄거나 숨어 있으면 위에서 이미 돌아갔으니 쌓이지 않는다.
         _stats.AddFish(_fish.Advance(dt, Sampler));
@@ -214,10 +217,13 @@ internal sealed class OverlayController : IDisposable
     {
         // 몸 위 여유분: 출렁임, 그리고 스킨이 있으면 떠오르는 높이와 몸 밖으로 번지는 발광까지.
         int stripHeight = _runners.Max(r => r.Config.Size + RunnerSkins.Headroom(r.Skin, r.Config.Size));
+        // 다꾸냥을 작게 줄였거나 꺼도, 남은 스티커가 다 떨어질 때까지는 띠를 그 높이만큼 남긴다.
+        stripHeight = Math.Max(stripHeight, (int)Math.Ceiling(_daku.Reach) + 2);
         var strip = _runway.GetStrip(stripHeight);
         double seconds = _clock.Elapsed.TotalSeconds;
 
         var frames = new List<RunnerFrame>();
+        SkinPainter.AddDaku(frames, _daku, strip.X, strip.Height);
         SkinPainter.AddYarn(frames, _yarn, front: false, strip.X, strip.Height, _lightBar);
         foreach (var r in _runners) SkinPainter.AddRunner(frames, r, strip.X, strip.Height, seconds, _lightBar);
         SkinPainter.AddYarn(frames, _yarn, front: true, strip.X, strip.Height, _lightBar);

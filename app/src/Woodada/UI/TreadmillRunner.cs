@@ -21,6 +21,7 @@ internal sealed class TreadmillRunner
     private readonly Stopwatch _clock = Stopwatch.StartNew();
     private readonly List<RunnerFrame> _frames = new();
     private readonly YarnPlay _yarn = new() { Tuning = YarnTuning.Treadmill };
+    private readonly DakuBoard _daku = new() { Tuning = DakuTuning.Treadmill };
     private readonly RunnerInstance[] _runners;
     private double _last = double.NaN;
 
@@ -48,11 +49,13 @@ internal sealed class TreadmillRunner
         _runner.Config.Color = ColorUtil.ToHex(color);
         _runner.Update(dt, usage, Endless);
         _yarn.Step(dt, _runners, Endless);
+        _daku.Step(dt, _runners, Endless);
 
         _frames.Clear();
         double width = _runner.BodySize.Width;
         if (skin == RunnerSkin.Yarn) centerX -= width * 0.4;
         double originX = _runner.State.X + width / 2 - centerX;
+        SkinPainter.AddDaku(_frames, _daku, originX, floorY);
         SkinPainter.AddYarn(_frames, _yarn, front: false, originX, floorY, lightBackground: false);
         SkinPainter.AddRunner(_frames, _runner, originX, floorY, now, lightBackground: false);
         SkinPainter.AddYarn(_frames, _yarn, front: true, originX, floorY, lightBackground: false);

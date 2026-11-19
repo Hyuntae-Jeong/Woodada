@@ -718,10 +718,10 @@ internal sealed class SettingsWindow : Window
         var look = RunnerSkins.LookColor(skin, color);
         bool light = !GameArt.LowContrast(look, UI.Theme.Current.SwatchBack);
         SkinRunnerView.DrawStage(ctx, box, 6, light, floorInset: 8);
-        // 플래시 잔상·얼음 서리·줄줄이 새끼는 뒤로 길게 끌려서, 몸을 앞에 두어야 칸 안에 들어온다.
+        // 플래시 잔상·얼음 서리·줄줄이 새끼·다꾸냥 스티커는 뒤로 길게 끌려서, 몸을 앞에 두어야 칸 안에 들어온다.
         double cx = box.Center.X + skin switch
         {
-            RunnerSkin.Flash or RunnerSkin.Ice => height * 0.4,
+            RunnerSkin.Flash or RunnerSkin.Ice or RunnerSkin.Daku => height * 0.4,
             RunnerSkin.Kittens => height * 1.1,
             _ => 0,
         };

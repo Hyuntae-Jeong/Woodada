@@ -18,6 +18,7 @@ internal sealed class RunnerPreview : Control
     private readonly RunnerInstance _runner = new(new RunnerConfig(), SpriteRegistry.Get("cat"));
     private readonly List<RunnerFrame> _frames = new();
     private readonly YarnPlay _yarn = new() { Tuning = YarnTuning.Preview };
+    private readonly DakuBoard _daku = new() { Tuning = DakuTuning.Preview };
     private readonly RunnerInstance[] _runners;
     private double _last;
 
@@ -61,6 +62,7 @@ internal sealed class RunnerPreview : Control
         var runway = new Runway(8, Math.Max(8, (int)Bounds.Width - 8), 0, HangBelow: false);
         _runner.Update(dt, UsageSource?.Invoke() ?? 0, runway);
         _yarn.Step(dt, _runners, runway);
+        _daku.Step(dt, _runners, runway);
         InvalidateVisual();
     }
 
@@ -80,6 +82,7 @@ internal sealed class RunnerPreview : Control
 
         double scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
         _frames.Clear();
+        SkinPainter.AddDaku(_frames, _daku, 0, bar.Y + 1);
         SkinPainter.AddYarn(_frames, _yarn, front: false, 0, bar.Y + 1, lightBackground: !alt);
         SkinPainter.AddRunner(_frames, _runner, 0, bar.Y + 1, _clock.Elapsed.TotalSeconds, lightBackground: !alt);
         SkinPainter.AddYarn(_frames, _yarn, front: true, 0, bar.Y + 1, lightBackground: !alt);

@@ -36,6 +36,8 @@ public sealed class FrameSprite : IRunnerSprite
         NeonBase,
         NeonTube,
         NeonCore,
+        /// <summary>다꾸냥(러너 색 + 눈에 흰 테두리·그림자를 두른 스티커).</summary>
+        Daku,
     }
 
     private readonly record struct FrameKey(FrameLook Look, uint Argb, int Height, bool LightBack, double UnitPixels);
@@ -84,6 +86,8 @@ public sealed class FrameSprite : IRunnerSprite
             // 유령·얼음은 색이 고정이다
             RunnerSkin.Ghost => new FrameKey(FrameLook.Ghost, 0, pixelHeight, lightBackground, unitPixels),
             RunnerSkin.Ice => new FrameKey(FrameLook.Ice, 0, pixelHeight, lightBackground, unitPixels),
+            // 다꾸냥 테두리는 키에 비례해서 화면 단위와 상관없다.
+            RunnerSkin.Daku => new FrameKey(FrameLook.Daku, color.ToUInt32(), pixelHeight, false, 1),
             _ => new FrameKey(FrameLook.Tinted, color.ToUInt32(), pixelHeight, false, 1),
         };
         // 스킨 프레임은 발광·테두리가 번질 자리만큼 사방이 크다. 몸이 box에 오도록 그만큼 당겨 찍는다.
@@ -91,6 +95,7 @@ public sealed class FrameSprite : IRunnerSprite
         {
             RunnerSkin.Ghost => GhostSkin.PaddingPixels(unitPixels) / scale,
             RunnerSkin.Ice => IceSkin.PaddingPixels(unitPixels) / scale,
+            RunnerSkin.Daku => DakuSkin.BodyPadding(pixelHeight) / scale,
             _ => 0,
         };
         Blit(ctx, PickFrame(GetFrames(key), pose), box, pose.Facing, scale, pad);
@@ -273,11 +278,19 @@ public sealed class FrameSprite : IRunnerSprite
             FrameLook.NeonBase => m.RenderNeon(color, NeonSkin.Layer.Base, width, height, key.UnitPixels),
             FrameLook.NeonTube => m.RenderNeon(color, NeonSkin.Layer.Tube, width, height, key.UnitPixels),
             FrameLook.NeonCore => m.RenderNeon(color, NeonSkin.Layer.Core, width, height, key.UnitPixels),
+            FrameLook.Daku => m.RenderDaku(color, width, height),
             _ => m.Render(color, width, height),
         }).ToArray();
         _cache[key] = frames;
         return frames;
     }
+
+    /// <summary>
+    /// index번 프레임을 색 + 눈으로 칠해 이 크기로 줄인 픽셀(premultiplied BGRA, 행 우선). 다꾸냥의 고양이 자세 스티커가 쓴다.
+    /// 캐시하지 않는다. 스티커를 붙일 때 한 번만 만든다.
+    /// </summary>
+    internal byte[] TintedPixels(int index, Color color, int width, int height) =>
+        _masks[Math.Clamp(index, 0, _masks.Length - 1)].TintedPixels(color, width, height);
 
     /// <summary>PNG 한 장의 알파 채널(행 우선).</summary>
     private sealed class AlphaImage(int width, int height, byte[] alpha)
@@ -446,6 +459,26 @@ public sealed class FrameSprite : IRunnerSprite
             var eyes = ScaledAlpha(i => _eye[i] ? (byte)(255 - _bodyAlpha[i]) : (byte)0, width, height);
             var bytes = NeonSkin.Compose(silhouette, eyes, width, height, color, layer, unitPixels, out int w, out int h);
             return FromPremultiplied(bytes, w, h);
+        }
+
+        /// <summary>다꾸냥 프레임. 색 칠한 몸을 목표 크기로 줄인 뒤 흰 테두리를 둘러야 테두리 굵기가 키에 맞는다.</summary>
+        public Bitmap RenderDaku(Color color, int width, int height)
+        {
+            var bytes = DakuSkin.ComposeBody(TintedPixels(color, width, height), width, height, out int w, out int h);
+            return FromPremultiplied(bytes, w, h);
+        }
+
+        /// <summary>색 + 눈으로 칠해 목표 크기로 줄인 premultiplied BGRA(행 우선, 빈틈 없이).</summary>
+        public byte[] TintedPixels(Color color, int width, int height)
+        {
+            using var full = new SKBitmap(new SKImageInfo(_width, _height, SKColorType.Bgra8888, SKAlphaType.Unpremul));
+            Marshal.Copy(Tint(color), 0, full.GetPixels(), _width * _height * 4);
+            using var scaled = full.Resize(new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul), SKFilterQuality.High);
+            var pixels = scaled.GetPixelSpan();
+            var result = new byte[width * height * 4];
+            for (int y = 0; y < height; y++)
+                pixels.Slice(y * scaled.RowBytes, width * 4).CopyTo(result.AsSpan(y * width * 4));
+            return result;
         }
 
         private static Bitmap FromPremultiplied(byte[] bytes, int w, int h)
