@@ -47,7 +47,9 @@ AMBER_GLOW = (255, 190, 90, 120)
 AMBER_INK = (150, 90, 20)           # "경고가 뜨면" 같은 앞머리
 WARN = (245, 150, 40)               # 경고 삼각형
 
-FONTS = [("/System/Library/Fonts/AppleSDGothicNeo.ttc", 4), ("C:/Windows/Fonts/malgunbd.ttf", 0)]
+# (파일, ttc 안 번호, 크기 배율). 맥 글꼴이 Finder 글씨와 어울려 맥에서 그린다. 맑은 고딕은 윈도우에서 미리 볼 때만 쓴다.
+# Apple SD Gothic Neo는 같은 pt에서 글자가 작아 10% 키운다. 6 = Bold.
+FONTS = [("/System/Library/Fonts/AppleSDGothicNeo.ttc", 6, 1.1), ("C:/Windows/Fonts/malgunbd.ttf", 0, 1.0)]
 
 
 def px(v):
@@ -55,10 +57,10 @@ def px(v):
 
 
 def font(size_pt):
-    for path, index in FONTS:
+    for path, index, scale in FONTS:
         if Path(path).exists():
-            return ImageFont.truetype(path, px(size_pt), index=index)
-    raise FileNotFoundError("한글 글꼴을 찾지 못했습니다: " + ", ".join(p for p, _ in FONTS))
+            return ImageFont.truetype(path, px(size_pt * scale), index=index)
+    raise FileNotFoundError("한글 글꼴을 찾지 못했습니다: " + ", ".join(p for p, _, _ in FONTS))
 
 
 def smooth_resize(mask, size, src_px_blur=0.35):
@@ -194,10 +196,16 @@ def guide_card(im):
     text_w = max(sum(d.textlength(t, font=f) for t, f in line) for line in lines) / px(1)
     left = (W - (icon + gap + text_w)) / 2   # 아이콘과 글을 한 덩어리로 가운데에
     warn_icon(im, left + icon / 2, (GUIDE_BOX[1] + GUIDE_BOX[3]) / 2, icon)
-    for line, y in zip(lines, (50, 75)):
+    # 두 줄을 기준선(baseline)으로 25pt 간격에 두고, 실제 글자 윤곽 전체가 카드 세로 가운데에 오게 옮긴다.
+    # 글꼴마다 위아래 여백이 달라서 윗선 기준으로 놓으면 글꼴을 바꿀 때 글이 위나 아래로 쏠린다.
+    pitch = px(25)
+    ink = [d.textbbox((0, i * pitch), t, font=f, anchor="ls") for i, line in enumerate(lines) for t, f in line]
+    top, bottom = min(b[1] for b in ink), max(b[3] for b in ink)
+    base = px((GUIDE_BOX[1] + GUIDE_BOX[3]) / 2) - (top + bottom) / 2
+    for i, line in enumerate(lines):
         x = px(left + icon + gap)
         for (text, f), color in zip(line, (AMBER_INK, DARK)):
-            d.text((x, px(y)), text, font=f, fill=color)
+            d.text((x, base + i * pitch), text, font=f, fill=color, anchor="ls")
             x += d.textlength(text, font=f)
 
 
