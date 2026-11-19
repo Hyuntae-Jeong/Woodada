@@ -156,6 +156,8 @@ internal sealed class SettingsWindow : Window
         LoadAll();
         RefreshWallet();
         ShowPage(Page.Cats);
+        // 크기는 창이 뜬 뒤에야 제대로 잴 수 있다(뜨기 전에는 글꼴·템플릿이 덜 붙어 작게 나온다).
+        Opened += (_, _) => FitHeightToPages();
 
         // 표시 여부를 다른 곳에서 바꿔도 열려 있는 설정 창이 따라가게 한다.
         _store.Changed += OnStoreChanged;
@@ -270,6 +272,40 @@ internal sealed class SettingsWindow : Window
         close.Click += (_, _) => Close();
         Grid.SetRow(close, 3);
         root.Children.Add(close);
+    }
+
+    /// <summary>
+    /// 가장 긴 탭이 다 들어가게 창 높이를 늘린다. 기본 높이(804)보다 줄이지는 않는다. 탭을 옮겨 다녀도 창 크기는 그대로다.
+    /// 스킨이 늘어 도감이 한 줄 더 생기면(개발용 빌드는 모든 스킨이 보여서 먼저 늘어난다) 아래 칸·개발용 도구가 잘리지 않게.
+    /// 화면보다 커지지는 않게 창이 놓인 모니터의 작업 영역에서 멈추고, 늘린 만큼 위로 올려 가운데를 지킨다.
+    /// </summary>
+    private void FitHeightToPages()
+    {
+        // 탭마다 따로 잰다. 숨은 탭은 크기가 0으로 재지니 잠깐 보이게 하고, 같은 폭에서 높이 제한 없이 잰다.
+        double tallest = 0, width = _content.Bounds.Width;
+        foreach (var (page, (_, view)) in _pages)
+        {
+            view.IsVisible = true;
+            view.InvalidateMeasure();
+            view.Measure(new Size(width, double.PositiveInfinity));
+            tallest = Math.Max(tallest, view.DesiredSize.Height);
+            view.IsVisible = page == _page;
+        }
+        _content.InvalidateMeasure();
+
+        // 탭 자리(_content)만 늘리면 되니, 지금 창 높이에 모자란 만큼만 더한다.
+        double before = ClientSize.Height, height = Math.Ceiling(before + tallest - _content.Bounds.Height);
+        var screen = Screens.ScreenFromWindow(this) ?? Screens.Primary;
+        double scaling = screen?.Scaling ?? 1;
+        // 작업 영역에서 제목 줄·창 테두리 몫을 뺀다.
+        if (screen is not null) height = Math.Min(height, screen.WorkingArea.Height / scaling - (FrameSize?.Height ?? before + 40) + before);
+        if (height <= before + 0.5) return;
+        Height = height;
+        if (screen is not null)
+        {
+            int up = (int)Math.Round((height - before) * scaling / 2);
+            Position = new PixelPoint(Position.X, Math.Max(screen.WorkingArea.Y, Position.Y - up));
+        }
     }
 
     private void AddPage(StackPanel nav, Page page, string title, Control view)
