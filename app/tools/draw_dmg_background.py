@@ -27,12 +27,25 @@ ICON_Y = 190
 APP_X, APPS_X = 170, 490
 DOCK_TOP = 362             # 고양이가 밟는 독 윗면
 BIG_PT, SMALL_PT = 48, 28  # 검은 고양이·흰 고양이 높이(pt). 원본(66px)을 약 1.5배까지만 키운다.
-TEXT = "Woodada를 Applications 폴더로 끌어다 놓으세요"
+# 서명이 없어 처음 열 때 Gatekeeper가 막는다. 끌어다 놓은 뒤엔 창을 띄울 방법이 없어서 배경 맨 위에 넘기는 길을 적어 둔다.
+# 끌어다 놓으라는 문구는 화살표만으로 충분해서 빼고, 이 안내가 먼저 눈에 들어오게 한다.
+# 배경은 맥 언어를 따라 바뀌지 않으므로 한국어·영어를 같이 쓴다.
+# macOS 12는 메뉴 이름이 달라(시스템 환경설정 → 보안 및 개인 정보 보호 → 확인 없이 열기) 13 이상 기준으로 적는다.
+GUIDE = [
+    ("경고가 뜨면   ", "시스템 설정 → 개인정보 보호 및 보안 → 그래도 열기"),
+    ("If blocked   ", "System Settings → Privacy & Security → Open Anyway"),
+]
+GUIDE_BOX = (90, 40, 570, 106)   # 아이콘(위끝 134pt)과 겹치지 않는 자리
 
 DARK = (30, 30, 34)        # 앱 아이콘의 검은 반쪽
 WHITE = (255, 255, 255)
 EYE_DARK = (45, 42, 48)
 INK = (90, 96, 120)        # 속도선·먼지
+AMBER_FILL = (255, 236, 200, 235)   # 안내 카드: 경고 느낌은 주되 빨강처럼 겁주지 않는 주황
+AMBER_LINE = (240, 170, 70, 255)
+AMBER_GLOW = (255, 190, 90, 120)
+AMBER_INK = (150, 90, 20)           # "경고가 뜨면" 같은 앞머리
+WARN = (245, 150, 40)               # 경고 삼각형
 
 FONTS = [("/System/Library/Fonts/AppleSDGothicNeo.ttc", 4), ("C:/Windows/Fonts/malgunbd.ttf", 0)]
 
@@ -146,11 +159,52 @@ def dock(im):
     im.paste(layer, (0, 0), layer)
 
 
+def warn_icon(im, cx, cy, size):
+    """둥근 주황 삼각형에 흰 느낌표."""
+    layer = Image.new("RGBA", im.size, (0, 0, 0, 0))
+    d = ImageDraw.Draw(layer)
+    h = size * 0.88
+    pts = [(px(cx), px(cy - h / 2)), (px(cx + size / 2), px(cy + h / 2)), (px(cx - size / 2), px(cy + h / 2))]
+    d.polygon(pts, fill=WARN)
+    d.line(pts + [pts[0]], fill=WARN, width=px(3), joint="curve")  # 모서리를 둥글게
+    for p in pts:
+        d.ellipse([p[0] - px(1.5), p[1] - px(1.5), p[0] + px(1.5), p[1] + px(1.5)], fill=WARN)
+    t = px(size * 0.13)
+    d.rounded_rectangle([px(cx) - t // 2, px(cy - h * 0.14), px(cx) + t // 2, px(cy + h * 0.2)], radius=t // 2, fill=WHITE)
+    dot_y = px(cy + h * 0.29)
+    d.ellipse([px(cx) - t // 2, dot_y - t // 2, px(cx) + t // 2, dot_y + t // 2], fill=WHITE)
+    im.paste(layer, (0, 0), layer)
+
+
+def guide_card(im):
+    """맨 위 주황 카드: 경고 아이콘 + 한국어·영어 한 줄씩. 앞머리는 주황 글씨, 메뉴 경로는 진하게."""
+    box = [px(v) for v in GUIDE_BOX]
+    glow = Image.new("RGBA", im.size, (0, 0, 0, 0))
+    ImageDraw.Draw(glow).rounded_rectangle(box, radius=px(14), fill=AMBER_GLOW)
+    glow = glow.filter(ImageFilter.GaussianBlur(px(7)))
+    im.paste(glow, (0, 0), glow)
+    card = Image.new("RGBA", im.size, (0, 0, 0, 0))
+    ImageDraw.Draw(card).rounded_rectangle(box, radius=px(14), fill=AMBER_FILL, outline=AMBER_LINE, width=px(1.5))
+    im.paste(card, (0, 0), card)
+
+    d = ImageDraw.Draw(im)
+    lines = [((GUIDE[0][0], font(12)), (GUIDE[0][1], font(12.5))),
+             ((GUIDE[1][0], font(11.5)), (GUIDE[1][1], font(12)))]
+    icon, gap = 22, 12
+    text_w = max(sum(d.textlength(t, font=f) for t, f in line) for line in lines) / px(1)
+    left = (W - (icon + gap + text_w)) / 2   # 아이콘과 글을 한 덩어리로 가운데에
+    warn_icon(im, left + icon / 2, (GUIDE_BOX[1] + GUIDE_BOX[3]) / 2, icon)
+    for line, y in zip(lines, (50, 75)):
+        x = px(left + icon + gap)
+        for (text, f), color in zip(line, (AMBER_INK, DARK)):
+            d.text((x, px(y)), text, font=f, fill=color)
+            x += d.textlength(text, font=f)
+
+
 def main():
     im = background()
     d = ImageDraw.Draw(im)
-    f = font(15)
-    d.text(((px(W) - d.textlength(TEXT, font=f)) / 2, px(56)), TEXT, font=f, fill=DARK)
+    guide_card(im)
     arrow(d, (140, 132, 150))
     dock(im)
     # 큰 검은 고양이가 작은 흰 고양이를 쫓는다.
