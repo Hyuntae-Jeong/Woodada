@@ -20,6 +20,7 @@
 }
 body[data-cat="ghost"] { --name-a: #ffffff; --name-b: #e4f1ff; --name-c: #8ec5ff; --name-d: #4f8fe0; }
 body[data-cat="yarn"] { --name-a: #fff2f4; --name-b: #ffc2cb; --name-c: #ff6b7a; --name-d: #d9434f; }
+body[data-cat="daku"] { --name-a: #ffffff; --name-b: #ffe0f1; --name-c: #ffb0da; --name-d: #d6589e; }
 body[data-cat="glitch"] { --name-a: #ffd1f0; --name-b: #ff3ea5; --name-c: #c07bff; --name-d: #2de2e6; }
 
 * { box-sizing: border-box; }

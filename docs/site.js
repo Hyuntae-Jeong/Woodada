@@ -644,6 +644,255 @@
     ctx.restore();
   }
 
+  // 다꾸 (Sprites/Skins/DakuSkin.cs): 흰 테두리를 두른 스티커 고양이가 지나간 자리에 가끔 스티커를 붙인다.
+  // 큰 스티커 13종(모양 8 + 고양이 자세 5)과 그 둘레에 작은 스티커 0~3장, 색은 붙일 때마다 아무 파스텔색.
+  // 빨리 달릴수록 자주 붙이고 큰 스티커끼리는 몸 3개만큼 띄운다. 남았다가 귀퉁이부터 들려 떨어진다. 값과 공식은 앱과 같다.
+  // 앱 작업표시줄은 12~3초마다 붙이고 1분 남는데, 무대는 폭이 좁아 앱 설정 창 미리보기(DakuTuning.Preview) 값을 쓴다.
+  const DAKU = {
+    outline: 0.07, shadow: 0.30, mainMin: 0.45, mainMax: 0.85, smallMin: 0.22, smallMax: 0.40, smallCount: 3, spread: 0.30,
+    tilt: 20, gap: 3, pop: 0.22, peel: 1.1, fold: 0.65, drop: 0.55,
+    appSlow: 12, appFast: 3, slow: 5, fast: 1.5, life: 20, first: 0.8,
+  };
+  const DAKU_BODY = '#FFB0DA'; // 앱 뽑기 무대·도감처럼 솜사탕 분홍 몸(흰 테두리가 잘 보인다)
+  const DAKU_MAIN = 13, DAKU_SMALL = 8, DAKU_CAT = 8;
+  const DAKU_LIVE = { n: 0, max: 1, size: 0.65 }; // 무대에 지금 붙은 큰 스티커 수, 들어갈 수 있는 수, 마지막 크기(능력치용)
+  const dRand = (a, b) => a + Math.random() * (b - a);
+  const dakuPower = u => Math.pow(clamp(u / 100, 0, 1), 0.7); // 앱은 달리는 속도로 정하는데, 그 값은 사용률^0.7과 같다
+  function dakuHsl(h, s, l) {
+    h = ((h % 360) + 360) % 360;
+    const c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = l - c / 2;
+    const [r, g, b] = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+    return '#' + [r, g, b].map(v => Math.round(clamp((v + m) * 255, 0, 255)).toString(16).padStart(2, '0')).join('');
+  }
+  const dakuPastel = h => dakuHsl(h, dRand(0.62, 0.85), dRand(0.76, 0.84));
+  function dakuTint(c, color) {
+    const t = mk(c.width, c.height), x = t.getContext('2d');
+    x.drawImage(c, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = color; x.fillRect(0, 0, t.width, t.height);
+    return t;
+  }
+  // 그림(둘레에 여백이 있는 캔버스)을 스티커로: 동그란 붓으로 민 흰 테두리 + 아래로 살짝 뜬 그림자. 떨어질 때 쓸 뒷면도 만든다.
+  function dakuStickerize(art, b) {
+    const W = art.width, H = art.height, white = mk(W, H), wx = white.getContext('2d');
+    for (let dy = -b; dy <= b; dy++) for (let dx = -b; dx <= b; dx++) if (dx * dx + dy * dy <= b * b + b * 0.5) wx.drawImage(art, dx, dy);
+    wx.globalCompositeOperation = 'source-in'; wx.fillStyle = '#fff'; wx.fillRect(0, 0, W, H);
+    const out = mk(W, H), o = out.getContext('2d');
+    o.save();
+    o.filter = `blur(${Math.max(0.5, b * 0.6)}px)`; o.globalAlpha = DAKU.shadow;
+    o.drawImage(dakuTint(white, '#000'), 0, Math.max(1, Math.round(b * 0.7)));
+    o.restore();
+    o.drawImage(white, 0, 0); o.drawImage(art, 0, 0);
+    out.back = dakuTint(white, '#f3f1ee'); out.shade = dakuTint(white, '#000');
+    return out;
+  }
+  // 스티커 모양 (가운데 0,0 · 키 s, 장치 픽셀). 앱 DakuSkin.Shapes와 같다.
+  function dakuShape(x, kind, s, color, hue) {
+    const dark = mix(color, '#000000', 0.25), P = Math.PI;
+    x.lineJoin = 'round'; x.lineCap = 'round'; x.lineWidth = Math.max(1, s / 16); x.strokeStyle = dark; x.fillStyle = color;
+    const fs = () => { x.fill(); x.stroke(); };
+    const star = r0 => { x.beginPath(); for (let i = 0; i < 10; i++) { const r = i % 2 ? r0 * 0.48 : r0, a = -P / 2 + i * P / 5; x.lineTo(Math.cos(a) * r, Math.sin(a) * r + s * 0.04); } x.closePath(); fs(); };
+    const heart = k => { x.beginPath(); x.moveTo(0, k * 0.42); x.bezierCurveTo(-k * 0.62, k * 0.02, -k * 0.5, -k * 0.5, 0, -k * 0.2); x.bezierCurveTo(k * 0.5, -k * 0.5, k * 0.62, k * 0.02, 0, k * 0.42); fs(); };
+    switch (kind) {
+      case 0: star(s * 0.52); break;
+      case 1: heart(s); break;
+      case 2:
+        for (let i = 0; i < 5; i++) { const a = -P / 2 + i * P * 2 / 5; x.beginPath(); x.arc(Math.cos(a) * s * 0.26, Math.sin(a) * s * 0.26, s * 0.21, 0, P * 2); fs(); }
+        x.beginPath(); x.arc(0, 0, s * 0.15, 0, P * 2); x.fillStyle = '#fff2a6'; fs(); break;
+      case 3:
+        x.beginPath(); x.arc(-s * 0.26, s * 0.08, s * 0.2, P * 0.5, P * 1.5); x.arc(-s * 0.04, -s * 0.08, s * 0.26, P * 1.05, P * 1.85);
+        x.arc(s * 0.27, s * 0.06, s * 0.2, P * 1.4, P * 0.5); x.closePath(); fs(); break;
+      case 4:
+        for (const d of [-1, 1]) {
+          x.beginPath(); x.moveTo(0, 0); x.quadraticCurveTo(d * s * 0.3, -s * 0.42, d * s * 0.52, -s * 0.22);
+          x.quadraticCurveTo(d * s * 0.6, s * 0.02, d * s * 0.5, s * 0.2); x.quadraticCurveTo(d * s * 0.3, s * 0.3, 0, 0); fs();
+          x.beginPath(); x.moveTo(d * s * 0.05, s * 0.06); x.lineTo(d * s * 0.26, s * 0.46); x.lineTo(d * s * 0.12, s * 0.42); x.lineTo(d * s * 0.02, s * 0.5); x.closePath(); fs();
+        }
+        x.beginPath(); x.arc(0, 0, s * 0.11, 0, P * 2); fs(); break;
+      case 5:
+        x.beginPath(); x.moveTo(0, s * 0.48); x.quadraticCurveTo(-s * 0.5, s * 0.1, -s * 0.36, -s * 0.18);
+        x.quadraticCurveTo(0, -s * 0.34, s * 0.36, -s * 0.18); x.quadraticCurveTo(s * 0.5, s * 0.1, 0, s * 0.48); fs();
+        x.fillStyle = '#ffffff';
+        for (const [px, py] of [[-0.16, -0.04], [0.14, -0.06], [0, 0.1], [-0.12, 0.22], [0.12, 0.2], [0, 0.34]]) { x.beginPath(); x.ellipse(px * s, py * s, Math.max(0.6, s * 0.035), Math.max(0.8, s * 0.05), 0, 0, P * 2); x.fill(); }
+        x.fillStyle = '#9fd99b'; x.strokeStyle = '#5f9e5b'; x.beginPath();
+        for (let i = 0; i < 10; i++) { const r = i % 2 ? s * 0.08 : s * 0.24, a = P + i * P / 9; x.lineTo(Math.cos(a) * r, -s * 0.24 + Math.sin(a) * r * 0.55); }
+        x.closePath(); fs(); break;
+      case 6:
+        x.beginPath(); x.ellipse(0, s * 0.18, s * 0.27, s * 0.21, 0, 0, P * 2); fs();
+        for (const [px, py, a] of [[-0.33, -0.08, -0.4], [-0.12, -0.3, -0.12], [0.12, -0.3, 0.12], [0.33, -0.08, 0.4]]) { x.beginPath(); x.ellipse(px * s, py * s, s * 0.11, s * 0.14, a, 0, P * 2); fs(); }
+        break;
+      case 7: {
+        const outer = s * 0.56, th = s * 0.1, cy = s * 0.26;
+        x.lineCap = 'butt';
+        for (let i = 0; i < 4; i++) { x.beginPath(); x.arc(0, cy, outer - th * (i + 0.5), P, P * 2); x.strokeStyle = dakuHsl(hue + i * 55, 0.74, 0.8); x.lineWidth = th + 0.6; x.stroke(); }
+        x.lineCap = 'round'; x.strokeStyle = dark; x.lineWidth = Math.max(1, s / 16);
+        x.beginPath(); x.arc(0, cy, outer, P, P * 2); x.stroke();
+        x.beginPath(); x.arc(0, cy, outer - th * 4, P, P * 2); x.stroke();
+        x.beginPath(); x.moveTo(-outer, cy); x.lineTo(-outer + th * 4, cy); x.moveTo(outer, cy); x.lineTo(outer - th * 4, cy); x.stroke();
+        break;
+      }
+      case DAKU_MAIN: { // 반짝이
+        const R = s * 0.52, r = s * 0.12;
+        x.beginPath(); x.moveTo(0, -R);
+        for (let i = 0; i < 4; i++) { const a = -P / 2 + i * P / 2, b = a + P / 4, c = a + P / 2; x.quadraticCurveTo(Math.cos(b) * r, Math.sin(b) * r, Math.cos(c) * R, Math.sin(c) * R); }
+        x.closePath(); fs(); break;
+      }
+      case DAKU_MAIN + 1: x.beginPath(); x.arc(0, 0, s * 0.42, 0, P * 2); fs(); break;
+      case DAKU_MAIN + 2: heart(s * 1.1); break;
+      case DAKU_MAIN + 3: star(s * 0.52); break;
+      case DAKU_MAIN + 4:
+        x.beginPath(); x.ellipse(-s * 0.14, s * 0.3, s * 0.18, s * 0.13, -0.4, 0, P * 2); fs();
+        x.lineWidth = Math.max(1, s * 0.09); x.beginPath(); x.moveTo(s * 0.03, s * 0.28); x.lineTo(s * 0.03, -s * 0.44);
+        x.quadraticCurveTo(s * 0.22, -s * 0.3, s * 0.32, -s * 0.12); x.strokeStyle = color; x.stroke(); break;
+      case DAKU_MAIN + 5: {
+        const R = s * 0.46;
+        x.beginPath(); x.arc(0, 0, R, P * 0.35, P * 1.65); x.arc(R * 0.42, -R * 0.08, R * 0.8, P * 1.45, P * 0.55, true); x.closePath(); fs(); break;
+      }
+      case DAKU_MAIN + 6:
+        x.beginPath(); x.moveTo(0, -s * 0.48); x.bezierCurveTo(s * 0.18, -s * 0.2, s * 0.36, 0, s * 0.36, s * 0.16);
+        x.arc(0, s * 0.16, s * 0.36, 0, P); x.bezierCurveTo(-s * 0.36, 0, -s * 0.18, -s * 0.2, 0, -s * 0.48); fs(); break;
+      case DAKU_MAIN + 7:
+        for (let i = 0; i < 4; i++) { const a = P / 4 + i * P / 2; x.beginPath(); x.arc(Math.cos(a) * s * 0.19, Math.sin(a) * s * 0.19 - s * 0.04, s * 0.19, 0, P * 2); fs(); }
+        x.beginPath(); x.moveTo(0, s * 0.1); x.quadraticCurveTo(s * 0.06, s * 0.32, s * 0.2, s * 0.46); x.stroke(); break;
+    }
+  }
+  // 스티커 한 장을 그린다(장치 픽셀). k: {kind, s(CSS px), bodyH(CSS px), tilt, color, flip, hue, frame}
+  function dakuSticker(masks, k, dpr) {
+    if (k.img && k.dpr === dpr) return k.img;
+    const S = Math.max(2, Math.round(k.s * dpr)), body = k.bodyH * dpr;
+    const b = Math.max(1, Math.round(Math.max(1, Math.round(body * DAKU.outline)) * clamp(S / (body * 0.6), 0.5, 1)));
+    const pad = Math.ceil(S * 0.9 + b * 3 + 4), art = mk(pad * 2, pad * 2), x = art.getContext('2d');
+    x.translate(pad, pad); x.rotate(k.tilt);
+    if (k.kind >= DAKU_CAT && k.kind < DAKU_MAIN) {
+      // 고양이 자세 스티커: 파스텔 몸 + 눈. 키를 s로 맞추면 고양이는 옆으로 길어서 조금 줄인다.
+      const h = Math.max(2, Math.round(S * 0.85)), f = catFrame(masks, k.kind - DAKU_CAT, k.color, h), w = f.width;
+      if (k.flip) x.scale(-1, 1);
+      x.drawImage(f, -w / 2, -h / 2);
+    } else dakuShape(x, k.kind, S, k.color, k.hue);
+    k.img = dakuStickerize(art, b); k.dpr = dpr; k.b = b;
+    return k.img;
+  }
+  // 몸: 고른 색 + 눈에 흰 테두리·그림자. 프레임 다섯 장을 만들어 둔다.
+  function dakuFrames(masks, color, devH) {
+    const b = Math.max(1, Math.round(devH * DAKU.outline)), pad = b + Math.max(1, Math.round(b * 0.7)) + Math.ceil(b * 1.2) + 2;
+    return masks.map((_, i) => {
+      const f = catFrame(masks, i, color, devH), art = mk(f.width + pad * 2, f.height + pad * 2);
+      art.getContext('2d').drawImage(f, pad, pad);
+      return { c: dakuStickerize(art, b), pad };
+    });
+  }
+  // 붙은 스티커 한 장. 붙는 순간 톡 눌리고, 떨어질 때 귀퉁이부터 접혀 넘어간 뒤 툭 떨어진다.
+  function drawDakuSticker(ctx, masks, k, t, floor, dpr) {
+    if (t < k.popAt) return;
+    const img = dakuSticker(masks, k, dpr), W = img.width / dpr, H = img.height / dpr, cx = k.x, cy = floor - k.y;
+    ctx.save();
+    ctx.translate(cx, cy);
+    if (k.goneAt !== undefined && t >= k.goneAt) {
+      const q = t - k.goneAt, fold = DAKU.peel * DAKU.fold, drop = DAKU.peel * DAKU.drop;
+      if (k.peelAngle === undefined) k.peelAngle = dRand(0, Math.PI * 2);
+      const ux = Math.cos(k.peelAngle), uy = Math.sin(k.peelAngle), R = k.s / 2 + (k.b + 1) / dpr;
+      const e = Math.min(1, q / fold), d = R * (1 - 1.55 * e * e * (3 - 2 * e));
+      if (q > fold) {
+        const g = Math.min(1, (q - fold) / drop), body = k.bodyH;
+        ctx.translate(ux * body * 0.15 * g, -body * 0.25 * g + body * 1.6 * g * g);
+        ctx.rotate(k.spin * 2.2 * g); ctx.scale(1 - 0.25 * g, 1 - 0.25 * g);
+        ctx.globalAlpha = 1 - g;
+      }
+      const half = (c, from, to) => {
+        const vx = -uy, vy = ux, far = Math.max(W, H) * 3;
+        c.beginPath();
+        c.moveTo(ux * from + vx * far, uy * from + vy * far); c.lineTo(ux * from - vx * far, uy * from - vy * far);
+        c.lineTo(ux * to - vx * far, uy * to - vy * far); c.lineTo(ux * to + vx * far, uy * to + vy * far);
+        c.closePath(); c.clip();
+      };
+      const far = Math.max(W, H) * 3;
+      ctx.save(); half(ctx, d - far, d); ctx.drawImage(img, -W / 2, -H / 2, W, H); ctx.restore();
+      ctx.save(); half(ctx, d - far, d);
+      ctx.transform(1 - 2 * ux * ux, -2 * ux * uy, -2 * ux * uy, 1 - 2 * uy * uy, 2 * d * ux, 2 * d * uy);
+      half(ctx, d, d + far);
+      ctx.drawImage(img.back, -W / 2, -H / 2, W, H);
+      const band = W / 16;
+      for (let i = 0; i < 4; i++) {
+        ctx.save(); half(ctx, d + band * i, d + band * (i + 1));
+        ctx.globalAlpha *= 0.18 * (1 - (i + 0.5) / 4); ctx.drawImage(img.shade, -W / 2, -H / 2, W, H);
+        ctx.restore();
+      }
+      ctx.restore();
+    } else {
+      const p = Math.min(1, (t - k.popAt) / DAKU.pop);
+      const sx = p < 0.5 ? 1.25 - 0.13 * (p / 0.5) : 1.12 - 0.12 * ((p - 0.5) / 0.5);
+      const sy = p < 0.5 ? 1.25 - 0.4 * (p / 0.5) : 0.85 + 0.15 * ((p - 0.5) / 0.5);
+      ctx.globalAlpha = Math.min(1, p * 4); ctx.scale(sx, sy);
+      ctx.drawImage(img, -W / 2, -H / 2, W, H);
+    }
+    ctx.restore();
+  }
+  // 무대 하나의 스티커 판. step(dt, cat{x 몸 왼쪽, dir, w, h, p}, left, right)로 진행하고 draw로 그린다.
+  function makeDaku() {
+    const list = [];
+    let t = 0, next = DAKU.first, lastH = 0;
+    const vanish = DAKU.peel * (DAKU.fold + DAKU.drop);
+    function sticker(cat, kind, s) {
+      return { kind, s, bodyH: cat.h, tilt: dRand(-DAKU.tilt, DAKU.tilt) * Math.PI / 180, color: dakuPastel(dRand(0, 360)),
+        flip: Math.random() < 0.5, hue: dRand(0, 360), spin: dRand(-1, 1), born: t };
+    }
+    function place(cat, left, right) {
+      const s = cat.h * dRand(DAKU.mainMin, DAKU.mainMax), x = cat.x + cat.w / 2 - cat.dir * cat.w * 0.7;
+      if (x < left + s * 0.6 || x > right - s * 0.6) return false;
+      if (list.some(k => k.main && Math.abs(k.x - x) < DAKU.gap * cat.w)) return false;
+      const main = Object.assign(sticker(cat, Math.floor(Math.random() * DAKU_MAIN), s), { x, y: dRand(s * 0.5, Math.max(s * 0.5, cat.h - s * 0.5)), popAt: t, main: true });
+      list.push(main);
+      DAKU_LIVE.size = s / cat.h;
+      // 작은 스티커는 큰 스티커 둘레에만 0~3장, 하나씩 톡톡 뒤따라 붙는다
+      const want = Math.floor(Math.random() * (DAKU.smallCount + 1));
+      for (let tries = 0, n = 0; tries < want * 30 && n < want; tries++) {
+        const ss = cat.h * dRand(DAKU.smallMin, DAKU.smallMax), r = ss / 2, mr = s / 2;
+        const a = dRand(0, Math.PI * 2), d = lerp(mr * 0.6, mr + r + cat.h * DAKU.spread, Math.sqrt(Math.random()));
+        const sx = main.x + Math.cos(a) * d * 1.6, sy = main.y - Math.sin(a) * d;
+        if (sx < left + r || sx > right - r || sy < r || sy > cat.h - r) continue;
+        if (list.some(k => k !== main && Math.hypot(k.x - sx, k.y - sy) < k.s / 2 + r + cat.h * 0.12)) continue;
+        n++;
+        list.push(Object.assign(sticker(cat, DAKU_MAIN + Math.floor(Math.random() * DAKU_SMALL), ss), { x: sx, y: sy, born: main.born, popAt: t + 0.09 * n, order: n }));
+      }
+      return true;
+    }
+    return {
+      list,
+      get t() { return t; },
+      step(dt, cat, left, right) {
+        t += dt;
+        // 크기가 바뀌면(창 크기) 앱처럼 우수수 뗀다
+        if (lastH && Math.abs(lastH - cat.h) > 0.5) for (const k of list) if (k.goneAt === undefined) k.goneAt = t + dRand(0, 0.5);
+        lastH = cat.h;
+        if (t >= next) next = t + (place(cat, left, right) ? lerp(DAKU.slow, DAKU.fast, cat.p) * dRand(0.7, 1.3) : 0.5);
+        for (const k of list) if (k.goneAt === undefined && t - k.born >= DAKU.life) k.goneAt = t + (k.main ? 0 : 0.12 * k.order);
+        for (let i = list.length - 1; i >= 0; i--) if (list[i].goneAt !== undefined && t - list[i].goneAt >= vanish) list.splice(i, 1);
+        DAKU_LIVE.n = list.filter(k => k.main && k.goneAt === undefined).length;
+        DAKU_LIVE.max = Math.floor((right - left) / (DAKU.gap * cat.w)) + 1;
+      },
+      draw(ctx, masks, floor, dpr) { for (const k of list) drawDakuSticker(ctx, masks, k, t, floor, dpr); },
+    };
+  }
+  // 멈춘 한 장(공유 이미지·썸네일): 몸 뒤로 정해 둔 스티커들. x: 몸 왼쪽, y: 몸 위, 오른쪽을 보고 달린다.
+  const DAKU_STILL = [
+    { kind: 0, dx: -1.15, y: 0.55, s: 0.62, tilt: -0.25, color: '#a9d8ff' },
+    { kind: DAKU_MAIN, dx: -0.72, y: 0.92, s: 0.28, tilt: 0.2, color: '#fff3a0' },
+    { kind: 10, dx: -2.35, y: 0.42, s: 0.8, tilt: 0.18, color: '#c8f5c0', flip: true },
+    { kind: DAKU_MAIN + 1, dx: -1.75, y: 0.86, s: 0.24, tilt: 0, color: '#ffc7a8' },
+    { kind: 1, dx: -3.55, y: 0.5, s: 0.66, tilt: -0.12, color: '#ffb0d0' },
+    { kind: DAKU_MAIN + 7, dx: -3.05, y: 0.22, s: 0.3, tilt: 0.3, color: '#d9c8ff' },
+  ];
+  function drawDakuStill(ctx, masks, x, y, catW, catH, devH, dpr, count = DAKU_STILL.length) {
+    const floor = y + catH;
+    for (const d of DAKU_STILL.slice(0, count)) {
+      const k = d.k || (d.k = { kind: d.kind, s: catH * d.s, bodyH: catH, tilt: d.tilt, color: d.color, flip: !!d.flip, hue: 200, popAt: -1, spin: 0 });
+      if (k.bodyH !== catH) Object.assign(k, { s: catH * d.s, bodyH: catH, img: null });
+      k.x = x + catW / 2 + d.dx * catW; k.y = d.y * catH;
+      drawDakuSticker(ctx, masks, k, 1, floor, dpr);
+    }
+    if (!DAKU_STILL.frames || DAKU_STILL.devH !== devH) { DAKU_STILL.frames = dakuFrames(masks, DAKU_BODY, devH); DAKU_STILL.devH = devH; }
+    const f = DAKU_STILL.frames[1], pad = f.pad / dpr;
+    ctx.drawImage(f.c, x - pad, y - pad, f.c.width / dpr, f.c.height / dpr);
+  }
+
   function skinScene(canvas, masks) {
     const kind = canvas.dataset.skin;
     const runner = new Runner(30, 1);
@@ -652,6 +901,8 @@
     let ghostCache = null, ghostH = 0;
     let glitch = { until: 0, next: 0.8, shape: null };
     const yarn = kind === 'yarn' ? makeYarn() : null, yarnCat = {}, yarnBody = '#ECE7DF', yarnTint = yarnColor([yarnBody]);
+    const daku = kind === 'daku' ? makeDaku() : null;
+    let dakuF = null, dakuH = 0;
 
     function glitchShape(w, h) {
       const bands = [];
@@ -723,6 +974,18 @@
         drawYarnBack(ctx, yarn, yarnTint, y + catH, dpr);
         drawFlipped(ctx, catFrame(masks, Math.floor(runner.frame), yarnBody, devH), runner.x, y, catW, catH, runner.dir);
         drawYarnFront(ctx, yarn, yarnTint, y + catH, dpr);
+      }
+
+      if (kind === 'daku') {
+        // 속도가 천천히 오르내려서 한가할 땐 가끔, 바쁠 땐 자주 붙이는 걸 보여 준다
+        const p = 0.2 + 0.7 * (0.5 + 0.5 * Math.sin(t * 0.45 - 1.2));
+        const v = speedFor(p) * 1.15, y = base - catH + 2;
+        if (!reduceMotion) runner.step(dt, v, 8, w - catW - 8);
+        if (!dakuF || dakuH !== devH) { dakuF = dakuFrames(masks, DAKU_BODY, devH); dakuH = devH; }
+        daku.step(reduceMotion ? 0 : dt, { x: runner.x, dir: runner.dir, w: catW, h: catH, p: Math.pow(p, 0.7) }, 0, w);
+        daku.draw(ctx, masks, y + catH, dpr);
+        const f = dakuF[Math.floor(runner.frame)], pad = f.pad / dpr;
+        drawFlipped(ctx, f.c, runner.x - pad, y - pad, f.c.width / dpr, f.c.height / dpr, runner.dir);
       }
 
       if (kind === 'glitch') {

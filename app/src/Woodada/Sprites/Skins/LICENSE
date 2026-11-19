@@ -8,13 +8,13 @@ Copyright (c) 2026 Hyuntae Jeong. All rights reserved.
 
 대상
 - app/src/Woodada/Sprites/Skins/ 폴더의 모든 파일
-  (FlashSkin.cs, GhostSkin.cs, GlitchSkin.cs, IceSkin.cs, KittenSkin.cs, YarnSkin.cs)
+  (DakuSkin.cs, FlashSkin.cs, GhostSkin.cs, GlitchSkin.cs, IceSkin.cs, KittenSkin.cs, YarnSkin.cs)
 - app/tools/skin_preview/ 폴더의 모든 파일
 - app/src/Woodada/Assets/Dog/, app/src/Woodada/Assets/Rabbit/ 폴더의 모든 파일
   (직접 그린 닥스훈트와 토끼 달리기 프레임)
 - app/tools/draw_dachshund.py, app/tools/draw_rabbit.py
 - docs/site.js 안에서 "스페셜 스킨 시작"과 "스페셜 스킨 끝" 주석 사이의 코드
-- 위 코드가 그려 내는 스페셜 스킨(플래시, 유령, 글리치, 털실, 얼음, 줄줄이)의 모습과
+- 위 코드가 그려 내는 스페셜 스킨(플래시, 유령, 글리치, 털실, 다꾸, 얼음, 줄줄이)의 모습과
   닥스훈트·토끼 캐릭터, 그리고 이것들을 담은 이미지와 영상
   (예: docs/assets/og-image.png)
 
@@ -47,14 +47,14 @@ Woodada repository. All other files remain under the MIT License.
 
 Covered Material
 - All files in app/src/Woodada/Sprites/Skins/
-  (FlashSkin.cs, GhostSkin.cs, GlitchSkin.cs, IceSkin.cs, KittenSkin.cs, YarnSkin.cs)
+  (DakuSkin.cs, FlashSkin.cs, GhostSkin.cs, GlitchSkin.cs, IceSkin.cs, KittenSkin.cs, YarnSkin.cs)
 - All files in app/tools/skin_preview/
 - All files in app/src/Woodada/Assets/Dog/ and app/src/Woodada/Assets/Rabbit/
   (the hand-drawn dachshund and rabbit running frames)
 - app/tools/draw_dachshund.py and app/tools/draw_rabbit.py
 - The code in docs/site.js between the "스페셜 스킨 시작" (special skins start)
   and "스페셜 스킨 끝" (special skins end) comments
-- The appearance of the special skins (Flash, Ghost, Glitch, Yarn, Ice, Kittens)
+- The appearance of the special skins (Flash, Ghost, Glitch, Yarn, Sticker, Ice, Kittens)
   rendered by that code, the dachshund and rabbit characters, and images or
   videos showing them (for example docs/assets/og-image.png)
 

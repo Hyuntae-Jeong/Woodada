@@ -282,9 +282,11 @@ html[data-lang="ko"] .eyebrow { text-transform: none; letter-spacing: 0; }
 .tabs-list b { color: var(--ink); }
 
 /* 냥뽑기 스킨 카드 */
-.skins { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
-@media (max-width: 1080px) { .skins { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 600px) { .skins { grid-template-columns: 1fr; max-width: 560px; } }
+/* 카드 수가 줄 칸 수로 나누어떨어지지 않아도 마지막 줄이 가운데에 오게 flex로 늘어놓는다(5장이면 3 + 2) */
+.skins { display: flex; flex-wrap: wrap; justify-content: center; gap: 16px; }
+.skin { flex: 0 1 calc((100% - 32px) / 3); min-width: 0; }
+@media (max-width: 1080px) { .skin { flex-basis: calc((100% - 16px) / 2); } }
+@media (max-width: 600px) { .skins { max-width: 560px; } .skin { flex-basis: 100%; } }
 .skin { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; display: flex; flex-direction: column; }
 .skin-canvas { display: block; width: 100%; height: 132px; background: #1b1d29; }
 .skin-body { padding: 18px 20px 22px; }

@@ -54,15 +54,17 @@ description: Woodada 냥뽑기 스페셜 스킨을 일반 버전에 새로 공�
    - `app/tools/cat_pages.py`의 `CATS`에 한 칸을 더한다. 넣을 것: id(= `RunnerSkins.ToId`), 이름, 별, 한마디, 소개, 짧은 소개, 힌트, 눈금, 능력치 4줄, 특기, 버릇, 좋아함, 싫어함. 모두 영어·한국어를 함께 쓴다.
    - **두 마리가 서로 주고받는 스킨**(털실냥의 패스처럼 CPU·메모리 고양이가 함께 입었을 때 상호작용이 있는 것)만 `"duo": True`를 넣는다. 그 페이지에만 1P·2P 단추가 생기고, 처음엔 두 마리가 달린다. 그 스킨의 `cats.js` 항목은 `pair: true`로 두 마리를 한 번에 그린다(`yarn` 참고). 상호작용이 없는 스킨은 넣지 않는다(늘 한 마리).
    - 도감 순서는 앱 `RewardCatalog.Skins` 순서를 따른다.
-   - 도감 끝의 "곧 만나요!" 칸 수 `LOCKED`를 줄인다. 남은 미공개 스킨이 없으면 0으로 한다.
+   - 도감 끝의 "곧 만나요!" 칸 수 `LOCKED`는 남은 미공개 스킨 수가 아니라 예고 칸 수다(지금 1). 미공개 스킨이 남아 있으면 그대로 두고, 하나도 없으면 0으로 한다.
    - 도감 공유 이미지 설명 `alt`("Ghost Cat, Flash Cat and Glitch Cat …")를 고친다.
    - `docs/cats/cats.css`에 `body[data-cat="<id>"]`의 이름 글자 색 `--name-a`~`--name-d`를 넣는다.
    - `python app/tools/cat_pages.py`를 돌린다. 그러면 `docs/cats/<id>/index.html`이 생기고 `docs/cats/index.html`이 갱신된다.
-3. **메인 페이지** `docs/index.html`: 냥뽑기 섹션 `.skins`에 `<article class="skin" data-rarity="…">` 카드 하나를 도감 순서대로 더한다. 기존 카드와 같은 모양으로, "프로필 보기 →" 링크(`cats/<id>/`)까지 넣는다. 카드가 늘어도 줄 배치가 괜찮은지 본다.
+3. **메인 페이지** `docs/index.html`: 냥뽑기 섹션 `.skins`에 `<article class="skin" data-rarity="…">` 카드 하나를 도감 순서대로 더한다. 기존 카드와 같은 모양으로, "프로필 보기 →" 링크(`cats/<id>/`)까지 넣는다. 카드 줄은 flex로 가운데 맞춤이라(데스크톱 3칸, 1080px 이하 2칸) 카드 수가 나누어떨어지지 않아도 마지막 줄이 가운데에 온다(2026-11-19 다꾸냥 때 5장 → 3 + 2). 넓은 화면과 휴대폰 너비에서 한 번씩 본다.
 4. **공유 미리보기 이미지** `app/tools/cat_og.py`
    - `NAME_COLORS`에 cats.css와 같은 색을 넣는다.
    - 도감 전체 이미지(`key == "all"`)는 고양이 x 위치가 세 마리 기준으로 박혀 있으니 마릿수에 맞게 다시 배치한다.
    - `python app/tools/cat_og.py`를 돌린다(Chrome이나 Edge 필요). `docs/assets/og/<id>.png`와 `cats.png`가 나온다. 이미지를 열어 직접 본다.
+     - 스크립트는 모든 고양이 이미지를 다시 찍는다. 그림이 그대로인 다른 고양이 PNG도 파일 바이트가 달라지니, 바뀌지 않은 것은 `git restore`로 되돌려 커밋에 섞지 않는다.
+     - 효과가 몸 밖으로 크게 나가는 스킨(털실·다꾸냥 스티커)은 고양이 한 장 그림에서 이름·한마디 글자와 겹치지 않는지, 도감 그림에서 옆 고양이 효과를 가리지 않는지 본다. `drawPoster`의 `count`처럼 그림 쪽에 줄일 수단을 둔다.
 5. **로컬 확인**
    - `docs/`를 로컬 서버로 띄운다: `python -m http.server -d docs`, 또는 `.claude/launch.json`에 등록해 미리보기 도구를 쓴다.
    - 볼 곳: 메인 카드, `/cats/`, `/cats/<id>/`, 영어·한국어 전환, 휴대폰 너비, 콘솔 오류.

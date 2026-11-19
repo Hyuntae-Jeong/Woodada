@@ -123,6 +123,34 @@ CATS = [
         "dislikes": ("Tangled thread, the vacuum cleaner", "엉킨 실, 청소기"),
     },
     {
+        "id": "daku",
+        "name": ("Sticker Cat", "다꾸냥"),
+        "stars": 3,
+        "quote": ("Empty spot? Let me fix that.", "여기 비었네? 하나 붙여 줄게!"),
+        "intro": (
+            "Runs as a sticker with a white outline and decorates its trail with stickers. The busier your computer, the more it sticks.",
+            "흰 테두리를 두른 스티커 모습으로 달리며 지나간 자리에 스티커를 붙여요. 사용률이 높을수록 자주 붙여요.",
+        ),
+        "short": ("Decorates its trail with stickers.", "지나간 자리에 스티커를 붙여요."),
+        "hint": (
+            "The busier your CPU, the more often it sticks: one every 12 seconds when idle, every 3 seconds when busy. "
+            "After about a minute, each sticker peels off from a corner.",
+            "CPU가 바쁠수록 자주 붙여요. 한가하면 12초에 한 장, 바쁘면 3초에 한 장. "
+            "붙인 스티커는 1분쯤 지나면 귀퉁이부터 들려 떨어져요.",
+        ),
+        "ticks": [],
+        "stats": [
+            ("spd", "SPD", "속도", 10, False),
+            ("stick", "STICK", "붙이기", 10, False),
+            ("deco", "DECO", "꾸밈", 10, False),
+            ("size", "SIZE", "크기", 10, True),
+        ],
+        "talent": ("Turning your taskbar into a diary", "작업표시줄을 다이어리처럼 꾸미기"),
+        "habit": ("Keeps its stickers three bodies apart", "스티커끼리 몸 3개만큼 띄워 붙여요"),
+        "likes": ("Glitter stickers, a blank diary page", "반짝이 스티커, 빈 다이어리"),
+        "dislikes": ("Stickers that won't stick, crumpled paper", "안 붙는 스티커, 구겨진 종이"),
+    },
+    {
         "id": "glitch",
         "name": ("Glitch Cat", "글리치냥"),
         "stars": 4,
@@ -386,7 +414,7 @@ def index_page() -> str:
             f'<li><div class="card locked"><canvas data-thumb="unknown" aria-hidden="true"></canvas>'
             f'<div><b>???</b><small>{t("Coming soon!", "곧 만나요!")}</small></div></div></li>')
     desc = "Meet the special cats you can win in Woodada's Cat Gacha."
-    alt = "Ghost Cat, Flash Cat, Yarn Cat and Glitch Cat running on a neon arcade stage"
+    alt = "Ghost Cat, Flash Cat, Yarn Cat, Sticker Cat and Glitch Cat running on a neon arcade stage"
     return f"""{head("Cats — Woodada", "고양이 도감 — Woodada", desc, "cats/", root, "cats", alt)}
 <body data-root="{root}">
 
