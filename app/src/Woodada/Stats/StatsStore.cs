@@ -55,7 +55,66 @@ public sealed class StatsStore
     public StatsStore()
     {
         _filePath = Path.Combine(AppInfo.DataFolder, "stats.json");
+        // Load가 깨진 본 파일을 .broken으로 옮기면 예전 .broken을 덮으니, 먼저 꺼내 둔다.
+        var lost = TakeLostRecords();
         Current = Load();
+        if (lost is not null)
+        {
+            Merge(Current, lost);
+            _dirty = true;
+            Save();
+        }
+    }
+
+    /// <summary>
+    /// 예전 버전은 stats.json을 읽다 실패하면 stats.json.broken으로 복사해 두고 기록을 0부터 다시 시작했다(이슈 #5).
+    /// 그 파일이 멀쩡히 읽히면(백신 등이 잠깐 잡고 있었던 경우) 꺼내서 지금 기록에 더한다.
+    /// 다시 더하지 않게 stats.json.broken.merged로 이름을 바꾸고, 바꾸지 못하면 더하지 않는다.
+    /// 정전으로 NUL만 남은 파일은 읽히지 않으니 그대로 둔다.
+    /// </summary>
+    private RunStats? TakeLostRecords()
+    {
+        var broken = SafeFile.BrokenPath(_filePath);
+        try
+        {
+            if (!File.Exists(broken)) return null;
+            var lost = JsonSerializer.Deserialize<RunStats>(File.ReadAllText(broken), Options);
+            if (lost is null) return null;
+            File.Move(broken, broken + ".merged", overwrite: true);
+            return lost;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 잃었던 기록을 더한다. .broken이 생길 때마다 기록이 0부터 다시 시작했으니, 더하면 원래 값이 된다.
+    /// 날짜별 거리도 그 시점 앞뒤로 나뉘어 있어 같은 날끼리 더하면 된다.
+    /// </summary>
+    private static void Merge(RunStats into, RunStats lost)
+    {
+        foreach (var (id, t) in lost.Runners ?? new())
+        {
+            if (t is null) continue;
+            if (!into.Runners.TryGetValue(id, out var totals))
+                into.Runners[id] = totals = new RunnerTotals();
+            totals.Pixels += t.Pixels;
+            totals.BodyLengths += t.BodyLengths;
+            totals.Millimeters += t.Millimeters;
+        }
+        foreach (var (date, runners) in lost.Days ?? new())
+        {
+            if (runners is null) continue;
+            if (!into.Days.TryGetValue(date, out var day))
+                into.Days[date] = day = new Dictionary<string, double>();
+            foreach (var (id, mm) in runners)
+                day[id] = day.GetValueOrDefault(id) + mm;
+        }
+        // 생선 거리를 따로 쌓기 전 파일이면 Load와 같이 러너 기록 합계가 생선이다.
+        double lostFish = lost.FishBodyLengths ?? (lost.Runners ?? new()).Values.Sum(r => r?.BodyLengths ?? 0);
+        into.FishBodyLengths = (into.FishBodyLengths ?? 0) + Math.Max(0, lostFish);
     }
 
     public RunStats Current { get; }
