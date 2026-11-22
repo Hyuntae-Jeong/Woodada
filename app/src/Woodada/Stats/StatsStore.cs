@@ -117,11 +117,7 @@ public sealed class StatsStore
         if (!_dirty) return;
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(_filePath)!);
-            // 쓰는 도중 꺼져도 기존 기록이 반쯤 잘리지 않도록 임시 파일에 쓰고 교체한다.
-            var tmp = _filePath + ".tmp";
-            File.WriteAllText(tmp, JsonSerializer.Serialize(Current, Options));
-            File.Move(tmp, _filePath, overwrite: true);
+            SafeFile.WriteAllText(_filePath, JsonSerializer.Serialize(Current, Options));
             _dirty = false;
         }
         catch (Exception)
@@ -130,29 +126,18 @@ public sealed class StatsStore
         }
     }
 
+    /// <summary>
+    /// 깨진 파일은 stats.json.broken으로 남기고 바로 전에 저장한 stats.json.bak에서 이어 간다.
+    /// 둘 다 못 읽으면 0부터 시작한다. 예전에는 여기서 바로 0이 돼 모은 생선이 사라졌다(이슈 #5).
+    /// </summary>
     private RunStats Load()
     {
-        try
-        {
-            if (File.Exists(_filePath))
-            {
-                var stats = JsonSerializer.Deserialize<RunStats>(File.ReadAllText(_filePath), Options);
-                if (stats is not null)
-                {
-                    stats.Runners ??= new();
-                    stats.Days ??= new();
-                    // 생선을 따로 쌓기 전에는 러너 기록 합계가 곧 생선이었다. 거기서 이어 가야 모은 생선이 줄지 않는다.
-                    stats.FishBodyLengths ??= stats.Runners.Values.Sum(r => r.BodyLengths);
-                    return stats;
-                }
-            }
-        }
-        catch (Exception)
-        {
-            // 깨진 파일은 덮어쓰기 전에 남겨 둔다. 달린 기록이 조용히 0이 되면 아쉬우니까.
-            try { File.Copy(_filePath, _filePath + ".broken", overwrite: true); }
-            catch (Exception) { }
-        }
-        return new RunStats { FishBodyLengths = 0 };
+        var stats = SafeFile.Load(_filePath, json => JsonSerializer.Deserialize<RunStats>(json, Options));
+        if (stats is null) return new RunStats { FishBodyLengths = 0 };
+        stats.Runners ??= new();
+        stats.Days ??= new();
+        // 생선을 따로 쌓기 전에는 러너 기록 합계가 곧 생선이었다. 거기서 이어 가야 모은 생선이 줄지 않는다.
+        stats.FishBodyLengths ??= stats.Runners.Values.Sum(r => r.BodyLengths);
+        return stats;
     }
 }

@@ -60,9 +60,23 @@ public sealed class RewardStore
     {
         _stats = stats;
         _filePath = Path.Combine(AppInfo.DataFolder, "rewards.json");
-        _isNew = !File.Exists(_filePath);
+        // 본 파일이 깨져 치워졌어도 .bak이 있으면 처음 설치가 아니다.
+        _isNew = !File.Exists(_filePath) && !File.Exists(SafeFile.BackupPath(_filePath));
         Current = Load();
+        ForgiveLostFish();
         NoteSkinsSeen();
+    }
+
+    /// <summary>
+    /// 기록 파일(stats.json)을 잃어 모은 생선이 쓴 생선보다 적어졌으면 쓴 생선을 모은 만큼으로 줄인다.
+    /// 그대로 두면 잃은 만큼 다시 모을 때까지 생선이 0에 묶여, 아무리 달려도 늘지 않는 것처럼 보인다(이슈 #5).
+    /// 살 때마다 가진 생선을 확인하니 기록을 잃지 않았다면 쓴 생선이 모은 생선보다 많을 수 없다.
+    /// </summary>
+    private void ForgiveLostFish()
+    {
+        if (Current.SpentFish <= EarnedFish) return;
+        Current.SpentFish = EarnedFish;
+        if (!_isNew) Save();
     }
 
     public Inventory Current { get; }
@@ -329,11 +343,7 @@ public sealed class RewardStore
     {
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(_filePath)!);
-            // 쓰는 도중 꺼져도 산 기록이 반쯤 잘리지 않도록 임시 파일에 쓰고 교체한다.
-            var tmp = _filePath + ".tmp";
-            File.WriteAllText(tmp, JsonSerializer.Serialize(Current, Options));
-            File.Move(tmp, _filePath, overwrite: true);
+            SafeFile.WriteAllText(_filePath, JsonSerializer.Serialize(Current, Options));
         }
         catch (Exception)
         {
@@ -342,33 +352,19 @@ public sealed class RewardStore
         Changed?.Invoke(this, EventArgs.Empty);
     }
 
+    /// <summary>깨진 파일은 rewards.json.broken으로 남기고 rewards.json.bak에서 이어 간다.</summary>
     private Inventory Load()
     {
-        try
-        {
-            if (File.Exists(_filePath))
-            {
-                var inv = JsonSerializer.Deserialize<Inventory>(File.ReadAllText(_filePath), Options);
-                if (inv is not null)
-                {
-                    inv.Colors ??= new();
-                    inv.CustomColors ??= new();
-                    inv.Runners ??= new();
-                    inv.Skins ??= new();
-                    if (inv.SkinsFirstSeen is not null)
-                        inv.SkinsFirstSeen = new(inv.SkinsFirstSeen, StringComparer.OrdinalIgnoreCase);
-                    inv.CustomColors = inv.CustomColors
-                        .Where(h => ColorUtil.TryParse(h, out _)).Take(RewardCatalog.CustomSlotCount).ToList();
-                    return inv;
-                }
-            }
-        }
-        catch (Exception)
-        {
-            // 깨진 파일은 남겨 둔다. 산 기록이 조용히 사라지면 아쉬우니까.
-            try { File.Copy(_filePath, _filePath + ".broken", overwrite: true); }
-            catch (Exception) { }
-        }
-        return new Inventory();
+        var inv = SafeFile.Load(_filePath, json => JsonSerializer.Deserialize<Inventory>(json, Options));
+        if (inv is null) return new Inventory();
+        inv.Colors ??= new();
+        inv.CustomColors ??= new();
+        inv.Runners ??= new();
+        inv.Skins ??= new();
+        if (inv.SkinsFirstSeen is not null)
+            inv.SkinsFirstSeen = new(inv.SkinsFirstSeen, StringComparer.OrdinalIgnoreCase);
+        inv.CustomColors = inv.CustomColors
+            .Where(h => ColorUtil.TryParse(h, out _)).Take(RewardCatalog.CustomSlotCount).ToList();
+        return inv;
     }
 }

@@ -36,7 +36,7 @@ public sealed class SettingsStore
 
     private void MigrateLegacy(string appData)
     {
-        if (File.Exists(FilePath)) return;
+        if (File.Exists(FilePath) || File.Exists(SafeFile.BackupPath(FilePath))) return;
         foreach (var folder in LegacyFolders)
         {
             var legacy = Path.Combine(appData, folder, "settings.json");
@@ -57,25 +57,10 @@ public sealed class SettingsStore
 
     private AppSettings Load()
     {
-        AppSettings settings;
-        bool loaded = false;
-        try
-        {
-            if (File.Exists(FilePath))
-            {
-                settings = Deserialize(File.ReadAllText(FilePath));
-                loaded = true;
-            }
-            else
-            {
-                settings = AppSettings.CreateDefault();
-            }
-        }
-        catch (Exception)
-        {
-            // 파일이 깨졌으면 기본값으로 뜬다. 상주 앱이 시작조차 못 하는 것보단 낫다.
-            settings = AppSettings.CreateDefault();
-        }
+        // 파일이 깨졌으면 .bak을, 그것도 없으면 기본값으로 뜬다. 상주 앱이 시작조차 못 하는 것보단 낫다.
+        var loadedSettings = SafeFile.Load(FilePath, json => JsonSerializer.Deserialize<AppSettings>(json, Options));
+        bool loaded = loadedSettings is not null;
+        var settings = loadedSettings ?? AppSettings.CreateDefault();
         // 새 설치는 컴퓨터 화면 언어를 따른다(한국어면 한국어, 그 밖엔 영어).
         // 설정 파일이 없거나 깨졌어도 달린 기록이 있으면 예전부터 쓰던 사용자다. 갑자기 영어로 바뀌지 않게 한국어로 둔다.
         if (!loaded)
@@ -98,11 +83,7 @@ public sealed class SettingsStore
     {
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
-            // 쓰는 도중 꺼져도 기존 파일이 반쯤 잘리지 않도록 임시 파일에 쓰고 교체한다.
-            var tmp = FilePath + ".tmp";
-            File.WriteAllText(tmp, Serialize(Current));
-            File.Move(tmp, FilePath, overwrite: true);
+            SafeFile.WriteAllText(FilePath, Serialize(Current));
         }
         catch (Exception)
         {
