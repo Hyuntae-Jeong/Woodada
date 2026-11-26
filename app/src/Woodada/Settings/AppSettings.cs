@@ -48,6 +48,12 @@ public sealed class AppSettings
     /// </summary>
     public string Language { get; set; } = Loc.KoreanId;
 
+    /// <summary>
+    /// 공지 탭에서 이미 본 공지 id(docs/notices.json). 여기 없는 공지가 있으면 공지 탭에 빨간 점과 NEW를 띄운다.
+    /// 새 설치는 비어 있어 지금 올라와 있는 공지가 모두 새 공지로 보인다.
+    /// </summary>
+    public List<string> ReadNotices { get; set; } = new();
+
     public static AppSettings CreateDefault() => new()
     {
         StartupDefaultApplied = false,
@@ -66,6 +72,7 @@ public sealed class AppSettings
     public void Normalize()
     {
         Runners ??= new();
+        ReadNotices ??= new();
         var defaults = CreateDefault();
         foreach (var d in defaults.Runners)
         {

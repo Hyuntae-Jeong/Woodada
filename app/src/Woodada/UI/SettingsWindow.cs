@@ -5,7 +5,9 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
+using System.Globalization;
 using Woodada.Core;
+using Woodada.Notices;
 using Woodada.Platform;
 using Woodada.Rewards;
 using Woodada.Settings;
@@ -17,14 +19,15 @@ namespace Woodada.UI;
 /// <summary>
 /// 맨 위: 가진 생선 · 다음 생선까지 진행 막대.
 /// 고양이 — CPU·메모리 고양이 카드(표시 · 미리보기 · 크기)와 색 칸 20개(기본 10 + 나만의 색 10).
-/// 옷장 — 러너 모음. 기록 — 달린 거리. 일반 — 모니터 · 전체 화면 · 메뉴 막대 생선 수 · 언어, 카드 아래 버전·버그 제보.
+/// 옷장 — 러너 모음. 기록 — 달린 거리. 일반 — 모니터 · 전체 화면 · 메뉴 막대 생선 수 · 언어, 카드 아래 버전·의견 보내기.
 /// 냥뽑기 — 생선으로 스페셜 스킨 뽑기(꽝 있음). 뽑은 스킨은 고양이 탭 맨 아래 스킨 줄에서 입힌다.
+/// 공지 — 홈페이지 docs/notices.json에서 받은 소식(NoticeBoard)과 의견 보내기.
 /// 개발용 빌드는 아직 공개하지 않은 스킨까지 보이고, 뽑기 탭에 개발용 도구가 붙는다.
 /// 바꾸는 즉시 오버레이에 반영하고 저장한다.
 /// </summary>
 internal sealed class SettingsWindow : Window
 {
-    public enum Page { Cats, Closet, Profile, General, Gacha }
+    public enum Page { Cats, Closet, Profile, General, Gacha, Notices }
 
     private readonly IPlatform _platform = PlatformServices.Current;
     private readonly SettingsStore _store;
@@ -123,6 +126,11 @@ internal sealed class SettingsWindow : Window
     private readonly CheckBox _menuBarFish = new();
     private readonly ComboBox _language = new() { Width = 200 };
 
+    // 공지 탭
+    private readonly StackPanel _noticeList = new() { Spacing = 10 };
+    /// <summary>이 창을 연 뒤 처음 본 공지. 탭을 열자마자 읽음으로 저장하지만, 창을 닫을 때까지는 NEW를 그대로 보여 준다.</summary>
+    private readonly HashSet<string> _freshNotices = new();
+
     /// <summary>언어 고르기 목록. 각 언어는 제 말로 적어야 못 읽는 언어로 바뀌었을 때도 돌아올 수 있다.</summary>
     private static readonly (AppLanguage Language, string Label)[] Languages =
     {
@@ -169,6 +177,9 @@ internal sealed class SettingsWindow : Window
             if (_page == Page.Profile) RefreshProfile();
         };
         _tick.Start();
+        // 공지는 창을 열 때 홈페이지에서 다시 받는다. 받기 전에는 남겨 둔 공지를 보여 주고, 새 글이 오면 점·목록을 고친다.
+        NoticeBoard.Changed += OnNoticesChanged;
+        _ = NoticeBoard.RefreshAsync();
         _teaserTimer.Tick += (_, _) => _teaserStep?.Invoke();
         _skinTimer.Tick += (_, _) => AnimateSkinTiles();
         _skinTimer.Start();
@@ -180,6 +191,7 @@ internal sealed class SettingsWindow : Window
         {
             _store.Changed -= OnStoreChanged;
             _rewards.Changed -= OnRewardsChanged;
+            NoticeBoard.Changed -= OnNoticesChanged;
             _tick.Stop();
             _teaserTimer.Stop();
             _skinTimer.Stop();
@@ -202,6 +214,7 @@ internal sealed class SettingsWindow : Window
             RefreshProfile();
         }
         if (page == Page.Closet) RefreshCloset();
+        if (page == Page.Notices) OpenNotices();
         if (page != Page.Gacha && _heldRefund > 0)
         {
             // 연출 도중 다른 탭으로 가면 무대가 멈춘다. 돌려받은 생선을 띠에 바로 더해서 다른 탭의 생선 수와 맞춘다.
@@ -222,10 +235,14 @@ internal sealed class SettingsWindow : Window
         }
     }
 
-    /// <summary>냥뽑기 탭의 빨간 점: 아직 없는 새 스킨이 생긴 뒤로 탭을 열지 않았으면 켠다.</summary>
+    /// <summary>
+    /// 냥뽑기 탭의 빨간 점: 아직 없는 새 스킨이 생긴 뒤로 탭을 열지 않았으면 켠다.
+    /// 공지 탭의 빨간 점: 아직 읽지 않은 공지가 있으면 켠다.
+    /// </summary>
     private void RefreshNewDot()
     {
         if (_pages.TryGetValue(Page.Gacha, out var gacha)) gacha.Pill.Dot = _rewards.HasUnopenedNewSkin;
+        if (_pages.TryGetValue(Page.Notices, out var notices)) notices.Pill.Dot = NoticeBoard.Current.Any(n => !_working.ReadNotices.Contains(n.Id));
     }
 
     /// <summary>생선이 어떻게 모이는지(FishMeter). 맨 위 생선 줄의 "?"에서 연다.</summary>
@@ -267,6 +284,7 @@ internal sealed class SettingsWindow : Window
         AddPage(nav, Page.Profile, Loc.T("기록", "Stats"), BuildProfilePage());
         AddPage(nav, Page.General, Loc.T("일반", "General"), BuildGeneralPage());
         AddPage(nav, Page.Gacha, Loc.T("냥뽑기", "Cat Gacha"), BuildGachaPage());
+        AddPage(nav, Page.Notices, Loc.T("공지", "News"), BuildNoticesPage());
 
         var close = new GameButton(Loc.T("닫기", "Close")) { MinWidth = 80, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(12, 6, 12, 12) };
         close.Click += (_, _) => Close();
@@ -278,6 +296,7 @@ internal sealed class SettingsWindow : Window
     /// 가장 긴 탭이 다 들어가게 창 높이를 늘린다. 기본 높이(804)보다 줄이지는 않는다. 탭을 옮겨 다녀도 창 크기는 그대로다.
     /// 스킨이 늘어 도감이 한 줄 더 생기면(개발용 빌드는 모든 스킨이 보여서 먼저 늘어난다) 아래 칸·개발용 도구가 잘리지 않게.
     /// 화면보다 커지지는 않게 창이 놓인 모니터의 작업 영역에서 멈추고, 늘린 만큼 위로 올려 가운데를 지킨다.
+    /// 공지 탭은 재지 않는다. 글이 길면 탭 안에서 내려 읽으니, 공지 때문에 창이 커지지 않게.
     /// </summary>
     private void FitHeightToPages()
     {
@@ -285,6 +304,7 @@ internal sealed class SettingsWindow : Window
         double tallest = 0, width = _content.Bounds.Width;
         foreach (var (page, (_, view)) in _pages)
         {
+            if (page == Page.Notices) continue;
             view.IsVisible = true;
             view.InvalidateMeasure();
             view.Measure(new Size(width, double.PositiveInfinity));
@@ -1488,15 +1508,14 @@ internal sealed class SettingsWindow : Window
 
     /// <summary>
     /// 카드 아래 버전 줄. 설정이 아니라 정보라서 카드 밖에 흐리게 둔다.
-    /// 버그 제보 버튼은 버전·OS를 미리 채운 GitHub 양식을 열어, 사용자가 버전을 찾지 않아도 되게 한다.
+    /// 의견 보내기 메뉴의 버그 제보는 버전·OS를 미리 채운 GitHub 양식을 열어, 사용자가 버전을 찾지 않아도 되게 한다.
     /// </summary>
     private static Control BuildAboutRow()
     {
         var version = Label($"Woodada {ExternalLinks.VersionText}", GameArt.FontNote, GameArt.SubText);
         version.VerticalAlignment = VerticalAlignment.Center;
 
-        var report = new GameButton(Loc.T("버그 제보하기", "Report a bug")) { VerticalAlignment = VerticalAlignment.Center };
-        report.Click += (_, _) => ExternalLinks.Open(ExternalLinks.BugReportUrl());
+        var report = FeedbackButton.Create();
         Grid.SetColumn(report, 1);
 
         return new Grid
@@ -1505,6 +1524,106 @@ internal sealed class SettingsWindow : Window
             Margin = new Thickness(4, 10, 0, 0),
             Children = { version, report },
         };
+    }
+
+    // ───────────────────────── 공지 탭 ─────────────────────────
+
+    /// <summary>위에는 최신 공지부터 카드로, 맨 아래에는 의견 보내기. 글이 길면 공지 목록만 내려 읽는다.</summary>
+    private Control BuildNoticesPage()
+    {
+        var scroll = new ScrollViewer
+        {
+            Content = _noticeList,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+        };
+        var footer = HintBox(Label(Loc.T("하고 싶은 말이 있으면 언제든 보내 주세요", "Anything on your mind? Send it anytime."), GameArt.FontBody, GameArt.Text),
+            new Border { Margin = new Thickness(0, 0, 6, 0), Child = FeedbackButton.Create() });
+        Grid.SetRow(footer, 1);
+        return new Grid
+        {
+            RowDefinitions = new RowDefinitions("*,Auto"),
+            Margin = new Thickness(0, 12, 0, 0),
+            Children = { scroll, footer },
+        };
+    }
+
+    /// <summary>공지 탭을 열 때: 읽지 않은 공지에 NEW를 붙여 보여 주고, 모두 읽음으로 저장한다.</summary>
+    private void OpenNotices()
+    {
+        var notices = NoticeBoard.Current;
+        var unread = notices.Where(n => !_working.ReadNotices.Contains(n.Id)).Select(n => n.Id).ToList();
+        _freshNotices.UnionWith(unread);
+        RebuildNotices(notices);
+        if (unread.Count > 0)
+        {
+            _working.ReadNotices.AddRange(unread);
+            Commit();
+        }
+        RefreshNewDot();
+    }
+
+    private void RebuildNotices(IReadOnlyList<Notice> notices)
+    {
+        _noticeList.Children.Clear();
+        if (notices.Count == 0)
+        {
+            var empty = Label(Loc.T("아직 공지가 없어요", "No news yet"), GameArt.FontBody, GameArt.SubText);
+            empty.Margin = new Thickness(4, 8, 0, 0);
+            _noticeList.Children.Add(empty);
+            return;
+        }
+        foreach (var n in notices) _noticeList.Children.Add(NoticeCard(n, _freshNotices.Contains(n.Id)));
+    }
+
+    /// <summary>[NEW] 제목 ··· 날짜 / 본문 / (있으면) 오른쪽 아래 버튼.</summary>
+    private static Control NoticeCard(Notice notice, bool fresh)
+    {
+        var head = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto") };
+        if (fresh)
+        {
+            // 냥뽑기 결과의 NEW와 같은 빨간 알약.
+            head.Children.Add(new Border
+            {
+                Background = GameArt.Brush(GameArt.NewBadge), CornerRadius = new CornerRadius(9), Padding = new Thickness(7, 1),
+                Margin = new Thickness(0, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center,
+                Child = new TextBlock { Text = "NEW", FontSize = 10.5, FontWeight = FontWeight.Bold, Foreground = GameArt.Brush(Colors.White) },
+            });
+        }
+        var title = Label(notice.Title, GameArt.FontTitle, GameArt.Text, FontWeight.Bold);
+        title.TextWrapping = TextWrapping.Wrap;
+        title.VerticalAlignment = VerticalAlignment.Center;
+        Grid.SetColumn(title, 1);
+        head.Children.Add(title);
+        var date = Label(notice.Date.ToString(Loc.T("yyyy. M. d.", "MMM d, yyyy"), CultureInfo.InvariantCulture), GameArt.FontNote, GameArt.SubText);
+        date.Margin = new Thickness(12, 0, 0, 0);
+        date.VerticalAlignment = VerticalAlignment.Center;
+        Grid.SetColumn(date, 2);
+        head.Children.Add(date);
+
+        var body = Label(notice.Body, GameArt.FontBody, GameArt.Text);
+        body.TextWrapping = TextWrapping.Wrap;
+        body.LineHeight = 20;
+        body.Margin = new Thickness(0, 8, 0, 0);
+
+        var content = new StackPanel { Children = { head, body } };
+        if (notice.Link is { } link)
+        {
+            var button = new GameButton(link.Label, primary: true)
+            {
+                Icon = BrandIcons.Find(link.Icon), HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 10, 0, 0),
+            };
+            button.Click += (_, _) => ExternalLinks.Open(link.Url);
+            content.Children.Add(button);
+        }
+        return new CardPanel { Padding = new Thickness(16, 14, 16, 14), Child = content };
+    }
+
+    /// <summary>창이 열린 뒤 홈페이지에서 공지가 새로 왔다.</summary>
+    private void OnNoticesChanged(object? sender, EventArgs e)
+    {
+        if (_page == Page.Notices) OpenNotices();
+        else RefreshNewDot();
     }
 
     // ───────────────────────── 데이터 ↔ 화면 ─────────────────────────

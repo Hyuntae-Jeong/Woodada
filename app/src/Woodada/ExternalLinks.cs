@@ -26,6 +26,12 @@ internal static class ExternalLinks
         return $"{RepoUrl}/issues/new?{string.Join('&', query)}";
     }
 
+    /// <summary>기능 제안 양식(.github/ISSUE_TEMPLATE/feature_request.yml). 버전과 상관없는 양식이라 채울 칸이 없다.</summary>
+    public static string FeatureRequestUrl() => $"{RepoUrl}/issues/new?template=feature_request.yml";
+
+    /// <summary>질문·아직 다듬지 않은 아이디어를 나누는 GitHub 토론 게시판.</summary>
+    public static string DiscussionsUrl() => $"{RepoUrl}/discussions";
+
     /// <summary>"Windows 11 (build 26200)", "macOS 15.1 (Apple Silicon)". OS 버전에 따라 생기는 버그가 있어 번호까지 적는다.</summary>
     private static string? OsText()
     {

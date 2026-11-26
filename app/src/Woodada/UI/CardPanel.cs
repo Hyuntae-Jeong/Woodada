@@ -89,6 +89,21 @@ internal sealed class GameButton : ClickableControl
 
     public bool Primary { get; }
 
+    /// <summary>글자 앞에 글자색으로 그리는 작은 아이콘(쓰레드·GitHub 등). 없으면 글자만.</summary>
+    public BrandIcon? Icon
+    {
+        get => _icon;
+        set
+        {
+            _icon = value;
+            InvalidateMeasure();
+            InvalidateVisual();
+        }
+    }
+    private BrandIcon? _icon;
+
+    private const double IconSize = 14, IconGap = 6;
+
     public string Text
     {
         get => _text;
@@ -111,7 +126,7 @@ internal sealed class GameButton : ClickableControl
         GameArt.Format(_text, GameArt.FontBody, color, Primary ? FontWeight.Bold : FontWeight.Normal);
 
     protected override Size MeasureOverride(Size availableSize) =>
-        new(Math.Max(MinWidth, Label(GameArt.Text).Width + 24), Height);
+        new(Math.Max(MinWidth, Label(GameArt.Text).Width + 24 + (_icon is null ? 0 : IconSize + IconGap)), Height);
 
     protected override void Paint(DrawingContext ctx)
     {
@@ -138,7 +153,17 @@ internal sealed class GameButton : ClickableControl
             text = GameArt.Text;
         }
         GameArt.FillRound(ctx, r, 6, fill, border);
-        GameArt.DrawCentered(ctx, Label(text), r);
+        var label = Label(text);
+        if (_icon is null)
+        {
+            GameArt.DrawCentered(ctx, label, r);
+            return;
+        }
+        // 아이콘 + 간격 + 글자를 한 덩어리로 가운데에 둔다.
+        double textWidth = Math.Min(label.Width, Math.Max(1, r.Width - 12 - IconSize - IconGap));
+        double x = r.Center.X - (IconSize + IconGap + textWidth) / 2;
+        _icon.Draw(ctx, new Rect(x, r.Center.Y - IconSize / 2, IconSize, IconSize), text);
+        GameArt.DrawCentered(ctx, label, new Rect(x + IconSize + IconGap, r.Y, textWidth, r.Height));
     }
 }
 

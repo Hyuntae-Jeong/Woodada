@@ -1,0 +1,22 @@
+{
+  "updated": "2026-11-26",
+  "notices": [
+    {
+      "id": "2026-11-runner-artist",
+      "date": "2026-11-26",
+      "title": {
+        "ko": "닥스훈트와 토끼를 그려 주실 분을 찾아요",
+        "en": "Looking for someone to draw the dachshund and the rabbit"
+      },
+      "body": {
+        "ko": "고양이 말고도 닥스훈트와 토끼가 작업표시줄을 달릴 준비를 하고 있어요. 그런데 지금 그림은 제가 직접 그린 거라, 솔직히 고양이만큼 귀엽지가 않아요.\n\n둘을 더 귀엽게 그려 주실 분을 찾고 있어요. 달리는 모습 5장이면 돼요.\n\nWoodada는 혼자 만드는 무료 앱이라, 고마움은 크레딧으로 남기려고 해요. 그려 주신 분 이름을 꼭 적어 둘게요. 그림은 앱처럼 MIT 라이선스로 공개돼요.\n\n마감은 없어요. 디자인이 정해질 때까지 계속 받아요. 쓰레드 @woodada.cat으로 DM 주시거나, GitHub에 PR로 바로 올려 주셔도 돼요.",
+        "en": "Besides the cat, a dachshund and a rabbit are getting ready to run on your taskbar. I drew them myself, though, and honestly they're not as cute as the cat.\n\nI'm looking for someone to make them cuter. Five running frames for each is all it takes.\n\nWoodada is a free app I make on my own, so I'd like to say thanks with a credit. Your name will be there for sure. The drawings will be released under the MIT License, like the app.\n\nThere's no deadline. I'll keep looking until a design is chosen. Send a DM to @woodada.cat on Threads, or open a pull request on GitHub."
+      },
+      "link": {
+        "label": { "ko": "쓰레드로 연락하기", "en": "Message on Threads" },
+        "url": "https://www.threads.com/@woodada.cat",
+        "icon": "threads"
+      }
+    }
+  ]
+}
