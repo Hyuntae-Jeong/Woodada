@@ -133,4 +133,4 @@ The special gacha skins (Flash, Ghost, Glitch, Yarn, Sticker, Ice, Kittens) are 
 Woodada is free and open source under the [MIT License](LICENSE), with two exceptions.
 
 - **The cat sprites** follow their original license (Apache License 2.0, [`app/src/Woodada/Assets/RunCat/LICENSE`](app/src/Woodada/Assets/RunCat/LICENSE)).
-- **The special skin designs and the dachshund and rabbit characters** are not covered by the MIT License. You're free to use them in official releases, but copying them into other products or distributing modified versions needs permission. The covered files and terms are in [`app/src/Woodada/Sprites/Skins/LICENSE`](app/src/Woodada/Sprites/Skins/LICENSE).
+- **The special skin designs** are not covered by the MIT License. You're free to use them in official releases, but copying them into other products or distributing modified versions needs permission. The covered files and terms are in [`app/src/Woodada/Sprites/Skins/LICENSE`](app/src/Woodada/Sprites/Skins/LICENSE).

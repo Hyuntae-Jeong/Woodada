@@ -216,7 +216,7 @@ jobs:
             echo
             if [ -f VT_SECTION.md ]; then cat VT_SECTION.md; fi
             echo "고양이 이미지는 [RunCat365](https://github.com/runcat-dev/RunCat365)에서 가져왔으며 [Apache License 2.0](https://github.com/$GITHUB_REPOSITORY/blob/$tag/app/src/Woodada/Assets/RunCat/LICENSE)을 따릅니다."
-            echo "냥뽑기 스페셜 스킨과 닥스훈트·토끼 디자인은 MIT License 적용 대상이 아니며 [별도 조건](https://github.com/$GITHUB_REPOSITORY/blob/$tag/app/src/Woodada/Sprites/Skins/LICENSE)을 따릅니다."
+            echo "냥뽑기 스페셜 스킨 디자인은 MIT License 적용 대상이 아니며 [별도 조건](https://github.com/$GITHUB_REPOSITORY/blob/$tag/app/src/Woodada/Sprites/Skins/LICENSE)을 따릅니다."
             echo
             echo "**전체 변경 내역**: $compare"
           } > RELEASE_BODY.md
