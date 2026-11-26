@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en" data-lang="en" data-title-en="Drawing guide — Woodada" data-title-ko="그림 가이드 — Woodada">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Drawing guide — Woodada</title>
+<meta name="description" content="How to draw the dachshund and rabbit runners for Woodada: one silhouette, see-through eyes, five frames.">
+<meta name="theme-color" content="#f6f2ea" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#141416" media="(prefers-color-scheme: dark)">
+<link rel="canonical" href="https://hyuntae-jeong.github.io/Woodada/draw/">
+<link rel="icon" href="../assets/icon.png">
+<link rel="apple-touch-icon" href="../assets/icon.png">
+<!-- 첫 화면이 그려지기 전에 언어를 정한다. 주소의 ?lang=(앱 공지에서 열 때 앱 언어를 붙인다)을 먼저 따르고,
+     없으면 홈페이지와 같은 저장 값, 그것도 없으면 브라우저 언어. -->
+<script>
+  (function () {
+    var m = /[?&]lang=(en|ko)(?:&|$)/.exec(location.search), l = m && m[1];
+    if (!l) try { l = localStorage.getItem('woodada-lang'); } catch (e) {}
+    if (l !== 'en' && l !== 'ko') l = /^ko\b/i.test(navigator.language || '') ? 'ko' : 'en';
+    var r = document.documentElement;
+    r.lang = l;
+    r.setAttribute('data-lang', l);
+    document.title = r.getAttribute('data-title-' + l);
+  })();
+</script>
+<!-- Google Analytics. 홈페이지(docs/index.html)와 같다. 유럽 방문자는 두 겹으로 뺀다.
+     1) 브라우저 시간대가 유럽이면 GA를 아예 불러오지 않는다.
+     2) 그래도 들어온 유럽(EEA·영국·스위스) 방문자는 GA 지역 설정으로 쿠키를 남기지 않는다.
+     로컬 미리보기에서는 실제 주소가 아니라서 켜지지 않는다. -->
+<script>
+  (function () {
+    if (location.hostname !== 'hyuntae-jeong.github.io') return;
+    var tz = '';
+    try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) {}
+    if (/^(Europe\/|Atlantic\/(Reykjavik|Canary|Madeira|Azores|Faroe)$|Asia\/(Nicosia|Famagusta)$|Arctic\/)/.test(tz)) return;
+
+    var id = 'G-K1RDPDRTLX';
+    window.dataLayer = window.dataLayer || [];
+    window.gtag = function () { window.dataLayer.push(arguments); };
+    gtag('consent', 'default', { analytics_storage: 'granted', ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied' });
+    gtag('consent', 'default', {
+      analytics_storage: 'denied',
+      region: ['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE','IS','LI','NO','GB','CH']
+    });
+    gtag('js', new Date());
+    gtag('config', id);
+
+    var s = document.createElement('script');
+    s.async = true;
+    s.src = 'https://www.googletagmanager.com/gtag/js?id=' + id;
+    document.head.appendChild(s);
+  })();
+</script>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  /* 이 페이지에만 쓰는 모양. 색은 style.css의 변수를 따른다(밝은·어두운 화면). */
+  .doc p { color: var(--ink-2); }
+  .doc h2 .num {
+    display: inline-grid; place-items: center; width: 28px; height: 28px; margin-right: 8px; border-radius: 50%;
+    background: var(--accent-soft); color: var(--accent); font-size: 15px; vertical-align: 2px;
+  }
+  .fig {
+    margin: 16px 0 8px; padding: 18px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+  }
+  .fig figcaption { margin-top: 12px; color: var(--muted); font-size: 14px; }
+  /* 그림 자리는 어두운 화면에서도 밝게 둔다. 검은 실루엣이 어두운 바탕에 묻히지 않게. */
+  .row {
+    display: flex; flex-wrap: wrap; align-items: flex-end; gap: 18px 24px;
+    padding: 16px; border-radius: 10px; background: #f6f2ea; color: #6b665f;
+  }
+  .row .cell { color: inherit; }
+  .row.center { justify-content: center; align-items: center; }
+  .cell { display: grid; justify-items: center; gap: 8px; color: var(--muted); font-size: 13px; text-align: center; }
+  .cell img { display: block; }
+  /* 투명한 곳이 보이게 바둑판을 깐다. 칸이 눈 구멍보다 작아야 구멍이 흰 눈으로 오해받지 않는다. */
+  .checker {
+    background-color: #c9c3b8;
+    background-image: conic-gradient(#c9c3b8 25%, #e8e3da 0 50%, #c9c3b8 0 75%, #e8e3da 0);
+    background-size: 8px 8px;
+    border-radius: 8px;
+  }
+  .pixel { image-rendering: pixelated; }
+  .arrow { font-size: 26px; color: var(--muted); }
+  /* 실제 크기: 작업표시줄처럼 생긴 띠 위에 28px 높이로 달린다. */
+  .strip {
+    display: flex; align-items: flex-end; gap: 28px; height: 48px; padding: 0 18px 6px;
+    background: #f3f0ec; border: 1px solid rgba(0, 0, 0, .08); border-radius: 10px;
+  }
+  .strip img { height: 28px; width: auto; }
+  .big img { height: 100px; width: auto; }
+  .tint img { height: 64px; width: auto; }
+  .head img { width: 180px; height: auto; }
+  .bad { color: #c0392b; font-weight: 700; }
+  .good { color: var(--ok); font-weight: 700; }
+  .send { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0 4px; }
+  .send a {
+    display: inline-flex; align-items: center; gap: 8px; padding: 11px 18px; border-radius: 12px; font-weight: 700;
+    background: var(--accent); color: var(--accent-ink);
+  }
+  .send a.sub { background: var(--surface); color: var(--ink); border: 1px solid var(--line); }
+  .send a:hover { text-decoration: none; filter: brightness(1.05); }
+  .send svg { width: 18px; height: 18px; }
+  code { font-size: .92em; padding: 1px 6px; border-radius: 6px; background: var(--bg-alt); }
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="../" aria-label="Woodada">
+      <img src="../assets/icon.png" alt="" width="32" height="32">
+      <span>Woodada</span>
+    </a>
+    <div class="nav-tools">
+      <div class="lang" role="group" aria-label="Language">
+        <button type="button" data-set-lang="en">EN</button>
+        <button type="button" data-set-lang="ko">한국어</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap narrow">
+    <h1><span class="en">Drawing the dachshund and rabbit</span><span class="ko">닥스훈트·토끼 그림 가이드</span></h1>
+    <p class="updated"><span class="en">Last updated: November 26, 2026</span><span class="ko">마지막 수정: 2026년 11월 26일</span></p>
+
+    <p class="doc-lead">
+      <span class="en">A dachshund and a rabbit are getting ready to run on the taskbar next to the cat. I drew them myself and they're not as cute as the cat yet, so I'm looking for someone to make them cuter. This page is everything you need to know before you start.</span>
+      <span class="ko">고양이 옆에서 작업표시줄을 달릴 닥스훈트와 토끼를 준비하고 있어요. 지금 그림은 제가 직접 그린 거라 고양이만큼 귀엽지가 않아서, 더 귀엽게 그려 주실 분을 찾고 있어요. 그리기 전에 알아야 할 건 이 페이지에 다 있어요.</span>
+    </p>
+
+    <h2><span class="en">What they look like now</span><span class="ko">지금 그림</span></h2>
+    <p>
+      <span class="en">The cat on the left is from RunCat365 and stays as it is. The dachshund and rabbit run alongside it, so it's nice if they look like they belong together.</span>
+      <span class="ko">왼쪽 고양이는 RunCat365 그림이고 그대로 써요. 닥스훈트와 토끼는 이 고양이와 같이 달리니까, 함께 있어도 어울리면 좋아요.</span>
+    </p>
+    <figure class="fig">
+      <div class="row big">
+        <div class="cell"><img data-run="../assets/cat/cat_running_{i}.png" src="../assets/cat/cat_running_0.png" alt=""><span class="en">Cat</span><span class="ko">고양이</span></div>
+        <div class="cell"><img data-run="../assets/draw/dog_running_{i}.png" src="../assets/draw/dog_running_0.png" alt=""><span class="en">Dachshund (now)</span><span class="ko">닥스훈트 (지금)</span></div>
+        <div class="cell"><img data-run="../assets/draw/rabbit_running_{i}.png" src="../assets/draw/rabbit_running_0.png" alt=""><span class="en">Rabbit (now)</span><span class="ko">토끼 (지금)</span></div>
+      </div>
+      <figcaption><span class="en">Five frames each, played in a loop.</span><span class="ko">다섯 장을 차례로 되풀이해서 달려요.</span></figcaption>
+    </figure>
+
+    <h2><span class="num">1</span><span class="en">One black silhouette</span><span class="ko">검은 실루엣 하나로</span></h2>
+    <p>
+      <span class="en">The app only uses the <b>shape</b> of your drawing (its transparency) and paints it in the color the user picks. Lines, patterns and shading inside the body won't show. Draw a single solid shape in black.</span>
+      <span class="ko">앱은 그림의 <b>모양</b>(투명도)만 쓰고, 색은 사용자가 고른 색으로 칠해요. 몸 안쪽 선, 무늬, 명암은 보이지 않아요. 검은색 한 덩어리로 그려 주세요.</span>
+    </p>
+    <figure class="fig">
+      <div class="row center tint">
+        <img src="../assets/draw/app-dog-black.png" alt="">
+        <img src="../assets/draw/app-dog-cheese.png" alt="">
+        <img src="../assets/draw/app-dog-mackerel.png" alt="">
+        <img src="../assets/draw/app-dog-cherry.png" alt="">
+      </div>
+      <figcaption><span class="en">The same drawing, painted by the app in four of the colors users can pick.</span><span class="ko">같은 그림을 앱이 사용자 색 네 가지로 칠한 모습이에요.</span></figcaption>
+    </figure>
+
+    <h2><span class="num">2</span><span class="en">Eyes are see-through holes</span><span class="ko">눈은 투명한 구멍으로</span></h2>
+    <p>
+      <span class="en">Leave the eyes as small transparent holes inside the head. The app fills them with white. Every small <b>closed</b> hole in the right half of the drawing (the head side) is treated as an eye, so don't leave any other closed gaps there.</span>
+      <span class="ko">눈은 머리 안에 작은 투명 구멍으로 뚫어 두세요. 앱이 흰색으로 채워요. 그림 오른쪽 절반(머리 쪽)에 있는 작은 <b>막힌</b> 구멍은 모두 눈으로 보니까, 그쪽에 다른 막힌 틈은 남기지 말아 주세요.</span>
+    </p>
+    <figure class="fig">
+      <div class="row center head">
+        <div class="cell"><img class="checker pixel" src="../assets/draw/eye-drawn.png" alt=""><span class="en">Your drawing</span><span class="ko">그린 그림</span></div>
+        <span class="arrow" aria-hidden="true">→</span>
+        <div class="cell"><img class="checker pixel" src="../assets/draw/eye-app.png" alt=""><span class="en">In the app</span><span class="ko">앱에서</span></div>
+      </div>
+      <figcaption><span class="good">✓</span> <span class="en">Two eye holes become white eyes.</span><span class="ko">눈 구멍 두 개가 흰 눈이 돼요.</span></figcaption>
+    </figure>
+    <figure class="fig">
+      <div class="row center head">
+        <div class="cell"><img class="checker pixel" src="../assets/draw/hole-drawn.png" alt=""><span class="en">Your drawing</span><span class="ko">그린 그림</span></div>
+        <span class="arrow" aria-hidden="true">→</span>
+        <div class="cell"><img class="checker pixel" src="../assets/draw/hole-app.png" alt=""><span class="en">In the app</span><span class="ko">앱에서</span></div>
+      </div>
+      <figcaption><span class="bad">✗</span> <span class="en">In the current rabbit, the gap between the ears is closed off, so it turns into a white line too. Open such gaps to the outside, or fill them in.</span><span class="ko">지금 토끼는 두 귀 사이 틈이 막혀 있어서 그 틈도 흰 줄로 칠해져요. 이런 틈은 바깥으로 열어 두거나 메워 주세요.</span></figcaption>
+    </figure>
+
+    <h2><span class="num">3</span><span class="en">Facing right</span><span class="ko">오른쪽을 보고</span></h2>
+    <p>
+      <span class="en">Draw it running to the right. When it runs left, the app flips it.</span>
+      <span class="ko">오른쪽으로 달리는 모습으로 그려 주세요. 왼쪽으로 갈 때는 앱이 뒤집어요.</span>
+    </p>
+
+    <h2><span class="num">4</span><span class="en">One stride in five frames</span><span class="ko">한 바퀴를 다섯 장으로</span></h2>
+    <p>
+      <span class="en">Five frames make one running loop, so frame 5 should lead back into frame 1. Use the same canvas size for all five, and keep the ground line (where the feet touch) at the same height so it doesn't bob around.</span>
+      <span class="ko">다섯 장이 달리기 한 바퀴예요. 5번째 장 다음에 다시 1번째 장이 오니 자연스럽게 이어지게 해 주세요. 다섯 장 모두 캔버스 크기를 같게, 발이 닿는 바닥선도 같은 높이로 맞춰 주세요. 그래야 위아래로 흔들리지 않아요.</span>
+    </p>
+
+    <h2><span class="num">5</span><span class="en">It shows up tiny</span><span class="ko">아주 작게 보여요</span></h2>
+    <p>
+      <span class="en">On the taskbar it's 28 pixels tall by default (users can pick 16 to 72). Thin legs and tiny details disappear at that size. Make sure you can still tell it's a dachshund or a rabbit when it's that small.</span>
+      <span class="ko">작업표시줄에서는 기본 28픽셀 높이로 달려요(사용자가 16~72픽셀로 바꿀 수 있어요). 이 크기에서는 가는 다리나 작은 꾸밈이 사라져요. 이만큼 작아도 닥스훈트인지 토끼인지 알아볼 수 있게 그려 주세요.</span>
+    </p>
+    <figure class="fig">
+      <div class="strip">
+        <img data-run="../assets/cat/cat_running_{i}.png" src="../assets/cat/cat_running_0.png" alt="">
+        <img data-run="../assets/draw/dog_running_{i}.png" src="../assets/draw/dog_running_0.png" alt="">
+        <img data-run="../assets/draw/rabbit_running_{i}.png" src="../assets/draw/rabbit_running_0.png" alt="">
+      </div>
+      <figcaption><span class="en">Actual size, 28 pixels tall.</span><span class="ko">실제 크기, 28픽셀 높이예요.</span></figcaption>
+    </figure>
+
+    <h2><span class="num">6</span><span class="en">Files</span><span class="ko">파일</span></h2>
+    <ul>
+      <li>
+        <span class="en">Five PNGs with a transparent background, about 100 pixels tall. Bigger is fine too; the app scales it down. Width is up to you.</span>
+        <span class="ko">배경이 투명한 PNG 다섯 장, 높이 100픽셀 정도요. 더 크게 그려도 앱이 줄여서 써요. 가로는 자유예요.</span>
+      </li>
+      <li>
+        <span class="en">Names: <code>dog_running_0.png</code> to <code>dog_running_4.png</code>, <code>rabbit_running_0.png</code> to <code>rabbit_running_4.png</code>.</span>
+        <span class="ko">이름: <code>dog_running_0.png</code>~<code>dog_running_4.png</code>, <code>rabbit_running_0.png</code>~<code>rabbit_running_4.png</code></span>
+      </li>
+      <li>
+        <span class="en">You don't have to draw both. Just the dachshund or just the rabbit is welcome.</span>
+        <span class="ko">둘 다 그리지 않아도 돼요. 닥스훈트만, 토끼만이어도 좋아요.</span>
+      </li>
+    </ul>
+
+    <h2><span class="en">How to send it</span><span class="ko">보내는 방법</span></h2>
+    <p>
+      <span class="en">Send a DM to <b>@woodada.cat</b> on Threads. Showing a frame or two before you finish all five is fine too. If you use GitHub, you can replace the PNGs in <code>app/src/Woodada/Assets/Dog/</code> or <code>Rabbit/</code> and open a pull request.</span>
+      <span class="ko">쓰레드 <b>@woodada.cat</b>으로 DM 주세요. 다섯 장을 다 그리기 전에 한두 장 먼저 보여 주셔도 좋아요. GitHub를 쓰신다면 <code>app/src/Woodada/Assets/Dog/</code>나 <code>Rabbit/</code>의 PNG를 바꿔서 PR을 보내 주셔도 돼요.</span>
+    </p>
+    <div class="send">
+      <a href="https://www.threads.com/@woodada.cat" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12.186 24h-.007c-3.581-.024-6.334-1.205-8.184-3.509C2.35 18.44 1.5 15.586 1.472 12.01v-.017c.03-3.579.879-6.43 2.525-8.482C5.845 1.205 8.6.024 12.18 0h.014c2.746.02 5.043.725 6.826 2.098 1.677 1.29 2.858 3.13 3.509 5.467l-2.04.569c-1.104-3.96-3.898-5.984-8.304-6.015-2.91.022-5.11.936-6.54 2.717C4.307 6.504 3.616 8.914 3.589 12c.027 3.086.718 5.496 2.057 7.164 1.43 1.783 3.631 2.698 6.54 2.717 2.623-.02 4.358-.631 5.8-2.045 1.647-1.613 1.618-3.593 1.09-4.798-.31-.71-.873-1.3-1.634-1.75-.192 1.352-.622 2.446-1.284 3.272-.886 1.102-2.14 1.704-3.73 1.79-1.202.065-2.361-.218-3.259-.801-1.063-.689-1.685-1.74-1.752-2.964-.065-1.19.408-2.285 1.33-3.082.88-.76 2.119-1.207 3.583-1.291a13.853 13.853 0 0 1 3.02.142c-.126-.742-.375-1.332-.75-1.757-.513-.586-1.308-.883-2.359-.89h-.029c-.844 0-1.992.232-2.721 1.32L7.734 7.847c.98-1.454 2.568-2.256 4.478-2.256h.044c3.194.02 5.097 1.975 5.287 5.388.108.046.216.094.321.142 1.49.7 2.58 1.761 3.154 3.07.797 1.82.871 4.79-1.548 7.158-1.85 1.81-4.094 2.628-7.277 2.65Zm1.003-11.69c-.242 0-.487.007-.739.021-1.836.103-2.98.946-2.916 2.143.067 1.256 1.452 1.839 2.784 1.767 1.224-.065 2.818-.543 3.086-3.71a10.5 10.5 0 0 0-2.215-.221z"/></svg>
+        <span class="en">Message on Threads</span><span class="ko">쓰레드로 연락하기</span>
+      </a>
+      <a class="sub" href="https://github.com/Hyuntae-Jeong/Woodada/tree/main/app/src/Woodada/Assets" target="_blank" rel="noopener">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        <span class="en">Pictures on GitHub</span><span class="ko">GitHub의 그림 폴더</span>
+      </a>
+    </div>
+
+    <h2><span class="en">Credit and license</span><span class="ko">크레딧과 라이선스</span></h2>
+    <ul>
+      <li>
+        <span class="en">Woodada is a free app I make on my own, so I'd like to say thanks with a credit. Your name will be there for sure.</span>
+        <span class="ko">Woodada는 혼자 만드는 무료 앱이라, 고마움은 크레딧으로 남기려고 해요. 그려 주신 분 이름을 꼭 적어 둘게요.</span>
+      </li>
+      <li>
+        <span class="en">Runner drawings are released under the <a href="https://github.com/Hyuntae-Jeong/Woodada/blob/main/LICENSE">MIT License</a>, like the app.</span>
+        <span class="ko">러너 그림은 앱처럼 <a href="https://github.com/Hyuntae-Jeong/Woodada/blob/main/LICENSE">MIT 라이선스</a>로 공개돼요.</span>
+      </li>
+      <li>
+        <span class="en">There's no deadline. I'll keep looking until a design is chosen.</span>
+        <span class="ko">마감은 없어요. 디자인이 정해질 때까지 계속 받아요.</span>
+      </li>
+    </ul>
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap narrow foot-in">
+    <p><a href="../"><span class="en">← Back to Woodada</span><span class="ko">← Woodada로 돌아가기</span></a></p>
+    <p class="credit"><span class="en">Cat sprites from <a href="https://github.com/runcat-dev/RunCat365">RunCat365</a> (Apache License 2.0).</span><span class="ko">고양이 그림은 <a href="https://github.com/runcat-dev/RunCat365">RunCat365</a>(Apache License 2.0)에서 가져왔어요.</span></p>
+    <p class="credit"><a href="../privacy.html"><span class="en">Privacy</span><span class="ko">개인정보처리방침</span></a></p>
+  </div>
+</footer>
+
+<script>
+  (function () {
+    // 언어 버튼
+    var root = document.documentElement;
+    var buttons = document.querySelectorAll('[data-set-lang]');
+    function apply(l) {
+      root.lang = l;
+      root.setAttribute('data-lang', l);
+      document.title = root.getAttribute('data-title-' + l);
+      try { localStorage.setItem('woodada-lang', l); } catch (e) {}
+      buttons.forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-set-lang') === l)); });
+    }
+    buttons.forEach(function (b) { b.addEventListener('click', function () { apply(b.getAttribute('data-set-lang')); }); });
+    apply(root.getAttribute('data-lang') === 'ko' ? 'ko' : 'en');
+
+    // 러너 그림: 다섯 장을 차례로 바꿔 달리게 한다. 움직임 줄이기를 켠 사람에게는 첫 장만 보여 준다.
+    if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    var runners = Array.prototype.map.call(document.querySelectorAll('[data-run]'), function (img) {
+      var frames = [0, 1, 2, 3, 4].map(function (i) { return img.getAttribute('data-run').replace('{i}', i); });
+      frames.forEach(function (src) { new Image().src = src; });
+      return { img: img, frames: frames };
+    });
+    var n = 0;
+    setInterval(function () {
+      n = (n + 1) % 5;
+      runners.forEach(function (r) { r.img.src = r.frames[n]; });
+    }, 110);
+  })();
+</script>
+</body>
+</html>

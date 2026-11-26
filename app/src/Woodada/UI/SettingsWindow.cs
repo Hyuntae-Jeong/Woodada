@@ -1613,7 +1613,7 @@ internal sealed class SettingsWindow : Window
             {
                 Icon = BrandIcons.Find(link.Icon), HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 10, 0, 0),
             };
-            button.Click += (_, _) => ExternalLinks.Open(link.Url);
+            button.Click += (_, _) => ExternalLinks.Open(ExternalLinks.WithAppLanguage(link.Url));
             content.Children.Add(button);
         }
         return new CardPanel { Padding = new Thickness(16, 14, 16, 14), Child = content };

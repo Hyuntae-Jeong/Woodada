@@ -52,6 +52,17 @@ internal static class ExternalLinks
     public static string? SkinProfileUrl(RunnerSkin skin) =>
         RunnerSkins.ToId(skin) is { } id ? $"{SiteUrl}cats/{id}/?lang={Loc.ToId(Loc.Current)}" : null;
 
+    /// <summary>
+    /// 홈페이지 주소면 페이지가 앱과 같은 언어로 열리게 ?lang=을 붙인다(공지 버튼 등). 다른 사이트나 이미 붙은 주소는 그대로.
+    /// </summary>
+    public static string WithAppLanguage(string url)
+    {
+        if (!url.StartsWith(SiteUrl, StringComparison.OrdinalIgnoreCase) || url.Contains("lang=")) return url;
+        int hash = url.IndexOf('#');
+        string path = hash < 0 ? url : url[..hash], fragment = hash < 0 ? "" : url[hash..];
+        return $"{path}{(path.Contains('?') ? '&' : '?')}lang={Loc.ToId(Loc.Current)}{fragment}";
+    }
+
     public static void Open(string url)
     {
         try
